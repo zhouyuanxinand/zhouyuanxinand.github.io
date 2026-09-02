@@ -22,6 +22,15 @@
       });
     }
 
+    // 实习经历：点击展开/收起工作内容
+    document.querySelectorAll(".exp-head").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var item = btn.closest(".exp");
+        var open = item.classList.toggle("open");
+        btn.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    });
+
     // 滚动入场动画
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {

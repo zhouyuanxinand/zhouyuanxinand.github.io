@@ -40,22 +40,107 @@
     </div>
   </header>
 
-  <!-- S·02 经历 -->
+  <!-- S·02 实习经历：点击每条可展开工作内容 -->
   <section>
     <div class="wrap reveal">
-      <div class="sec-label"><b>S·02</b> 经历 / EXPERIENCE</div>
+      <div class="sec-label"><b>S·02</b> 实习经历 / INTERNSHIP</div>
       <ul class="timeline">
-        <!-- 待替换：换成你的真实经历，按时间倒序 -->
-        <li>
-          <div class="t-date">2023 — 至今</div>
-          <div class="t-title">某公司 · 后端开发工程师</div>
-          <div class="t-desc">负责 xxx 系统的设计与开发，主要技术栈 Java / Spring / MySQL。</div>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><span class="logo-badge">时</span></span>
+            <span class="exp-main">
+              <span class="exp-company">海南时代共赢</span>
+              <span class="exp-role">量化开发工程师</span>
+            </span>
+            <span class="exp-date">2026.03 — 2026.06</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p>牵头负责量化业务系统从零搭建与持续迭代，覆盖因子管理、策略回测、多券商资产采集、金融报表与数据可视化等核心业务链路。</p>
+                <p>搭建私募基金资产平台，对接 10+ 家券商，覆盖基金管理、净值分析、风控监控与金融报表等业务场景，个性化预测资金流动。</p>
+              </div>
+            </div>
+          </div>
         </li>
-        <li>
-          <div class="t-date">2019 — 2023</div>
-          <div class="t-title">某大学 · 计算机科学与技术</div>
-          <div class="t-desc">本科。在校期间做过 xxx，获得过 xxx。</div>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><span class="logo-text logo-aia">AIA</span></span>
+            <span class="exp-main">
+              <span class="exp-company">友邦保险集团全球技术创新中心（AIA）</span>
+              <span class="exp-role">AI 应用开发实习生 · RD 部门</span>
+            </span>
+            <span class="exp-date">2025.10 — 2026.04</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>构建面向公司全球 Testing 团队的多 Agent 智能用例生成平台（公司年度重点项目），打通 Figma、Teams 平台信息屏障，支持 Word/PDF/Excel/图片等多文件需求附件上传，利用 LangGraph 多节点工作流实现「文档解析 → RAG 检索补充 → 场景拆分 → 用例生成 → AI 评审迭代 → Excel 导出」，前端以 SSE 流式展示生成过程、阶段进度、人工确认（HITL）与下载结果。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>效率提升：用例从「人工拆解 + 编写」转为「工作流自动生成 + 少量校对」，支持部门个性化变更，端到端平均耗时 6min，日均支撑 100+ 次生成任务；</li>
+                  <li>质量稳定：通过 LLM-wiki 建设和 Reviewer 评审、失败迭代重试，实现用例一次通过率达 90%，显著减少因场景理解偏差导致的整批返工；</li>
+                  <li>交付标准化：按业务组/环境绑定 Excel 模板与字段映射，输出可直接导入测试管理或执行流程的用例资产，形成可管理的记忆资产，减少格式整理与沟通成本。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </li>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><img src="assets/logos/meituan.png" alt="美团"></span>
+            <span class="exp-main">
+              <span class="exp-company">美团（北京三快网络科技有限公司）</span>
+              <span class="exp-role">测试开发实习生 · 支付质量组</span>
+            </span>
+            <span class="exp-date">2024.08 — 2025.09</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>负责收银台业务方向前后端相关测试，维护和编写相关业务的接口、场景自动化，对新接入的业务进行性能测试等质量保障任务。此外，参与建设部门的 AI 智能化应用落地，独立开发 AI 测试相关中间件、代码巡检和测试工具等 Agent 平台。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>深度参与收银台业务的前后端测试工作，负责接口自动化脚本编写与维护，保障核心链路稳定性和准确性，确保支付流程零资损；</li>
+                  <li>独立开发 AI 智能线上值班 Agent，集成 AI 问答与告警联动机制，显著降低人工值守成本 60%，准确率达 90% 以上，提升响应效率；</li>
+                  <li>构建 LogCenter + Mtrace 日志查询中间件，结合 AI + MCP/Skill 技术实现代码智能巡检、自动化失败定位重试，将自动化代码问题排查时间缩短至 5min，提高测试闭环率。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><img src="assets/logos/baicizhan.png" alt="百词斩"></span>
+            <span class="exp-main">
+              <span class="exp-company">百词斩（成都超有爱科技有限公司）</span>
+              <span class="exp-role">后端开发实习生 · 业务平台组</span>
+            </span>
+            <span class="exp-date">2024.05 — 2024.08</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>参与商业增长下业务平台的 CRM & 售卖平台的业务维护，对抽奖转盘系统进行维护和升级，实现代码冗余度和耦合度极大降低，服务上线后用户在曝光-分享漏斗转化率提升 30%，参与以用户行为为维度的业务流程监控系统的初建开发。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>参与建设以用户行为为核心的业务流程监控系统，实现关键路径埋点采集与实时告警功能，为运营决策提供数据支撑；</li>
+                  <li>通过自测实现单元路径的全覆盖，对业务任务解耦保障代码的清晰度和线上质量，采用 Spring Dependency Injection 减少 if 判断和 bean 加载混乱问题；</li>
+                  <li>参与公司平台的日志监控中间件的前期建设和开发。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </li>
+
       </ul>
     </div>
   </section>
@@ -77,7 +162,7 @@
           <div class="tags"><span>Python</span><span>爬虫</span></div>
         </div>
         <div class="card">
-          <h3><a href="https://github.com/zhouyuanxinand/personal-site" target="_blank" rel="noopener">个人网站 ↗</a></h3>
+          <h3><a href="https://github.com/zhouyuanxinand/zhouyuanxinand.github.io" target="_blank" rel="noopener">个人网站 ↗</a></h3>
           <p>你现在看到的这个网站。纯 HTML/CSS/JS，零依赖，托管在 GitHub Pages。</p>
           <div class="tags"><span>HTML</span><span>CSS</span><span>JS</span></div>
         </div>

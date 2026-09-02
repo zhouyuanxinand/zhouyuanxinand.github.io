@@ -132,11 +132,11 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
 }
 .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 
-/* ---------- 经历时间线 ---------- */
+/* ---------- 实习经历时间线（可点击展开） ---------- */
 .timeline { list-style: none; }
 .timeline li {
   position: relative;
-  padding: 0 0 28px 28px;
+  padding: 0 0 20px 28px;
   border-left: 1px solid var(--line);
 }
 .timeline li:last-child { padding-bottom: 0; }
@@ -144,21 +144,101 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
   content: "";
   position: absolute;
   left: -5px;
-  top: 8px;
+  top: 22px;
   width: 9px;
   height: 9px;
   border-radius: 50%;
   background: var(--bg);
   border: 2px solid var(--accent);
+  z-index: 1;
 }
-.timeline .t-date {
+
+.exp-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--bg-raised);
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  color: inherit;
+  transition: border-color 0.2s;
+}
+.exp-head:hover { border-color: var(--accent); }
+
+.exp-logo {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.exp-logo img { width: 28px; height: 28px; object-fit: contain; }
+.exp-logo .logo-text {
+  font-family: var(--mono);
+  font-weight: 600;
+  font-size: 14px;
+  letter-spacing: -0.02em;
+}
+.logo-aia { color: #d22630; font-size: 15px; }
+.logo-badge {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  font-family: var(--serif);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.exp-main { min-width: 0; flex: 1; }
+.exp-company { font-weight: 600; font-size: 15px; display: block; }
+.exp-role { font-size: 13px; color: var(--ink-soft); display: block; margin-top: 1px; }
+.exp-date {
+  flex: none;
   font-family: var(--mono);
   font-size: 12px;
   color: var(--ink-faint);
-  letter-spacing: 0.08em;
+  letter-spacing: 0.05em;
 }
-.timeline .t-title { font-weight: 600; margin-top: 2px; }
-.timeline .t-desc { font-size: 14px; color: var(--ink-soft); margin-top: 2px; }
+.exp-toggle {
+  flex: none;
+  font-family: var(--mono);
+  font-size: 16px;
+  color: var(--ink-faint);
+  transition: transform 0.25s ease;
+}
+.exp.open .exp-toggle { transform: rotate(45deg); color: var(--accent); }
+
+.exp-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.3s ease;
+}
+.exp.open .exp-body { grid-template-rows: 1fr; }
+.exp-body-inner { overflow: hidden; }
+.exp-body-content {
+  padding: 14px 16px 4px;
+  font-size: 14px;
+  color: var(--ink-soft);
+}
+.exp-body-content p { margin-bottom: 0.8em; }
+.exp-body-content strong { color: var(--ink); }
+.exp-body-content ul { padding-left: 1.2em; margin-bottom: 0.8em; }
+.exp-body-content li { margin-bottom: 0.4em; border: none; padding: 0; }
+.exp-body-content li::before { display: none; }
 
 /* ---------- 项目卡片 ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
@@ -276,4 +356,6 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
   .post-list a { flex-wrap: wrap; gap: 4px 12px; }
   .post-list .p-summary { margin-left: 0; width: 100%; }
   .nav-links { gap: 14px; }
+  .exp-head { flex-wrap: wrap; }
+  .exp-date { width: 100%; order: 3; padding-left: 54px; }
 }
