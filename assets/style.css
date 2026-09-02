@@ -330,6 +330,21 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
 .exp-body-content li { margin-bottom: 0.4em; border: none; padding: 0; }
 .exp-body-content li::before { display: none; }
 
+/* 经历条目里的文章/报道链接 */
+.exp-article { margin-top: 12px; }
+.exp-article a {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 13.5px;
+  color: var(--accent);
+  text-decoration: none;
+  border-left: 3px solid var(--accent);
+  padding-left: 10px;
+  transition: opacity 0.2s;
+}
+.exp-article a:hover { opacity: 0.75; text-decoration: underline; }
+
 /* ---------- 项目卡片 ---------- */
 .cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
 .card {
