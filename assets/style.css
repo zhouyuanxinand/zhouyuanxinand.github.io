@@ -131,6 +131,34 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
   transition: all 0.2s;
 }
 .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.chip-primary {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 600;
+}
+
+/* ---------- 技能栈 ---------- */
+.skills { display: flex; flex-direction: column; gap: 16px; }
+.skills-group { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; }
+.skills-cat {
+  flex: none;
+  width: 96px;
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+.skill {
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 4px 14px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  color: var(--ink-soft);
+  transition: all 0.2s;
+}
+.skill:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- 实习经历时间线（可点击展开） ---------- */
 .timeline { list-style: none; }
