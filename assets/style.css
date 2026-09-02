@@ -409,11 +409,12 @@ a.card { display: block; text-decoration: none; color: inherit; }
 .card.hot::after {
   content: "";
   position: absolute;
-  inset: -4px;
+  inset: -10px;
   border-radius: 12px;
-  background: inherit;
-  filter: blur(10px);
-  opacity: .14;
+  background: conic-gradient(from var(--fire-a),
+    #ff6a33, #ffb35c, #ff6a33, #ff8c42, #ff6a33);
+  filter: blur(18px);
+  opacity: .5;
   z-index: -2;
   animation: fire-spin 6s linear infinite;
 }
@@ -430,10 +431,15 @@ a.card { display: block; text-decoration: none; color: inherit; }
   color: #fff;
   background: linear-gradient(90deg, #ff6a33, #ff8c42);
   vertical-align: 3px;
+  animation: hot-pulse 1.2s ease-in-out infinite;
 }
 .card.hot .hot-badge { display: inline-block; }
+@keyframes hot-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08); }
+}
 @media (prefers-reduced-motion: reduce) {
-  .card.hot::before, .card.hot::after { animation: none; }
+  .card.hot::before, .card.hot::after, .hot-badge { animation: none; }
 }
 
 /* ---------- 返回顶部 ---------- */
