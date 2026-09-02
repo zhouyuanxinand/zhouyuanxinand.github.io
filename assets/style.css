@@ -215,6 +215,14 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
 .skill:hover { border-color: var(--accent); color: var(--accent); }
 
 /* ---------- 实习经历时间线（可点击展开） ---------- */
+.exp-group-label {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  color: var(--ink-faint);
+  margin: 28px 0 16px;
+}
+.exp-group-label:first-of-type { margin-top: 0; }
 .timeline { list-style: none; }
 .timeline li {
   position: relative;
