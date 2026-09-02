@@ -31,6 +31,29 @@
       });
     });
 
+    // 文章页：估算阅读时长（中文按 400 字/分钟），追加到 .post-meta
+    var body = document.querySelector(".post-body");
+    var meta = document.querySelector(".post-meta");
+    if (body && meta) {
+      var chars = body.textContent.replace(/\s/g, "").length;
+      var mins = Math.max(1, Math.round(chars / 400));
+      meta.textContent += " · 约 " + mins + " 分钟";
+    }
+
+    // 返回顶部按钮：滚动超过一屏后出现
+    var topBtn = document.createElement("button");
+    topBtn.className = "back-to-top";
+    topBtn.type = "button";
+    topBtn.title = "返回顶部";
+    topBtn.textContent = "↑";
+    topBtn.addEventListener("click", function () {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    });
+    document.body.appendChild(topBtn);
+    window.addEventListener("scroll", function () {
+      topBtn.classList.toggle("show", window.scrollY > 400);
+    }, { passive: true });
+
     // 滚动入场动画
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {

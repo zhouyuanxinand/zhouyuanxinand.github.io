@@ -353,6 +353,31 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
   border-radius: 4px;
 }
 
+/* ---------- 项目 star 徽章（shields.io） ---------- */
+.stars-img { height: 18px; vertical-align: -3px; margin-left: 8px; }
+
+/* ---------- 返回顶部 ---------- */
+.back-to-top {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 20;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--bg-raised);
+  color: var(--ink-soft);
+  font-size: 16px;
+  cursor: pointer;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: all 0.25s ease;
+}
+.back-to-top.show { opacity: 1; visibility: visible; transform: none; }
+.back-to-top:hover { border-color: var(--accent); color: var(--accent); }
+
 /* ---------- 页脚 ---------- */
 .site-footer { padding: 40px 0; }
 .site-footer .wrap {
