@@ -37,7 +37,7 @@
   <header class="hero">
     <div class="wrap">
       <div class="sec-label"><b>S·01</b> INTRO</div>
-      <h1>周园鑫</h1>
+      <h1 class="hero-mono" data-text="我叫周园鑫，很高兴在此与您相遇">我叫周园鑫，很高兴在此与您相遇<span class="cursor" aria-hidden="true"></span></h1>
       <!-- 待替换：一句话介绍你自己，比如「后端开发工程师，关注 xxx」 -->
       <p class="tagline">写代码，也写生活。这里记录我的技术、随笔与经历。</p>
       <div class="links">
@@ -164,12 +164,29 @@
     <div class="wrap reveal">
       <div class="sec-label"><b>S·03</b> 技能 / SKILLS</div>
       <div class="skills">
+        <!-- 按你的实际掌握情况增删标签 -->
+        <div class="skills-group">
+          <span class="skills-cat">编程语言</span>
+          <span class="skill">Java</span>
+          <span class="skill">Python</span>
+          <span class="skill">JavaScript</span>
+          <span class="skill">SQL</span>
+          <span class="skill">Shell</span>
+        </div>
         <div class="skills-group">
           <span class="skills-cat">后端开发</span>
-          <span class="skill">Java</span>
           <span class="skill">Spring Boot</span>
+          <span class="skill">Spring MVC</span>
+          <span class="skill">MyBatis</span>
+          <span class="skill">Netty</span>
+          <span class="skill">RESTful API</span>
+        </div>
+        <div class="skills-group">
+          <span class="skills-cat">数据中间件</span>
           <span class="skill">MySQL</span>
           <span class="skill">Redis</span>
+          <span class="skill">Kafka</span>
+          <span class="skill">Elasticsearch</span>
         </div>
         <div class="skills-group">
           <span class="skills-cat">AI 应用</span>
@@ -177,19 +194,24 @@
           <span class="skill">RAG</span>
           <span class="skill">AI Agent</span>
           <span class="skill">MCP</span>
-          <span class="skill">SSE</span>
+          <span class="skill">Prompt Engineering</span>
+          <span class="skill">Function Calling</span>
         </div>
         <div class="skills-group">
           <span class="skills-cat">质量保障</span>
           <span class="skill">接口自动化</span>
           <span class="skill">性能测试</span>
+          <span class="skill">JMeter</span>
           <span class="skill">日志监控</span>
+          <span class="skill">CI/CD</span>
         </div>
         <div class="skills-group">
           <span class="skills-cat">工程工具</span>
           <span class="skill">Git</span>
           <span class="skill">Linux</span>
           <span class="skill">Docker</span>
+          <span class="skill">Nginx</span>
+          <span class="skill">Maven</span>
         </div>
       </div>
     </div>
@@ -200,9 +222,9 @@
     <div class="wrap reveal">
       <div class="sec-label"><b>S·04</b> 项目 / PROJECTS</div>
       <div class="cards">
-        <!-- 整张卡片可点击，跳转到项目站点；徽章实时显示 GitHub 数据 -->
-        <a class="card card-link" href="https://tt-a1i.github.io/archify/" target="_blank" rel="noopener">
-          <h3>Archify ↗</h3>
+        <!-- 整张卡片可点击，跳转到项目站点；徽章实时显示 GitHub 数据；stars 超 1k 自动点燃火焰边框 -->
+        <a class="card card-link" href="https://tt-a1i.github.io/archify/" target="_blank" rel="noopener" data-stars-repo="tt-a1i/archify">
+          <h3>Archify ↗<span class="hot-badge" aria-hidden="true">🔥 HOT</span></h3>
           <p>用自然语言，生成可信的架构图。</p>
           <div class="badges">
             <img src="https://img.shields.io/github/stars/tt-a1i/archify?style=flat-square" alt="GitHub stars" loading="lazy">

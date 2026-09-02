@@ -22,6 +22,43 @@
       });
     }
 
+    // Hero：打字机逐字打出问候语，完成后光标蓝芒闪耀
+    var heroH1 = document.querySelector(".hero-mono");
+    if (heroH1) {
+      var full = heroH1.getAttribute("data-text") || heroH1.textContent;
+      var cursor = heroH1.querySelector(".cursor");
+      var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+      if (reduced || !cursor) {
+        // 减弱动效：直接显示全文
+      } else {
+        heroH1.textContent = "";
+        heroH1.appendChild(cursor);
+        var i = 0;
+        (function type() {
+          if (i < full.length) {
+            var ch = full[i++];
+            cursor.before(document.createTextNode(ch));
+            setTimeout(type, /[，。,.、]/.test(ch) ? 280 : 110);
+          } else {
+            cursor.classList.add("shine");
+          }
+        })();
+      }
+    }
+
+    // 项目卡片：stars 超过 1k 点燃「很火」动效（读 shields.io SVG 文本，避开 GitHub API 限流）
+    document.querySelectorAll("[data-stars-repo]").forEach(function (el) {
+      fetch("https://img.shields.io/github/stars/" + el.getAttribute("data-stars-repo") + "?style=flat-square")
+        .then(function (r) { return r.text(); })
+        .then(function (svg) {
+          var m = svg.match(/>([0-9.]+)(k?)</);
+          if (!m) return;
+          var n = parseFloat(m[1]) * (m[2] ? 1000 : 1);
+          if (n > 1000) el.classList.add("hot");
+        })
+        .catch(function () { /* 失败时静默跳过 */ });
+    });
+
     // 实习经历：点击展开/收起工作内容
     document.querySelectorAll(".exp-head").forEach(function (btn) {
       btn.addEventListener("click", function () {
