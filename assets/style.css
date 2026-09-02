@@ -391,27 +391,33 @@ a.card { display: block; text-decoration: none; color: inherit; }
 .card .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .card .badges img { height: 18px; display: block; }
 
-/* ---------- 「很火」项目：旋转火焰边框 + 光晕 ---------- */
+/* ---------- 「很火」项目：克制的旋转火焰描边 ---------- */
 @property --fire-a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
 .card { position: relative; }
 .card.hot { border-color: transparent; }
-.card.hot::before,
+/* 只保留一圈缓慢旋转的细描边，光晕压到很淡；hover 不再叠加变色/上浮 */
+.card.hot::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: 9px;
+  background: conic-gradient(from var(--fire-a),
+    #ff6a33, #ffb35c, #ff6a33, #ff8c42, #ff6a33);
+  z-index: -1;
+  animation: fire-spin 6s linear infinite;
+}
 .card.hot::after {
   content: "";
   position: absolute;
-  inset: -2px;
-  border-radius: 10px;
-  background: conic-gradient(from var(--fire-a),
-    #ff4500, #ff8c00, #ffd166, #ff2500, #ff8c00, #ff4500);
-  z-index: -1;
-  animation: fire-spin 2.6s linear infinite;
-}
-.card.hot::after {
-  inset: -10px;
-  filter: blur(18px);
-  opacity: .5;
+  inset: -4px;
+  border-radius: 12px;
+  background: inherit;
+  filter: blur(10px);
+  opacity: .14;
   z-index: -2;
+  animation: fire-spin 6s linear infinite;
 }
+.card.hot:hover { border-color: transparent; transform: none; }
 @keyframes fire-spin { to { --fire-a: 360deg; } }
 .hot-badge {
   display: none;
@@ -422,17 +428,12 @@ a.card { display: block; text-decoration: none; color: inherit; }
   padding: 2px 8px;
   border-radius: 999px;
   color: #fff;
-  background: linear-gradient(90deg, #ff4500, #ff8c00);
+  background: linear-gradient(90deg, #ff6a33, #ff8c42);
   vertical-align: 3px;
-  animation: hot-pulse 1.2s ease-in-out infinite;
 }
 .card.hot .hot-badge { display: inline-block; }
-@keyframes hot-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.08); }
-}
 @media (prefers-reduced-motion: reduce) {
-  .card.hot::before, .card.hot::after, .hot-badge { animation: none; }
+  .card.hot::before, .card.hot::after { animation: none; }
 }
 
 /* ---------- 返回顶部 ---------- */
