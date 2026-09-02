@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>The Next Layer of Intelligence</title>
+<title>周园鑫 · Stay Hungry, Stay Foolish</title>
 <meta name="description" content="周园鑫的个人网站入口。">
 <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
 <meta property="og:type" content="website">
@@ -18,8 +18,6 @@
 :root{
   --ink:#fafafa;
   --muted:#a7a6a6;
-  --nav:#b6b5b5;
-  --strip:#8b8a8a;
   --pill:#ffffff;
   --pill-ink:#050505;
   --ease:cubic-bezier(.22,1,.36,1);
@@ -74,40 +72,7 @@ body{
       #050505 calc(50% + calc(746 * var(--u))));
 }
 
-/* ============ TOPBAR ============ */
-.brand{
-  position:absolute;
-  left:calc(75 * var(--u));
-  top:calc(27 * var(--u));
-  width:calc(31.5 * var(--u));
-  height:calc(48.5 * var(--u));
-  display:block;
-  z-index:3;
-}
-.brand svg{ width:100%; height:100%; display:block; }
-
-.links{
-  position:absolute;
-  left:50%;
-  top:calc(51 * var(--u));
-  transform:translate(-50%,-50%);
-  display:flex;
-  z-index:3;
-}
-.links a{
-  color:var(--nav);
-  text-decoration:none;
-  font-size:calc(19 * var(--u));
-  font-weight:400;
-  line-height:1;
-  transition:color .25s;
-}
-.links a:hover{ color:var(--ink); }
-.links a:nth-child(2){ margin-left:calc(24.5 * var(--u)); }
-.links a:nth-child(3){ margin-left:calc(23.5 * var(--u)); }
-.links a:nth-child(4){ margin-left:calc(26 * var(--u)); }
-
-/* ============ PILLS / GHOST ============ */
+/* ============ PILL ============ */
 .pill{
   display:inline-flex; align-items:center; justify-content:center;
   background:var(--pill); color:var(--pill-ink);
@@ -115,20 +80,6 @@ body{
   transition:opacity .25s;
 }
 .pill:hover{ opacity:.88; }
-.pill-nav{
-  position:absolute;
-  right:calc(75.4 * var(--u));
-  top:calc(27 * var(--u));
-  width:calc(175 * var(--u));
-  height:calc(49 * var(--u));
-  font-size:calc(20.6 * var(--u));
-  z-index:3;
-}
-.pill-nav>span{ transform:translateY(calc(1 * var(--u))); }
-
-.ghost{
-  color:#fff; text-decoration:none; font-weight:500;
-}
 
 /* ============ HERO ============ */
 .headline{
@@ -158,7 +109,6 @@ body{
 }
 .sub span{ display:block; white-space:nowrap; }
 
-.actions{ display:contents; }
 .pill-cta{
   position:absolute;
   left:calc(74.9 * var(--u));
@@ -168,123 +118,14 @@ body{
   font-size:calc(20.6 * var(--h));
   z-index:2;
 }
-.hero .ghost{
-  position:absolute;
-  left:calc(calc(74.9 * var(--u)) + calc(220.6 * var(--h)));
-  top:calc(calc(230.5 * var(--u)) + calc(279.5 * var(--h)));
-  font-size:calc(20.6 * var(--h));
-  letter-spacing:calc(.12 * var(--h));
-  z-index:2;
-  transition:opacity .25s;
-}
-.hero .ghost:hover{ opacity:.7; }
-
-/* ============ PARTNER STRIP ============ */
-.logos{
-  position:absolute;
-  left:50%; top:0;
-  width:calc(741 * var(--u));
-  height:100%;
-  transform:translateX(calc(-50% + calc(20 * var(--u))));
-  color:var(--strip);
-  z-index:2;
-  pointer-events:none;
-}
-.lg{ position:absolute; }
-.lg svg{ display:block; }
-.lg .word{
-  position:absolute;
-  font-family:'IpsumMark','Manrope',sans-serif;
-  font-weight:700;
-  white-space:nowrap;
-  line-height:1;
-  color:inherit;
-}
-.lg .dot{
-  display:inline-block;
-  width:.09em; height:.09em;
-  border-radius:50%;
-  background:currentColor;
-  vertical-align:.62em;
-  margin-left:.06em;
-}
-.lg1{ left:calc(-0.5 * var(--u)); top:calc(994.7 * var(--u)); }
-.lg1 svg{ width:calc(30.5 * var(--u)); height:calc(31 * var(--u)); }
-.lg1 .word{ left:calc(37 * var(--u)); top:calc(5.6 * var(--u)); font-size:calc(18.1 * var(--u)); }
-.lg2{ left:calc(206.5 * var(--u)); top:calc(995.7 * var(--u)); }
-.lg2 svg{ width:calc(24.5 * var(--u)); height:calc(30 * var(--u)); }
-.lg2 .word{ left:calc(31 * var(--u)); top:calc(7.3 * var(--u)); font-size:calc(18.5 * var(--u)); }
-.lg3{ left:calc(416.5 * var(--u)); top:calc(996.7 * var(--u)); }
-.lg3 svg{ width:calc(28.5 * var(--u)); height:calc(28 * var(--u)); }
-.lg3 .word{ left:calc(35 * var(--u)); top:calc(7.3 * var(--u)); font-size:calc(16.15 * var(--u)); }
-.lg4{ left:calc(620.5 * var(--u)); top:calc(998.7 * var(--u)); }
-.lg4 svg{ width:calc(28.5 * var(--u)); height:calc(25.5 * var(--u)); }
-.lg4 .word{ left:calc(37 * var(--u)); top:calc(8.3 * var(--u)); font-size:calc(15.3 * var(--u)); }
-
-/* ============ BURGER / MENU (portrait only visually) ============ */
-.burger{ display:none; }
-.menu{
-  position:fixed; inset:0; z-index:8;
-  background:linear-gradient(rgba(5,5,5,.72), rgba(5,5,5,.94));
-  backdrop-filter:blur(18px);
-  -webkit-backdrop-filter:blur(18px);
-  opacity:0; visibility:hidden;
-  transition:opacity .42s var(--ease), visibility .42s var(--ease);
-}
-.stage.is-open .menu{ opacity:1; visibility:visible; }
-.menu-inner{
-  height:100%;
-  display:flex; flex-direction:column; justify-content:center;
-  padding:0 calc(28 * var(--u));
-}
-.menu-eyebrow{
-  font-size:12px; letter-spacing:.22em; text-transform:uppercase;
-  color:var(--muted); margin-bottom:calc(22 * var(--u));
-}
-.menu-list{ list-style:none; }
-.menu-list a{
-  display:flex; align-items:center; justify-content:space-between;
-  padding:calc(14 * var(--u)) 0;
-  color:var(--ink); text-decoration:none;
-  font-size:max(25px, calc(31 * var(--u)));
-  font-weight:500;
-  border-bottom:1px solid rgba(255,255,255,.08);
-}
-.menu-list a::after{ content:"›"; color:var(--muted); font-weight:400; }
-.menu-foot{ display:flex; align-items:center; gap:calc(18 * var(--u)); margin-top:calc(30 * var(--u)); }
-.menu-foot .pill{ padding:calc(13 * var(--u)) calc(26 * var(--u)); font-size:16px; }
-.menu-foot .ghost{ font-size:16px; }
-/* staggered reveal */
-.menu-eyebrow,.menu-list li,.menu-foot{
-  opacity:0; transform:translateY(12px);
-  transition:opacity .4s var(--ease), transform .4s var(--ease);
-}
-.stage.is-open .menu-eyebrow{ opacity:1; transform:none; transition-delay:.06s; }
-.stage.is-open .menu-list li:nth-child(1){ opacity:1; transform:none; transition-delay:.10s; }
-.stage.is-open .menu-list li:nth-child(2){ opacity:1; transform:none; transition-delay:.16s; }
-.stage.is-open .menu-list li:nth-child(3){ opacity:1; transform:none; transition-delay:.22s; }
-.stage.is-open .menu-list li:nth-child(4){ opacity:1; transform:none; transition-delay:.28s; }
-.stage.is-open .menu-foot{ opacity:1; transform:none; transition-delay:.34s; }
 
 /* ============ ENTRANCE ANIMATIONS ============ */
 @keyframes rise{ from{ opacity:0; transform:translateY(calc(14 * var(--u))); } }
-@keyframes riseNav{
-  from{ opacity:0; transform:translate(calc(-50% + 0px), calc(-50% + calc(14 * var(--u)))); }
-  to{ opacity:1; transform:translate(-50%, -50%); }
-}
-@keyframes fade{ from{ opacity:0; } }
 
 @media (prefers-reduced-motion: no-preference){
-  .brand{ animation:rise .8s var(--ease) both; }
-  .links{ animation:riseNav .8s var(--ease) both; }
-  .pill-nav{ animation:rise .8s var(--ease) both; }
   .headline{ animation:rise .9s var(--ease) .06s both; }
   .sub{ animation:rise .9s var(--ease) .14s both; }
-  .pill-cta,.hero .ghost{ animation:rise .9s var(--ease) .22s both; }
-  .lg{ animation:fade 1.1s ease .34s both; }
-}
-@media (prefers-reduced-motion: reduce){
-  .menu,.menu-eyebrow,.menu-list li,.menu-foot,.burger i{ transition-duration:.001s !important; }
+  .pill-cta{ animation:rise .9s var(--ease) .22s both; }
 }
 
 /* ============ PORTRAIT / MOBILE ============ */
@@ -316,39 +157,6 @@ body{
         rgba(5,5,5,.80) 82%, rgba(5,5,5,.97) 94%, #050505 100%);
   }
 
-  .links,.pill-nav{ display:none; }
-
-  .topbar{
-    position:relative; z-index:5;
-    display:flex; align-items:flex-start; justify-content:space-between;
-    padding:calc(22 * var(--u)) calc(20 * var(--u)) 0;
-  }
-  .brand{
-    position:relative; left:auto; top:auto;
-    width:calc(24 * var(--u)); height:calc(37 * var(--u));
-  }
-  .burger{
-    display:flex; flex-direction:column; align-items:center; justify-content:center;
-    gap:calc(6 * var(--u));
-    width:calc(46 * var(--u)); height:calc(46 * var(--u));
-    border-radius:999px;
-    border:1px solid rgba(255,255,255,.14);
-    background:rgba(255,255,255,.06);
-    backdrop-filter:blur(12px);
-    -webkit-backdrop-filter:blur(12px);
-    cursor:pointer; z-index:9;
-  }
-  .burger i{
-    display:block; width:calc(18 * var(--u)); height:1.5px;
-    background:var(--ink);
-    transition:transform .35s var(--ease);
-  }
-  .stage.is-open .burger i:first-child{ transform:translateY(calc(4.3 * var(--u))) rotate(45deg); }
-  .stage.is-open .burger i:last-child{ transform:translateY(calc(-4.3 * var(--u))) rotate(-45deg); }
-
-  .menu-inner{ padding:0 calc(28 * var(--u)); }
-  .menu-eyebrow{ margin-bottom:calc(22 * var(--u)); }
-
   .hero{
     position:relative; z-index:2;
     flex:1; display:flex; flex-direction:column; justify-content:center;
@@ -370,32 +178,13 @@ body{
     word-spacing:normal;
   }
   .sub span{ display:inline; white-space:normal; }
-  .actions{
-    display:flex; align-items:center; gap:calc(20 * var(--u));
-    margin-top:calc(30 * var(--u));
-  }
   .pill-cta{
     position:relative; left:auto; top:auto;
-    width:auto; height:auto;
-    padding:calc(14 * var(--u)) calc(26 * var(--u));
+    width:auto; height:auto; align-self:flex-start;
+    margin-top:calc(30 * var(--u));
+    padding:calc(14 * var(--u)) calc(30 * var(--u));
     font-size:calc(15.5 * var(--u));
   }
-  .hero .ghost{
-    position:relative; left:auto; top:auto;
-    font-size:calc(15.5 * var(--u));
-    letter-spacing:calc(.12 * var(--u));
-  }
-
-  .logos{
-    position:relative; left:auto; top:auto;
-    width:auto; height:auto; transform:none;
-    display:grid; grid-template-columns:repeat(2, 1fr);
-    gap:calc(18 * var(--u)) calc(12 * var(--u));
-    padding:0 calc(24 * var(--u)) calc(26 * var(--u));
-  }
-  .lg{ position:relative; left:auto !important; top:auto !important; display:flex; align-items:center; }
-  .lg svg{ width:calc(24 * var(--u)); height:calc(24 * var(--u)); flex:none; }
-  .lg .word{ position:relative; left:auto !important; top:auto !important; font-size:calc(14 * var(--u)); margin-left:calc(8 * var(--u)); }
 }
 /* tablet band */
 @media (min-width:600px) and (max-aspect-ratio: 11/10){
@@ -411,7 +200,6 @@ body{
         rgba(5,5,5,.78) 82%, rgba(5,5,5,.96) 94%, #050505 100%);
   }
   .headline span{ display:block; }
-  .logos{ grid-template-columns:repeat(4, auto); justify-content:center; gap:calc(40 * var(--u)); }
 }
 </style>
 </head>
@@ -424,126 +212,12 @@ body{
     </video>
   </div>
 
-  <header class="topbar">
-    <a class="brand" href="home.html" aria-label="Home">
-      <svg viewBox="0 0 31.5 48.5" aria-hidden="true">
-        <defs>
-          <linearGradient id="bg1" x1="8" y1="0" x2="34.1" y2="28.9" gradientUnits="userSpaceOnUse">
-            <stop offset="0" stop-color="#9e9e9e"/><stop offset=".28" stop-color="#a6a6a6"/>
-            <stop offset=".34" stop-color="#a3a3a3"/><stop offset=".40" stop-color="#3a3a3a"/>
-            <stop offset=".55" stop-color="#414141"/><stop offset=".60" stop-color="#7a7a7a"/>
-            <stop offset=".68" stop-color="#8e8e8e"/><stop offset=".80" stop-color="#a9a9a9"/>
-            <stop offset=".95" stop-color="#c4c4c4"/><stop offset="1" stop-color="#cccccc"/>
-          </linearGradient>
-        </defs>
-        <path d="M21.5 0 L21.5 19.5 L31.5 19.5 L31.5 29 L10 48.5 L10 28.5 L0.5 28.5 L0.5 18.5 Z" fill="url(#bg1)"/>
-        <rect x="0.5" y="18.5" width="9" height="10" fill="#fdfdfd"/>
-        <rect x="22" y="19.5" width="9.5" height="9.5" fill="#fdfdfd"/>
-      </svg>
-    </a>
-    <nav class="links" aria-label="Primary">
-      <a href="home.html">About</a>
-      <a href="home.html">Features</a>
-      <a href="home.html">FAQ</a>
-      <a href="home.html">Contact</a>
-    </nav>
-    <a class="pill pill-nav" href="home.html"><span>Get Started</span></a>
-    <button class="burger" id="burger" type="button" aria-expanded="false" aria-controls="menu" aria-label="Open menu"><i></i><i></i></button>
-  </header>
-
-  <nav class="menu" id="menu" aria-hidden="true">
-    <div class="menu-inner">
-      <p class="menu-eyebrow">Menu</p>
-      <ul class="menu-list">
-        <li><a href="home.html">About</a></li>
-        <li><a href="home.html">Features</a></li>
-        <li><a href="home.html">FAQ</a></li>
-        <li><a href="home.html">Contact</a></li>
-      </ul>
-      <div class="menu-foot">
-        <a class="pill" href="home.html"><span>Get Started</span></a>
-        <a class="ghost" href="posts.html">View Architecture</a>
-      </div>
-    </div>
-  </nav>
-
   <main class="hero">
-    <h1 class="headline"><span>The Next Layer</span><span>of Intelligence</span></h1>
-    <p class="sub"><span>A unified infrastructure platform to help teams build,</span><span>ship, and scale AI systems with confidence.</span></p>
-    <div class="actions">
-      <a class="pill pill-cta" href="home.html"><span>Get Started</span></a>
-      <a class="ghost" href="posts.html">View Architecture</a>
-    </div>
+    <h1 class="headline"><span>Stay hungry.</span><span>Stay foolish.</span></h1>
+    <p class="sub"><span>Writing code, chasing ideas — exploring how systems learn,</span><span>scale, and quietly shape the world we live in.</span></p>
+    <a class="pill pill-cta" href="home.html"><span>Get Started</span></a>
   </main>
 
-  <div class="logos" aria-hidden="true">
-    <div class="lg lg1">
-      <svg viewBox="0 0 30 31" fill="currentColor">
-        <mask id="lgm1">
-          <rect width="30" height="31" fill="#fff"/>
-          <circle cx="19.5" cy="10.5" r="5.1" fill="#000"/>
-        </mask>
-        <path mask="url(#lgm1)" fill-rule="evenodd" d="M2 2h26v27H2z M6.5 6.5v18h17v-18z"/>
-        <circle cx="19.5" cy="10.5" r="3.3"/>
-      </svg>
-      <span class="word">logoipsum</span>
-    </div>
-    <div class="lg lg2">
-      <svg viewBox="0 0 25 30" fill="currentColor">
-        <rect width="7" height="30" rx="1.5"/>
-        <mask id="lgm2">
-          <rect x="9" width="16" height="30" fill="#fff"/>
-          <circle cx="17" cy="9.5" r="4.4" fill="#000"/>
-        </mask>
-        <circle cx="17" cy="15" r="8.5" mask="url(#lgm2)"/>
-        <circle cx="17" cy="9.5" r="2.4"/>
-      </svg>
-      <span class="word">logoipsum<i class="dot"></i></span>
-    </div>
-    <div class="lg lg3">
-      <svg viewBox="0 0 28 28" fill="none" stroke="currentColor" stroke-width="3.1">
-        <circle cx="14" cy="14" r="12.35"/>
-        <path d="M5.5 18.5c3.2-.8 5.4-3 5.4-6.5"/>
-        <path d="M22.5 9.5c-3.2.8-5.4 3-5.4 6.5"/>
-      </svg>
-      <span class="word">logoipsum</span>
-    </div>
-    <div class="lg lg4">
-      <svg viewBox="0 0 28 25.5">
-        <path fill="currentColor" d="M3 12.5C3 6.4 7.9 2.5 14 2.5s11 3.9 11 10z"/>
-        <path fill="none" stroke="currentColor" stroke-width="3.05" stroke-linecap="round" d="M2.5 17.5c3.8-2.6 7.2 2.6 11 0"/>
-        <path fill="none" stroke="currentColor" stroke-width="3.05" stroke-linecap="round" d="M14.5 22.5c3.8-2.6 7.2 2.6 11 0"/>
-      </svg>
-      <span class="word">logoipsum</span>
-    </div>
-  </div>
-
 </div>
-
-<script>
-(function(){
-  var stage = document.getElementById('stage');
-  var burger = document.getElementById('burger');
-  var menu = document.getElementById('menu');
-  function setOpen(open){
-    stage.classList.toggle('is-open', open);
-    burger.setAttribute('aria-expanded', open ? 'true' : 'false');
-    burger.setAttribute('aria-label', open ? 'Close menu' : 'Open menu');
-    menu.setAttribute('aria-hidden', open ? 'false' : 'true');
-  }
-  burger.addEventListener('click', function(){
-    setOpen(!stage.classList.contains('is-open'));
-  });
-  document.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') setOpen(false);
-  });
-  menu.querySelectorAll('a').forEach(function(a){
-    a.addEventListener('click', function(){ setOpen(false); });
-  });
-  window.addEventListener('resize', function(){
-    if (window.innerWidth / window.innerHeight > 1.1) setOpen(false);
-  });
-})();
-</script>
 </body>
 </html>
