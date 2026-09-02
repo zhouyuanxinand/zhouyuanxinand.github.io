@@ -59,6 +59,36 @@
         .catch(function () { /* 失败时静默跳过 */ });
     });
 
+    // Email 按钮：点击复制邮箱地址，短暂显示「已复制」
+    var copyBtn = document.getElementById("copy-email");
+    if (copyBtn) {
+      copyBtn.addEventListener("click", function () {
+        var email = "3089729486@qq.com";
+        function done() {
+          copyBtn.textContent = "已复制 ✓";
+          copyBtn.classList.add("copied");
+          setTimeout(function () {
+            copyBtn.textContent = "Email";
+            copyBtn.classList.remove("copied");
+          }, 1500);
+        }
+        function fallback() {
+          var ta = document.createElement("textarea");
+          ta.value = email;
+          document.body.appendChild(ta);
+          ta.select();
+          try { document.execCommand("copy"); } catch (e) {}
+          document.body.removeChild(ta);
+          done();
+        }
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(email).then(done).catch(fallback);
+        } else {
+          fallback();
+        }
+      });
+    }
+
     // 实习经历：点击展开/收起工作内容
     document.querySelectorAll(".exp-head").forEach(function (btn) {
       btn.addEventListener("click", function () {
