@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>周园鑫 · 个人网站</title>
+  <meta name="description" content="周园鑫的个人网站：随笔、项目与经历。">
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+  <!-- 社交分享预览（贴到微信/Twitter 时显示的卡片） -->
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="周园鑫 · 个人网站">
+  <meta property="og:description" content="写代码，也写生活。这里记录我的技术、随笔与经历。">
+  <meta property="og:url" content="https://zhouyuanxinand.github.io/">
+  <meta property="og:image" content="https://zhouyuanxinand.github.io/assets/og-image.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/style.css">
+  <script src="assets/main.js"></script>
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="brand" href="home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="home.html" class="active">首页</a>
+        <a href="posts.html">随笔</a>
+        <!-- 待替换：改成你的 GitHub 主页地址 -->
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- S·01 自我介绍 -->
+  <header class="hero">
+    <div class="wrap">
+      <div class="sec-label"><b>S·01</b> INTRO</div>
+      <h1>周园鑫</h1>
+      <!-- 待替换：一句话介绍你自己，比如「后端开发工程师，关注 xxx」 -->
+      <p class="tagline">写代码，也写生活。这里记录我的技术、随笔与经历。</p>
+      <div class="links">
+        <!-- 待替换：把你的简历 PDF 放到 assets/ 目录并命名为 resume.pdf -->
+        <a class="chip chip-primary" href="assets/resume.pdf" target="_blank" rel="noopener">简历 PDF ↓</a>
+        <a class="chip" href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub ↗</a>
+        <a class="chip" href="mailto:3089729486@qq.com">Email</a>
+      </div>
+    </div>
+  </header>
+
+  <!-- S·02 实习经历：点击每条可展开工作内容 -->
+  <section>
+    <div class="wrap reveal">
+      <div class="sec-label"><b>S·02</b> 实习经历 / INTERNSHIP</div>
+      <ul class="timeline">
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><img src="assets/logos/shidai.png" alt="时代共赢私募"></span>
+            <span class="exp-main">
+              <span class="exp-company">时代共赢私募（海南时代共赢）</span>
+              <span class="exp-role">量化开发工程师</span>
+            </span>
+            <span class="exp-date">2026.03 — 2026.06</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>牵头负责量化业务系统从零搭建与持续迭代，覆盖因子管理、策略回测、多券商资产采集、金融报表与数据可视化等核心业务链路；搭建私募基金资产平台，覆盖基金管理、净值分析、风控监控等业务场景。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>从零主导搭建量化业务系统，打通因子管理、策略回测到金融报表、数据可视化的完整业务链路，支撑量化业务快速落地；</li>
+                  <li>搭建私募基金资产平台，实现 10+ 家券商资产数据的统一采集与整合，覆盖基金管理、净值分析与风控监控等核心场景；</li>
+                  <li>建设金融报表与数据可视化能力，实现资金流动的个性化预测，为投资决策提供数据支撑。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><span class="logo-text logo-aia">AIA</span></span>
+            <span class="exp-main">
+              <span class="exp-company">友邦保险集团全球技术创新中心（AIA）</span>
+              <span class="exp-role">AI 应用开发实习生 · RD 部门</span>
+            </span>
+            <span class="exp-date">2025.10 — 2026.04</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>构建面向公司全球 Testing 团队的多 Agent 智能用例生成平台（公司年度重点项目），打通 Figma、Teams 平台信息屏障，支持 Word/PDF/Excel/图片等多文件需求附件上传，利用 LangGraph 多节点工作流实现「文档解析 → RAG 检索补充 → 场景拆分 → 用例生成 → AI 评审迭代 → Excel 导出」，前端以 SSE 流式展示生成过程、阶段进度、人工确认（HITL）与下载结果。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>效率提升：用例从「人工拆解 + 编写」转为「工作流自动生成 + 少量校对」，支持部门个性化变更，端到端平均耗时 6min，日均支撑 100+ 次生成任务；</li>
+                  <li>质量稳定：通过 LLM-wiki 建设和 Reviewer 评审、失败迭代重试，实现用例一次通过率达 90%，显著减少因场景理解偏差导致的整批返工；</li>
+                  <li>交付标准化：按业务组/环境绑定 Excel 模板与字段映射，输出可直接导入测试管理或执行流程的用例资产，形成可管理的记忆资产，减少格式整理与沟通成本。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><img src="assets/logos/meituan.png" alt="美团"></span>
+            <span class="exp-main">
+              <span class="exp-company">美团（北京三快网络科技有限公司）</span>
+              <span class="exp-role">测试开发实习生 · 支付质量组</span>
+            </span>
+            <span class="exp-date">2024.08 — 2025.09</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>负责收银台业务方向前后端相关测试，维护和编写相关业务的接口、场景自动化，对新接入的业务进行性能测试等质量保障任务。此外，参与建设部门的 AI 智能化应用落地，独立开发 AI 测试相关中间件、代码巡检和测试工具等 Agent 平台。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>深度参与收银台业务的前后端测试工作，负责接口自动化脚本编写与维护，保障核心链路稳定性和准确性，确保支付流程零资损；</li>
+                  <li>独立开发 AI 智能线上值班 Agent，集成 AI 问答与告警联动机制，显著降低人工值守成本 60%，准确率达 90% 以上，提升响应效率；</li>
+                  <li>构建 LogCenter + Mtrace 日志查询中间件，结合 AI + MCP/Skill 技术实现代码智能巡检、自动化失败定位重试，将自动化代码问题排查时间缩短至 5min，提高测试闭环率。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </li>
+
+        <li class="exp">
+          <button class="exp-head" type="button" aria-expanded="false">
+            <span class="exp-logo"><img src="assets/logos/baicizhan.png" alt="百词斩"></span>
+            <span class="exp-main">
+              <span class="exp-company">百词斩（成都超有爱科技有限公司）</span>
+              <span class="exp-role">后端开发实习生 · 业务平台组</span>
+            </span>
+            <span class="exp-date">2024.05 — 2024.08</span>
+            <span class="exp-toggle">+</span>
+          </button>
+          <div class="exp-body">
+            <div class="exp-body-inner">
+              <div class="exp-body-content">
+                <p><strong>工作内容：</strong>参与商业增长下业务平台的 CRM & 售卖平台的业务维护，对抽奖转盘系统进行维护和升级，实现代码冗余度和耦合度极大降低，服务上线后用户在曝光-分享漏斗转化率提升 30%，参与以用户行为为维度的业务流程监控系统的初建开发。</p>
+                <strong>个人成果：</strong>
+                <ul>
+                  <li>参与建设以用户行为为核心的业务流程监控系统，实现关键路径埋点采集与实时告警功能，为运营决策提供数据支撑；</li>
+                  <li>通过自测实现单元路径的全覆盖，对业务任务解耦保障代码的清晰度和线上质量，采用 Spring Dependency Injection 减少 if 判断和 bean 加载混乱问题；</li>
+                  <li>参与公司平台的日志监控中间件的前期建设和开发。</li>
+                </ul>
+              </div>
+            </div>
+          </div>
+        </li>
+
+      </ul>
+    </div>
+  </section>
+
+  <!-- S·03 技能栈：按类别分组，可随时增删标签 -->
+  <section>
+    <div class="wrap reveal">
+      <div class="sec-label"><b>S·03</b> 技能 / SKILLS</div>
+      <div class="skills">
+        <div class="skills-group">
+          <span class="skills-cat">后端开发</span>
+          <span class="skill">Java</span>
+          <span class="skill">Spring Boot</span>
+          <span class="skill">MySQL</span>
+          <span class="skill">Redis</span>
+        </div>
+        <div class="skills-group">
+          <span class="skills-cat">AI 应用</span>
+          <span class="skill">LangGraph</span>
+          <span class="skill">RAG</span>
+          <span class="skill">AI Agent</span>
+          <span class="skill">MCP</span>
+          <span class="skill">SSE</span>
+        </div>
+        <div class="skills-group">
+          <span class="skills-cat">质量保障</span>
+          <span class="skill">接口自动化</span>
+          <span class="skill">性能测试</span>
+          <span class="skill">日志监控</span>
+        </div>
+        <div class="skills-group">
+          <span class="skills-cat">工程工具</span>
+          <span class="skill">Git</span>
+          <span class="skill">Linux</span>
+          <span class="skill">Docker</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S·04 项目 -->
+  <section>
+    <div class="wrap reveal">
+      <div class="sec-label"><b>S·04</b> 项目 / PROJECTS</div>
+      <div class="cards">
+        <!-- 待替换：换成你的真实项目，链接指向 GitHub 仓库 -->
+        <div class="card">
+          <h3><a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">项目名称一 ↗</a></h3>
+          <p>一句话说明这个项目解决了什么问题、有什么亮点。</p>
+          <div class="tags"><span>Java</span><span>Spring Boot</span><span>MySQL</span></div>
+        </div>
+        <div class="card">
+          <h3><a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">项目名称二 ↗</a></h3>
+          <p>一句话说明这个项目解决了什么问题、有什么亮点。</p>
+          <div class="tags"><span>Python</span><span>爬虫</span></div>
+        </div>
+        <div class="card">
+          <!-- shields.io 徽章会实时显示 GitHub star 数 -->
+          <h3><a href="https://github.com/zhouyuanxinand/zhouyuanxinand.github.io" target="_blank" rel="noopener">个人网站 ↗</a><img class="stars-img" src="https://img.shields.io/github/stars/zhouyuanxinand/zhouyuanxinand.github.io?style=flat-square" alt="GitHub stars" loading="lazy"></h3>
+          <p>你现在看到的这个网站。纯 HTML/CSS/JS，零依赖，托管在 GitHub Pages。</p>
+          <div class="tags"><span>HTML</span><span>CSS</span><span>JS</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- S·05 随笔 -->
+  <section>
+    <div class="wrap reveal">
+      <div class="sec-label"><b>S·05</b> 随笔 / WRITING</div>
+      <ul class="post-list">
+        <!-- 写了新文章后，在这里加一行（最新的放最上面） -->
+        <li>
+          <a href="posts/2026-09-02-hello.html">
+            <span class="p-date">2026-09-02</span>
+            <span class="p-title">网站的第一篇随笔</span>
+            <span class="p-summary">为什么我要搭一个自己的网站</span>
+          </a>
+        </li>
+      </ul>
+      <p style="margin-top:20px">
+        <a class="chip" href="posts.html">全部随笔 →</a>
+      </p>
+    </div>
+  </section>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© 2026 周园鑫</span>
+      <span>Built with plain HTML · Hosted on <a href="https://pages.github.com" target="_blank" rel="noopener">GitHub Pages</a></span>
+    </div>
+  </footer>
+
+</body>
+</html>
