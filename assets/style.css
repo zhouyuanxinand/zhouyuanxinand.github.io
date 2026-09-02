@@ -391,32 +391,18 @@ a.card { display: block; text-decoration: none; color: inherit; }
 .card .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .card .badges img { height: 18px; display: block; }
 
-/* ---------- 「很火」项目：克制的旋转火焰描边 ---------- */
+/* ---------- 「很火」项目：旋转火焰描边 + 光晕 ---------- */
+/* 用 border-box 渐变实现：渐变只存在于边框那一圈，任何状态都不会淹没卡片内容 */
 @property --fire-a { syntax: '<angle>'; initial-value: 0deg; inherits: false; }
 .card { position: relative; }
-.card.hot { border-color: transparent; }
-/* 只保留一圈缓慢旋转的细描边，光晕压到很淡；hover 不再叠加变色/上浮 */
-.card.hot::before {
-  content: "";
-  position: absolute;
-  inset: -1.5px;
-  border-radius: 9px;
-  background: conic-gradient(from var(--fire-a),
-    #ff6a33, #ffb35c, #ff6a33, #ff8c42, #ff6a33);
-  z-index: -1;
+.card.hot {
+  border: 1.5px solid transparent;
+  background:
+    linear-gradient(var(--bg-raised), var(--bg-raised)) padding-box,
+    conic-gradient(from var(--fire-a),
+      #ff6a33, #ffb35c, #ff6a33, #ff8c42, #ff6a33) border-box;
   animation: fire-spin 6s linear infinite;
-}
-.card.hot::after {
-  content: "";
-  position: absolute;
-  inset: -10px;
-  border-radius: 12px;
-  background: conic-gradient(from var(--fire-a),
-    #ff6a33, #ffb35c, #ff6a33, #ff8c42, #ff6a33);
-  filter: blur(18px);
-  opacity: .5;
-  z-index: -2;
-  animation: fire-spin 6s linear infinite;
+  box-shadow: 0 0 22px rgba(255, 107, 51, .32), 0 0 56px rgba(255, 140, 66, .18);
 }
 .card.hot:hover { border-color: transparent; transform: none; }
 @keyframes fire-spin { to { --fire-a: 360deg; } }
@@ -439,7 +425,7 @@ a.card { display: block; text-decoration: none; color: inherit; }
   50% { transform: scale(1.08); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .card.hot::before, .card.hot::after, .hot-badge { animation: none; }
+  .card.hot, .hot-badge { animation: none; }
 }
 
 /* ---------- 返回顶部 ---------- */
