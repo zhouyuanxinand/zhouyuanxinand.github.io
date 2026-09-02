@@ -430,10 +430,7 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
   border-radius: 4px;
 }
 
-/* ---------- 项目 star 徽章（shields.io） ---------- */
-.stars-img { height: 18px; vertical-align: -3px; margin-left: 8px; }
-
-/* 整卡可点击的项目卡片 + 徽章行 */
+/* ---------- 整卡可点击的项目卡片 + 徽章行 ---------- */
 a.card { display: block; text-decoration: none; color: inherit; }
 .card .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 12px; }
 .card .badges img { height: 18px; display: block; }
