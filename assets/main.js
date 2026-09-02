@@ -67,10 +67,20 @@
         function done() {
           copyBtn.textContent = "已复制 ✓";
           copyBtn.classList.add("copied");
+          // 底部弹出明显提示条
+          var toast = document.querySelector(".copy-toast");
+          if (!toast) {
+            toast = document.createElement("div");
+            toast.className = "copy-toast";
+            document.body.appendChild(toast);
+          }
+          toast.innerHTML = "已复制到剪贴板：<b>" + email + "</b>";
+          toast.classList.add("show");
           setTimeout(function () {
             copyBtn.textContent = "Email";
             copyBtn.classList.remove("copied");
-          }, 1500);
+            toast.classList.remove("show");
+          }, 2000);
         }
         function fallback() {
           var ta = document.createElement("textarea");

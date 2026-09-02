@@ -162,7 +162,28 @@ section { border-bottom: 1px solid var(--line); padding: 64px 0; }
   background: none;
   cursor: pointer;
 }
-.chip.copied { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+.chip.copied { border-color: var(--accent); background: var(--accent); color: #fff; font-weight: 600; }
+
+/* 复制成功的底部提示条 */
+.copy-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 40px;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--ink);
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 13px;
+  padding: 10px 20px;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease;
+  z-index: 60;
+}
+.copy-toast.show { opacity: 1; transform: translateX(-50%); }
+.copy-toast b { color: var(--accent); filter: brightness(1.6); font-weight: 600; }
 .chip:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
 .chip-primary {
   border-color: var(--accent);
