@@ -11,6 +11,7 @@
 <meta property="og:description" content="写代码，也写生活。这里记录我的技术、随笔与经历。">
 <meta property="og:url" content="https://zhouyuanxinand.github.io/">
 <meta property="og:image" content="https://zhouyuanxinand.github.io/assets/og-image.png">
+<link rel="prefetch" href="home.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
 <style>
@@ -219,5 +220,52 @@ body{
   </main>
 
 </div>
+
+<script>
+// 跟随视频中人物行走的步伐渐进淡出：播放进度 → 透明度
+// 前 22% 保持完整画面，之后随步伐渐隐（smoothstep 缓动，起步收尾更柔），
+// 走到 96% 时完全透明并进入主页；视频加载失败时退化为按时间驱动。
+(function () {
+  var video = document.querySelector(".plate-video");
+  var stage = document.getElementById("stage");
+  var HOLD = 0.22, END = 0.96;
+  var FALLBACK_MS = 11000;
+  var start = null, done = false, revealed = false;
+
+  function revealBase() {
+    if (revealed) return; revealed = true;
+    var saved = null;
+    try { saved = localStorage.getItem("theme"); } catch (e) {}
+    var dark = saved ? saved === "dark"
+      : window.matchMedia("(prefers-color-scheme: dark)").matches;
+    document.body.style.background = dark ? "#101418" : "#fafaf7";
+  }
+  function goHome() {
+    if (done) return; done = true;
+    window.location.href = "home.html";
+  }
+  function applyProgress(p) {
+    var f = (p - HOLD) / (END - HOLD);
+    f = f < 0 ? 0 : f > 1 ? 1 : f;
+    var e = f * f * (3 - 2 * f);
+    if (e > 0) revealBase();
+    stage.style.opacity = String(1 - e);
+    if (f >= 1) goHome();
+  }
+  function tick(ts) {
+    if (done) return;
+    if (start === null) start = ts;
+    var p;
+    if (video && video.readyState >= 1 && video.duration > 0) {
+      p = video.currentTime / video.duration;
+    } else {
+      p = (ts - start) / FALLBACK_MS;
+    }
+    applyProgress(p);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+</script>
 </body>
 </html>
