@@ -22,8 +22,8 @@
       });
     }
 
-    // Hero：打字机逐字打出问候语，完成后光标蓝芒闪耀
-    var heroH1 = document.querySelector(".hero-mono");
+    // Hero：打字机逐字打出问候语，完成后光标闪耀
+    var heroH1 = document.querySelector(".hero-type, .hero-mono");
     if (heroH1) {
       var full = heroH1.getAttribute("data-text") || heroH1.textContent;
       var cursor = heroH1.querySelector(".cursor");
@@ -37,7 +37,11 @@
         (function type() {
           if (i < full.length) {
             var ch = full[i++];
-            cursor.before(document.createTextNode(ch));
+            if (ch === "\n") {
+              cursor.before(document.createElement("br"));
+            } else {
+              cursor.before(document.createTextNode(ch));
+            }
             setTimeout(type, /[，。,.、]/.test(ch) ? 280 : 110);
           } else {
             cursor.classList.add("shine");

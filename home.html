@@ -14,38 +14,45 @@
   <meta property="og:image" content="https://zhouyuanxinand.github.io/assets/og-image.png">
   <meta name="twitter:card" content="summary_large_image">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="assets/style.css">
-  <script src="assets/main.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/home.css">
+  <script src="assets/main.js?v=2"></script>
 </head>
 <body>
 
   <nav class="site-nav">
     <div class="wrap">
-      <a class="brand" href="home.html">ZHOU<b>·</b>YUANXIN</a>
+      <a class="brand" href="home.html">周园鑫</a>
       <div class="nav-links">
         <a href="home.html" class="active">首页</a>
         <a href="posts.html">随笔</a>
-        <!-- 待替换：改成你的 GitHub 主页地址 -->
         <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
-        <button class="theme-toggle" type="button">☾ DARK</button>
       </div>
     </div>
   </nav>
 
   <!-- S·01 自我介绍 -->
   <header class="hero">
-    <div class="wrap">
-      <div class="sec-label"><b>S·01</b> INTRO</div>
-      <h1 class="hero-mono" data-text="我叫周园鑫，很高兴在此与您相遇">我叫周园鑫，很高兴在此与您相遇<span class="cursor" aria-hidden="true"></span></h1>
-      <!-- 待替换：一句话介绍你自己，比如「后端开发工程师，关注 xxx」 -->
+    <div class="wrap hero-grid">
+      <div class="hero-text">
+      <p class="hero-kicker">后端开发 / AI 应用 / 持续写作</p>
+      <h1 class="hero-type" data-text="我叫周园鑫，
+很高兴在此与你相遇">我叫周园鑫，<br><span class="hero-line2">很高兴在此与你相遇<span class="cursor" aria-hidden="true"></span></span></h1>
       <p class="tagline">写代码，也写生活。这里记录我的技术、随笔与经历。</p>
+      <div class="hero-rule"></div>
+      <div class="hero-stats">
+        <div><b>4</b><span>段实习</span></div>
+        <div><b>2</b><span>次创业</span></div>
+        <div><b>14 章</b><span>技术教材</span></div>
+      </div>
       <div class="links">
         <a class="chip chip-primary" href="assets/resume.pdf" target="_blank" rel="noopener">简历 PDF ↓</a>
         <a class="chip" href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub ↗</a>
         <!-- 点击复制邮箱地址 -->
         <button class="chip" id="copy-email" type="button" title="点击复制邮箱">Email</button>
       </div>
+      </div>
+      <div class="hero-portrait"><img src="assets/avatar.png" alt="头像插画"></div>
     </div>
   </header>
 
