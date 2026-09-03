@@ -221,6 +221,27 @@ section { border-bottom: 1px solid var(--line); padding: 88px 0; }
   transition: opacity 0.25s ease, transform 0.25s cubic-bezier(.22,1,.36,1);
 }
 .card:hover h3::after { opacity: 1; transform: none; }
+
+/* 聚光灯：跟随鼠标的橙色光晕（--mx/--my 由 JS 写入） */
+.card::before {
+  content: "";
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(240px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(225, 78, 31, 0.10), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+.card:hover::before { opacity: 1; }
+
+/* 经历条目交错滑入 */
+.exp-enter {
+  opacity: 0;
+  transform: translateX(-14px);
+  transition: opacity 0.55s ease, transform 0.55s cubic-bezier(.22,1,.36,1);
+}
+.exp-enter.exp-in { opacity: 1; transform: none; }
 a.card { display: block; text-decoration: none; color: inherit; }
 .card h3 { font-family: var(--serif); font-size: 21px; font-weight: 700; }
 .card h3 a { color: inherit; text-decoration: none; }

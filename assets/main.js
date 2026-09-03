@@ -135,6 +135,80 @@
       topBtn.classList.toggle("show", window.scrollY > 400);
     }, { passive: true });
 
+    // ============ 推特风交互特效（仅主页元素存在时生效） ============
+    var finePointer = window.matchMedia("(pointer: fine)").matches;
+    var noReduce = window.matchMedia("(prefers-reduced-motion: no-preference)").matches;
+
+    if (noReduce && finePointer) {
+      // 1. 磁性按钮：Hero 胶囊被鼠标轻微吸引，离开弹回
+      document.querySelectorAll(".hero .chip").forEach(function (el) {
+        el.style.transition = "transform .25s cubic-bezier(.22,1,.36,1)";
+        el.addEventListener("pointermove", function (e) {
+          var r = el.getBoundingClientRect();
+          var dx = e.clientX - (r.left + r.width / 2);
+          var dy = e.clientY - (r.top + r.height / 2);
+          el.style.transform = "translate(" + dx * 0.18 + "px," + dy * 0.28 + "px)";
+        });
+        el.addEventListener("pointerleave", function () {
+          el.style.transform = "";
+        });
+      });
+
+      // 2. 聚光灯卡片：项目卡内跟随鼠标的橙色光晕
+      document.querySelectorAll(".card").forEach(function (card) {
+        card.addEventListener("pointermove", function (e) {
+          var r = card.getBoundingClientRect();
+          card.style.setProperty("--mx", (e.clientX - r.left) + "px");
+          card.style.setProperty("--my", (e.clientY - r.top) + "px");
+        });
+      });
+    }
+
+    if (noReduce) {
+      // 3. 数字解码：分区大编号进入视口时从乱码收敛成型
+      var nums = document.querySelectorAll(".sec-num");
+      if (nums.length) {
+        var decode = function (el) {
+          var target = el.getAttribute("data-final");
+          var digits = "0123456789";
+          var frame = 0, total = 18;
+          var timer = setInterval(function () {
+            frame++;
+            el.textContent = target.split("").map(function (c, i) {
+              return frame / total > (i + 1) / target.length ? c
+                : digits[Math.floor(Math.random() * 10)];
+            }).join("");
+            if (frame >= total) { el.textContent = target; clearInterval(timer); }
+          }, 40);
+        };
+        nums.forEach(function (el) {
+          el.setAttribute("data-final", el.textContent);
+          el.textContent = "00".slice(0, el.textContent.length);
+        });
+        var nio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { decode(e.target); nio.unobserve(e.target); }
+          });
+        }, { threshold: 0.5 });
+        nums.forEach(function (el) { nio.observe(el); });
+      }
+
+      // 4. 经历时间线：条目交错滑入（旅程叙事）
+      var exps = document.querySelectorAll(".exp");
+      if (exps.length) {
+        exps.forEach(function (el, i) {
+          el.classList.add("exp-enter");
+          el.style.transitionDelay = (i % 6) * 70 + "ms";
+        });
+        var eio = new IntersectionObserver(function (entries) {
+          entries.forEach(function (e) {
+            if (e.isIntersecting) { e.target.classList.add("exp-in"); eio.unobserve(e.target); }
+          });
+        }, { threshold: 0.15 });
+        exps.forEach(function (el) { eio.observe(el); });
+      }
+    }
+
     // 滚动入场动画
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {
