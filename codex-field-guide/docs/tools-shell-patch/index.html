@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Tool、Shell 与 Patch · Codex Field Guide</title>
+<meta name="description" content="模型只提出结构化意图；Router、Registry、Orchestrator 和 Handler 才把它变成受策略约束的真实动作。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a class="active" href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>机制</span></div>
+  <div class="eyebrow">04 · ACTION LAYER</div>
+  <h1>Tool、Shell 与 Patch</h1>
+  <p class="desc">模型只提出结构化意图；Router、Registry、Orchestrator 和 Handler 才把它变成受策略约束的真实动作。</p>
+  <div class="meta"><span class="chip-meta">20 分钟</span><span class="chip-meta">源码</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能沿源码追踪一次工具调用，解释 Shell 与 Patch 的差异，以及审批和沙箱插入的位置。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="tool-是模型与现实之间的协议">Tool 是模型与现实之间的协议</h2>
+<p>模型输出的是“调用某个工具，参数如下”；它并没有任意 Rust 函数指针，也不直接拥有 Shell。Runtime 先把工具规格发给模型，再校验返回的名字和参数，最后选择实现。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>Tool 调用链</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：Tool 调用链">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart LR
+A[&quot;Model output item&quot;] --&gt; B[&quot;stream_events_utils&lt;br/&gt;识别 ToolCall&quot;]
+B --&gt; C[&quot;ToolRouter&lt;br/&gt;解析 payload&quot;]
+C --&gt; D[&quot;ToolRegistry&lt;br/&gt;选择 handler + hooks&quot;]
+D --&gt; E[&quot;ToolOrchestrator&lt;br/&gt;approval + sandbox&quot;]
+E --&gt; F{&quot;Handler&quot;}
+F --&gt; G[&quot;Shell / Unified exec&quot;]
+F --&gt; H[&quot;Apply patch&quot;]
+F --&gt; I[&quot;MCP / collaboration / other&quot;]
+G --&gt; J[&quot;Tool output&quot;]
+H --&gt; J
+I --&gt; J
+J --&gt; K[&quot;ContextManager&quot;]
+</pre></div><figcaption>统一调用链让审批、沙箱、遥测、事件和错误格式不必散落在每个工具里。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">router.rs</span><code>codex-rs/core/src/tools/router.rs:180-259</code><b>ToolRouter::dispatch</b><p>把 ResponseInputItem 转换成统一 ToolInvocation，并交给 registry。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/router.rs#L180-L259" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/router.rs">↗</a></aside>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">registry.rs</span><code>codex-rs/core/src/tools/registry.rs:326-470</code><b>ToolRegistry</b><p>注册 handler，包裹事件、钩子、遥测与实际 dispatch。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/registry.rs#L326-L470" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/registry.rs">↗</a></aside>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>让概率模型操作确定性系统，同时保持参数可校验、行为可观察、权限可控制。</p></div><div><span>02</span><b>如何工作</b><p>模型可见 schema → 结构化 ToolCall → 路由 → 策略编排 → handler → 结构化结果。</p></div><div><span>03</span><b>为何这样设计</b><p>能力和策略解耦后，可增加工具而不复制一套安全与事件逻辑。</p></div><div><span>04</span><b>源码落点</b><p>router.rs、registry.rs、orchestrator.rs 形成主干，handlers/ 提供具体能力。</p></div><div><span>05</span><b>取舍与失败</b><p>schema 不能保证意图正确；工具过宽会放大风险，工具过窄又会限制任务。</p></div></div>
+<h2 id="shell通用但锋利">Shell：通用但锋利</h2>
+<p>Shell 的优势是覆盖面：搜索、读取、测试、构建、Git、项目脚本都能复用现有命令。代价同样明显：</p>
+<ul>
+<li>命令字符串存在注入和引用风险；</li>
+<li>一个命令可能读写大量状态；</li>
+<li>跨平台行为不同；</li>
+<li>长输出会挤占 Context；</li>
+<li>后台进程和交互式程序需要生命周期管理。</li>
+</ul>
+<p>Codex 源码同时包含 Shell handler、统一执行工具以及工具规格。执行仍要经过审批和沙箱策略。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">shell.rs</span><code>codex-rs/core/src/tools/handlers/shell.rs</code><b>ShellHandler</b><p>处理 shell 类调用；统一执行路径位于 handlers/unified_exec.rs。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/handlers/shell.rs" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/handlers/shell.rs">↗</a></aside>
+<aside class="callout callout-tip"><span class="callout-symbol" aria-hidden="true">+</span><div><strong>Shell 的能力边界应由环境收紧</strong><p>不要指望模型永远生成安全命令。用只读或 workspace-write 沙箱、网络控制和审批策略限制最坏后果。</p></div></aside>
+<h2 id="patch把修改表达为数据">Patch：把修改表达为数据</h2>
+<p>与 <code>sed -i</code> 或任意脚本写文件相比，Patch 有几个工程优势：</p>
+<ul>
+<li>明确列出增加、删除、修改的文件；</li>
+<li>上下文不匹配时可以拒绝，而不是静默改错；</li>
+<li>适合展示和审查；</li>
+<li>工具 schema 可以约束格式；</li>
+<li>更容易在写入前做路径检查。</li>
+</ul>
+<p>Codex 的 <code>apply_patch</code> 是 freeform 工具：模型提交一段符合特定 grammar 的 patch 文本。实现会解析、校验，然后应用。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">apply_patch_spec.rs</span><code>codex-rs/core/src/tools/apply_patch_spec.rs</code><b>create_apply_patch_freeform_tool</b><p>把 patch 语法和工具说明暴露给模型。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/apply_patch_spec.rs" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/apply_patch_spec.rs">↗</a></aside>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">apply_patch.rs</span><code>codex-rs/core/src/tools/handlers/apply_patch.rs:331-487</code><b>ApplyPatchHandler</b><p>解析、验证并执行 patch 的实际 handler。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/handlers/apply_patch.rs#L331-L487" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/handlers/apply_patch.rs">↗</a></aside>
+<h3 id="示意模型看到的边界">示意：模型看到的边界</h3>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>*** Begin Patch</span></span>
+<span class="line"><span>*** Update File: src/retry.ts</span></span>
+<span class="line"><span>@@</span></span>
+<span class="line"><span>-const limit = 2;</span></span>
+<span class="line"><span>+const limit = 3;</span></span>
+<span class="line"><span>*** End Patch</span></span></code></pre>
+<p><span class="evidence evidence-analysis">语法示意</span> 这段只演示工具格式，并非官方仓库中的真实修改。</p>
+<h2 id="orchestrator策略真正生效的地方">Orchestrator：策略真正生效的地方</h2>
+<p>工具 handler 不应自己随意决定“是否可以绕过沙箱”。<code>ToolOrchestrator::run</code> 把流程统一为：</p>
+<ol>
+<li>根据工具与策略判断是否需要批准；</li>
+<li>等待批准或得到拒绝；</li>
+<li>在选定沙箱中进行第一次尝试；</li>
+<li>若策略允许并且失败确实与沙箱有关，再走升级路径；</li>
+<li>返回可供模型继续判断的结果。</li>
+</ol>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">orchestrator.rs</span><code>codex-rs/core/src/tools/orchestrator.rs:136-450</code><b>ToolOrchestrator::run</b><p>审批、沙箱首试、拒绝与可选升级的核心控制流。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/orchestrator.rs#L136-L450" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/orchestrator.rs">↗</a></aside>
+<h2 id="工具结果怎样回到模型">工具结果怎样回到模型</h2>
+<p>结果不能只写终端。它需要被编码成模型协议中的 tool output，并与原始 call id 对应。这样模型才能知道：</p>
+<ul>
+<li>哪个动作完成了；</li>
+<li>标准输出与错误是什么；</li>
+<li>是否超时或被拒绝；</li>
+<li>文件改变了什么；</li>
+<li>下一步应重试、修复还是结束。</li>
+</ul>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>工具成功不代表任务成功</strong><p><code>apply_patch</code> 返回成功只证明补丁已应用；代码是否正确，需要测试、构建和 diff 审查继续证明。</p></div></aside>
+<h2 id="设计一个好工具">设计一个好工具</h2>
+<p>最小检查表：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>输入</td>
+<td>schema 是否足够窄，错误参数能否尽早拒绝？</td>
+</tr>
+<tr>
+<td>权限</td>
+<td>读、写、网络、进程各需要什么边界？</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>是否结构化、限长，并保留恢复所需信息？</td>
+</tr>
+<tr>
+<td>幂等性</td>
+<td>重试会不会重复创建或破坏状态？</td>
+</tr>
+<tr>
+<td>观察性</td>
+<td>是否产生开始、完成、失败事件？</td>
+</tr>
+<tr>
+<td>取消</td>
+<td>长任务能否中断和清理？</td>
+</tr>
+</tbody>
+</table>
+<p>接下来把单个工具放回更大的运行时对象模型：<a href="../runtime-session-events/">Runtime 与 Session</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/context-engine/">← Context 引擎</a><a class="next" href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#tool-是模型与现实之间的协议">Tool 是模型与现实之间的协议</a><a href="#shell通用但锋利">Shell：通用但锋利</a><a href="#patch把修改表达为数据">Patch：把修改表达为数据</a><a href="#orchestrator策略真正生效的地方">Orchestrator：策略真正生效的地方</a><a href="#工具结果怎样回到模型">工具结果怎样回到模型</a><a href="#设计一个好工具">设计一个好工具</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

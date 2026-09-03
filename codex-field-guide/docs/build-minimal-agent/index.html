@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>实现最小 Coding Agent · Codex Field Guide</title>
+<meta name="description" content="从 Codex 提炼必要结构，用 TypeScript 组装一个可解释的最小循环：Context、模型、工具、审批、事件和验证。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a class="active" href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>实践</span></div>
+  <div class="eyebrow">12 · BUILD IT</div>
+  <h1>实现最小 Coding Agent</h1>
+  <p class="desc">从 Codex 提炼必要结构，用 TypeScript 组装一个可解释的最小循环：Context、模型、工具、审批、事件和验证。</p>
+  <div class="meta"><span class="chip-meta">28 分钟</span><span class="chip-meta">实践</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能实现一个只读起步、逐步开放写权限的 Coding Agent 骨架，并知道生产化还缺什么。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="目标不是复刻-codex">目标不是复刻 Codex</h2>
+<p>我们只实现能验证架构的最小切片：</p>
+<ul>
+<li>接收一个仓库任务；</li>
+<li>把历史和工具 schema 送给支持 function calling 的模型；</li>
+<li>只提供 <code>read_file</code>、<code>search</code>、<code>apply_patch</code>、<code>run_test</code>；</li>
+<li>写操作前经过策略；</li>
+<li>工具结果回到历史；</li>
+<li>发出事件；</li>
+<li>达到停止条件后报告。</li>
+</ul>
+<p>不会实现 TUI、MCP、恢复、跨平台沙箱和完整 compaction。那些是从原型走向产品的主要工作量。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>最小 Agent 的六个接口</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：最小 Agent 的六个接口">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart LR
+G[&quot;Goal&quot;] --&gt; C[&quot;ContextStore&quot;]
+C --&gt; M[&quot;ModelClient&quot;]
+M --&gt; R[&quot;ToolRegistry&quot;]
+R --&gt; P[&quot;Policy&quot;]
+P --&gt; X[&quot;Executor&quot;]
+X --&gt; C
+C --&gt; E[&quot;EventSink&quot;]
+</pre></div><figcaption>先让边界可替换，再扩充工具。不要从一个拥有全部权限的巨大 run() 开始。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<h2 id="第一步先定义协议">第一步：先定义协议</h2>
+<p>下面是<strong>教学实现</strong>，不是 Codex 官方源码，也没有使用 Codex 私有 API。<code>ModelClient</code> 可以由任意支持结构化工具调用的模型适配。</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">type</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Role</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;user&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;assistant&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;tool&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">type</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Message</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  |</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="color:#E36209;--shiki-dark:#FFAB70">role</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;user&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;assistant&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">content</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> }</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  |</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="color:#E36209;--shiki-dark:#FFAB70">role</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;assistant&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">toolCalls</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolCall</span><span style="color:#24292E;--shiki-dark:#E1E4E8">[] }</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  |</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="color:#E36209;--shiki-dark:#FFAB70">role</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;tool&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">callId</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">content</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">isError</span><span style="color:#D73A49;--shiki-dark:#F97583">?:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> boolean</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">type</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolCall</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  id</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  name</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;read_file&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;search&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;apply_patch&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;run_test&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  arguments</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> unknown</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">};</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">type</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ModelOutput</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  |</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="color:#E36209;--shiki-dark:#FFAB70">type</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;message&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">text</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> }</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  |</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="color:#E36209;--shiki-dark:#FFAB70">type</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;tool_calls&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#E36209;--shiki-dark:#FFAB70">calls</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolCall</span><span style="color:#24292E;--shiki-dark:#E1E4E8">[] };</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">interface</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ModelClient</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#6F42C1;--shiki-dark:#B392F0">  sample</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#E36209;--shiki-dark:#FFAB70">input</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">    instructions</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">    messages</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Message</span><span style="color:#24292E;--shiki-dark:#E1E4E8">[];</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">    tools</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolSpec</span><span style="color:#24292E;--shiki-dark:#E1E4E8">[];</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  })</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Promise</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#6F42C1;--shiki-dark:#B392F0">ModelOutput</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt;;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">interface</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolSpec</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  name</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolCall</span><span style="color:#24292E;--shiki-dark:#E1E4E8">[</span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;name&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">];</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  description</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  inputSchema</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Record</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF">string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, </span><span style="color:#005CC5;--shiki-dark:#79B8FF">unknown</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt;;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">interface</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> AgentEvent</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  type</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;turn.start&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;tool.start&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;tool.end&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;message&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;turn.end&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  data</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Record</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF">string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, </span><span style="color:#005CC5;--shiki-dark:#79B8FF">unknown</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt;;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre>
+<p>协议先行带来一个好处：测试 Agent Loop 时，可以用假模型和假工具，不需要真的写磁盘或调用网络。</p>
+<h2 id="第二步工具必须窄">第二步：工具必须窄</h2>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">interface</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolContext</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  root</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  signal</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> AbortSignal</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">interface</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolHandler</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  spec</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolSpec</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  mutates</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> boolean</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#6F42C1;--shiki-dark:#B392F0">  execute</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#E36209;--shiki-dark:#FFAB70">args</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> unknown</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, </span><span style="color:#E36209;--shiki-dark:#FFAB70">context</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolContext</span><span style="color:#24292E;--shiki-dark:#E1E4E8">)</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Promise</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF">string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt;;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">class</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolRegistry</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">  #handlers</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#D73A49;--shiki-dark:#F97583"> new</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Map</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF">string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, </span><span style="color:#6F42C1;--shiki-dark:#B392F0">ToolHandler</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt;();</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1;--shiki-dark:#B392F0">  register</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#E36209;--shiki-dark:#FFAB70">handler</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolHandler</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    if</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (</span><span style="color:#005CC5;--shiki-dark:#79B8FF">this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.#handlers.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">has</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(handler.spec.name)) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      throw</span><span style="color:#D73A49;--shiki-dark:#F97583"> new</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Error</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#032F62;--shiki-dark:#9ECBFF">`duplicate tool: ${</span><span style="color:#24292E;--shiki-dark:#E1E4E8">handler</span><span style="color:#032F62;--shiki-dark:#9ECBFF">.</span><span style="color:#24292E;--shiki-dark:#E1E4E8">spec</span><span style="color:#032F62;--shiki-dark:#9ECBFF">.</span><span style="color:#24292E;--shiki-dark:#E1E4E8">name</span><span style="color:#032F62;--shiki-dark:#9ECBFF">}`</span><span style="color:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">    this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.#handlers.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">set</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(handler.spec.name, handler);</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1;--shiki-dark:#B392F0">  specs</span><span style="color:#24292E;--shiki-dark:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> [</span><span style="color:#D73A49;--shiki-dark:#F97583">...</span><span style="color:#005CC5;--shiki-dark:#79B8FF">this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.#handlers.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">values</span><span style="color:#24292E;--shiki-dark:#E1E4E8">()].</span><span style="color:#6F42C1;--shiki-dark:#B392F0">map</span><span style="color:#24292E;--shiki-dark:#E1E4E8">((</span><span style="color:#E36209;--shiki-dark:#FFAB70">handler</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) </span><span style="color:#D73A49;--shiki-dark:#F97583">=&gt;</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> handler.spec);</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#6F42C1;--shiki-dark:#B392F0">  get</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#E36209;--shiki-dark:#FFAB70">name</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> handler</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.#handlers.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">get</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(name);</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    if</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (</span><span style="color:#D73A49;--shiki-dark:#F97583">!</span><span style="color:#24292E;--shiki-dark:#E1E4E8">handler) </span><span style="color:#D73A49;--shiki-dark:#F97583">throw</span><span style="color:#D73A49;--shiki-dark:#F97583"> new</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Error</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#032F62;--shiki-dark:#9ECBFF">`unknown tool: ${</span><span style="color:#24292E;--shiki-dark:#E1E4E8">name</span><span style="color:#032F62;--shiki-dark:#9ECBFF">}`</span><span style="color:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> handler;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre>
+<p>实现 handler 时至少做三件事：</p>
+<ol>
+<li>用 schema 校验 <code>args</code>，不要相信模型输出；</li>
+<li>将路径解析到仓库根后确认没有逃逸；</li>
+<li>限制输出长度，同时保留退出码和错误摘要。</li>
+</ol>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>不要用字符串前缀判断路径安全</strong><p><code>/repo-evil</code> 也以 <code>/repo</code> 开头。应使用平台路径规范化后检查相对路径，并拒绝绝对路径、<code>..</code> 逃逸和符号链接越界。</p></div></aside>
+<h2 id="第三步策略独立于工具">第三步：策略独立于工具</h2>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">interface</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Policy</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#6F42C1;--shiki-dark:#B392F0">  authorize</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#E36209;--shiki-dark:#FFAB70">input</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">    call</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolCall</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">    handler</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolHandler</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  })</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Promise</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;allow&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> |</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;deny&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt;;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">class</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ReadOnlyPolicy</span><span style="color:#D73A49;--shiki-dark:#F97583"> implements</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Policy</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  async</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> authorize</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ </span><span style="color:#E36209;--shiki-dark:#FFAB70">handler</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> }</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { </span><span style="color:#E36209;--shiki-dark:#FFAB70">handler</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolHandler</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> }) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> handler.mutates </span><span style="color:#D73A49;--shiki-dark:#F97583">?</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;deny&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> :</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;allow&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre>
+<p>原型先用只读策略。确认事件、错误和停止条件正确后，再增加一次性批准；不要先给子进程宿主的全部权限。</p>
+<h2 id="第四步闭合-agent-loop">第四步：闭合 Agent Loop</h2>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">class</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> CodingAgent</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  constructor</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    private</span><span style="color:#E36209;--shiki-dark:#FFAB70"> model</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ModelClient</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    private</span><span style="color:#E36209;--shiki-dark:#FFAB70"> tools</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolRegistry</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    private</span><span style="color:#E36209;--shiki-dark:#FFAB70"> policy</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Policy</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    private</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> emit</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (</span><span style="color:#E36209;--shiki-dark:#FFAB70">event</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> AgentEvent</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) </span><span style="color:#D73A49;--shiki-dark:#F97583">=&gt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> void</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    private</span><span style="color:#E36209;--shiki-dark:#FFAB70"> maxSteps</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 24</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  ) {}</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  async</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> run</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#E36209;--shiki-dark:#FFAB70">goal</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, </span><span style="color:#E36209;--shiki-dark:#FFAB70">context</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ToolContext</span><span style="color:#24292E;--shiki-dark:#E1E4E8">)</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Promise</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&lt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF">string</span><span style="color:#24292E;--shiki-dark:#E1E4E8">&gt; {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> messages</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Message</span><span style="color:#24292E;--shiki-dark:#E1E4E8">[] </span><span style="color:#D73A49;--shiki-dark:#F97583">=</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> [{ role: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;user&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, content: goal }];</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">    this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">emit</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;turn.start&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, data: { goal } });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    for</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (</span><span style="color:#D73A49;--shiki-dark:#F97583">let</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> step </span><span style="color:#D73A49;--shiki-dark:#F97583">=</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 0</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; step </span><span style="color:#D73A49;--shiki-dark:#F97583">&lt;</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.maxSteps; step </span><span style="color:#D73A49;--shiki-dark:#F97583">+=</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 1</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      if</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (context.signal.aborted) </span><span style="color:#D73A49;--shiki-dark:#F97583">throw</span><span style="color:#D73A49;--shiki-dark:#F97583"> new</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Error</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;cancelled&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> output</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#D73A49;--shiki-dark:#F97583"> await</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.model.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">sample</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        instructions: [</span></span>
+<span class="line"><span style="color:#032F62;--shiki-dark:#9ECBFF">          &quot;Work only inside the repository root.&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#032F62;--shiki-dark:#9ECBFF">          &quot;Inspect before editing.&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#032F62;--shiki-dark:#9ECBFF">          &quot;Use run_test to validate changes.&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#032F62;--shiki-dark:#9ECBFF">          &quot;State unverified assumptions in the final message.&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        ].</span><span style="color:#6F42C1;--shiki-dark:#B392F0">join</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;</span><span style="color:#005CC5;--shiki-dark:#79B8FF">\n</span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">),</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        messages,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        tools: </span><span style="color:#005CC5;--shiki-dark:#79B8FF">this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.tools.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">specs</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(),</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">      });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      if</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (output.type </span><span style="color:#D73A49;--shiki-dark:#F97583">===</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;message&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        messages.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">push</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ role: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;assistant&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, content: output.text });</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">        this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">emit</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;message&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, data: { text: output.text } });</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">        this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">emit</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;turn.end&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, data: { step } });</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">        return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> output.text;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">      }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">      messages.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">push</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ role: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;assistant&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, toolCalls: output.calls });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      for</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (</span><span style="color:#D73A49;--shiki-dark:#F97583">const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> call</span><span style="color:#D73A49;--shiki-dark:#F97583"> of</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> output.calls) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">        const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> handler</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.tools.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">get</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(call.name);</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">        const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> decision</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#D73A49;--shiki-dark:#F97583"> await</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.policy.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">authorize</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ call, handler });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">        this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">emit</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool.start&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          data: { callId: call.id, name: call.name, decision },</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        });</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">        if</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (decision </span><span style="color:#D73A49;--shiki-dark:#F97583">===</span><span style="color:#032F62;--shiki-dark:#9ECBFF"> &quot;deny&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          messages.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">push</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">            role: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">            callId: call.id,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">            content: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;Denied by policy. Choose a read-only alternative or ask the user.&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">            isError: </span><span style="color:#005CC5;--shiki-dark:#79B8FF">true</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          });</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">          continue</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">        try</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">          const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> content</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#D73A49;--shiki-dark:#F97583"> await</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> handler.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">execute</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(call.arguments, context);</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          messages.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">push</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ role: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, callId: call.id, content });</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">          this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">emit</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool.end&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, data: { callId: call.id, ok: </span><span style="color:#005CC5;--shiki-dark:#79B8FF">true</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> } });</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        } </span><span style="color:#D73A49;--shiki-dark:#F97583">catch</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (error) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">          const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> content</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> error </span><span style="color:#D73A49;--shiki-dark:#F97583">instanceof</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Error</span><span style="color:#D73A49;--shiki-dark:#F97583"> ?</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> error.message </span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> String</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(error);</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          messages.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">push</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({ role: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, callId: call.id, content, isError: </span><span style="color:#005CC5;--shiki-dark:#79B8FF">true</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> });</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">          this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">emit</span><span style="color:#24292E;--shiki-dark:#E1E4E8">({</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">            type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool.end&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">            data: { callId: call.id, ok: </span><span style="color:#005CC5;--shiki-dark:#79B8FF">false</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, error: content },</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          });</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        }</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">      }</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">    }</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    throw</span><span style="color:#D73A49;--shiki-dark:#F97583"> new</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> Error</span><span style="color:#24292E;--shiki-dark:#E1E4E8">(</span><span style="color:#032F62;--shiki-dark:#9ECBFF">`step limit exceeded: ${</span><span style="color:#005CC5;--shiki-dark:#79B8FF">this</span><span style="color:#032F62;--shiki-dark:#9ECBFF">.</span><span style="color:#24292E;--shiki-dark:#E1E4E8">maxSteps</span><span style="color:#032F62;--shiki-dark:#9ECBFF">}`</span><span style="color:#24292E;--shiki-dark:#E1E4E8">);</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  }</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">}</span></span></code></pre>
+<p>这段循环复现了核心机制：普通消息终止，工具调用执行后继续，错误也回到 Context，外部可以消费事件。</p>
+<h2 id="第五步用假模型测试控制流">第五步：用假模型测试控制流</h2>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> scriptedModel</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ModelClient</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  #step: </span><span style="color:#005CC5;--shiki-dark:#79B8FF">0</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  async</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> sample</span><span style="color:#24292E;--shiki-dark:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#005CC5;--shiki-dark:#79B8FF">    this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.#step </span><span style="color:#D73A49;--shiki-dark:#F97583">+=</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 1</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    if</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> (</span><span style="color:#005CC5;--shiki-dark:#79B8FF">this</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.#step </span><span style="color:#D73A49;--shiki-dark:#F97583">===</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 1</span><span style="color:#24292E;--shiki-dark:#E1E4E8">) {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool_calls&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        calls: [{ id: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;1&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, name: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;search&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, arguments: { query: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;retry&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> } }],</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">      };</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">    }</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;message&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, text: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;找到重试入口；当前为只读模式，未修改文件。&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> };</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  },</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">};</span></span></code></pre>
+<aside class="callout callout-note"><span class="callout-symbol" aria-hidden="true">i</span><div><strong>上面需要按普通对象语法调整</strong><p>JavaScript 对象字面量不能直接声明 <code>#step</code> 私有字段；实际测试可用闭包变量或 class。这里故意保留这个小陷阱：教程里的示意代码也必须经过类型检查，下一步应把它改成可执行测试夹具。</p></div></aside>
+<p>更好的可运行版本：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="ts"><code><span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">let</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> sampleCount </span><span style="color:#D73A49;--shiki-dark:#F97583">=</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 0</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">const</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> scriptedModel</span><span style="color:#D73A49;--shiki-dark:#F97583">:</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> ModelClient</span><span style="color:#D73A49;--shiki-dark:#F97583"> =</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">  async</span><span style="color:#6F42C1;--shiki-dark:#B392F0"> sample</span><span style="color:#24292E;--shiki-dark:#E1E4E8">() {</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">    sampleCount </span><span style="color:#D73A49;--shiki-dark:#F97583">+=</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 1</span><span style="color:#24292E;--shiki-dark:#E1E4E8">;</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">    return</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> sampleCount </span><span style="color:#D73A49;--shiki-dark:#F97583">===</span><span style="color:#005CC5;--shiki-dark:#79B8FF"> 1</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      ?</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> {</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;tool_calls&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> as</span><span style="color:#D73A49;--shiki-dark:#F97583"> const</span><span style="color:#24292E;--shiki-dark:#E1E4E8">,</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">          calls: [{ id: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;1&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, name: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;search&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> as</span><span style="color:#D73A49;--shiki-dark:#F97583"> const</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, arguments: { query: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;retry&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> } }],</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">        }</span></span>
+<span class="line"><span style="color:#D73A49;--shiki-dark:#F97583">      :</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> { type: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;message&quot;</span><span style="color:#D73A49;--shiki-dark:#F97583"> as</span><span style="color:#D73A49;--shiki-dark:#F97583"> const</span><span style="color:#24292E;--shiki-dark:#E1E4E8">, text: </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;只读探索完成。&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> };</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">  },</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">};</span></span></code></pre>
+<p>测试应断言事件顺序：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>turn.start</span></span>
+<span class="line"><span>tool.start(search)</span></span>
+<span class="line"><span>tool.end(search)</span></span>
+<span class="line"><span>message</span></span>
+<span class="line"><span>turn.end</span></span></code></pre>
+<h2 id="从原型到可用还缺什么">从原型到可用，还缺什么</h2>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>为什么必要</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>真正的 OS sandbox</td>
+<td>路径检查无法限制子进程全部行为</td>
+</tr>
+<tr>
+<td>审批 UI 与持久规则</td>
+<td>高风险动作需要可理解的人机决策</td>
+</tr>
+<tr>
+<td>输出截断与 compaction</td>
+<td>长日志和长任务会撑爆窗口</td>
+</tr>
+<tr>
+<td>进程生命周期</td>
+<td>超时、取消、后台任务、PTY 都很复杂</td>
+</tr>
+<tr>
+<td>Patch parser</td>
+<td>需要上下文校验、原子性和审查体验</td>
+</tr>
+<tr>
+<td>Session persistence</td>
+<td>崩溃恢复、resume、审计</td>
+</tr>
+<tr>
+<td>版本化事件协议</td>
+<td>多客户端兼容</td>
+</tr>
+<tr>
+<td>真实验证策略</td>
+<td>选择目标测试、检查 diff、声明未验证项</td>
+</tr>
+</tbody>
+</table>
+<h2 id="最小产品的正确验收">最小产品的正确验收</h2>
+<p>不要用“模型成功改了一次 Todo App”验收。至少准备：</p>
+<ol>
+<li>只读问题定位；</li>
+<li>单文件可测试修改；</li>
+<li>Patch 上下文冲突；</li>
+<li>测试失败后二次修复；</li>
+<li>被拒绝的写操作；</li>
+<li>超长命令输出；</li>
+<li>用户取消；</li>
+<li>恶意仓库文本诱导越权。</li>
+</ol>
+<aside class="callout callout-tip"><span class="callout-symbol" aria-hidden="true">+</span><div><strong>先证明边界，再增加自主性</strong><p>一个会可靠拒绝越界、能解释失败的只读 Agent，比偶尔完成大任务但不可控的原型更接近产品。</p></div></aside>
+<p>最后一章记录这套教材的 <a href="../source-basis/">研究基线与证据边界</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/comparisons/">← 方案对比</a><a class="next" href="/codex-field-guide/docs/source-basis/">研究基线与边界 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#目标不是复刻-codex">目标不是复刻 Codex</a><a href="#第一步先定义协议">第一步：先定义协议</a><a href="#第二步工具必须窄">第二步：工具必须窄</a><a href="#第三步策略独立于工具">第三步：策略独立于工具</a><a href="#第四步闭合-agent-loop">第四步：闭合 Agent Loop</a><a href="#第五步用假模型测试控制流">第五步：用假模型测试控制流</a><a href="#从原型到可用还缺什么">从原型到可用，还缺什么</a><a href="#最小产品的正确验收">最小产品的正确验收</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

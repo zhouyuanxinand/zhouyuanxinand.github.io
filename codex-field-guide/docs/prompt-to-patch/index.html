@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>从 Prompt 到 Patch · Codex Field Guide</title>
+<meta name="description" content="用一个小型 bug 修复贯穿任务理解、仓库探索、上下文构建、工具调用、补丁应用与验证。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a class="active" href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>机制</span></div>
+  <div class="eyebrow">02 · GUIDED TRACE</div>
+  <h1>从 Prompt 到 Patch</h1>
+  <p class="desc">用一个小型 bug 修复贯穿任务理解、仓库探索、上下文构建、工具调用、补丁应用与验证。</p>
+  <div class="meta"><span class="chip-meta">18 分钟</span><span class="chip-meta">入门</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能把一次看似连续的 Agent 工作拆成可观察、可验证的阶段。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="一条看似简单的请求">一条看似简单的请求</h2>
+<p>假设用户说：</p>
+<blockquote>
+<p>修复下载命令在服务器返回 429 时立即失败的问题，遵循仓库现有重试模式，并补测试。</p>
+</blockquote>
+<p>这句话没有给出文件路径、框架或测试命令。可信的 Agent 不应直接猜代码，而要逐步降低不确定性。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>Prompt-to-Patch 决策漏斗</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：Prompt-to-Patch 决策漏斗">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart TD
+P[&quot;自然语言目标&quot;] --&gt; I[&quot;加载指令&lt;br/&gt;AGENTS.md / config&quot;]
+I --&gt; X[&quot;探索仓库&lt;br/&gt;rg / read / git&quot;]
+X --&gt; H[&quot;形成局部假设&lt;br/&gt;重试入口 + 现有模式&quot;]
+H --&gt; C[&quot;读取最小必要上下文&quot;]
+C --&gt; D{&quot;证据足够？&quot;}
+D -- 否 --&gt; X
+D -- 是 --&gt; A[&quot;生成结构化 Patch&quot;]
+A --&gt; T[&quot;运行目标测试&quot;]
+T --&gt; R{&quot;通过？&quot;}
+R -- 否 --&gt; X
+R -- 是 --&gt; V[&quot;检查 diff 与更宽验证&quot;]
+V --&gt; F[&quot;报告结果与边界&quot;]
+</pre></div><figcaption>每个动作都应该减少一个关键不确定性，直到修改范围和验证方法足够清楚。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<h2 id="阶段一把目标变成约束">阶段一：把“目标”变成约束</h2>
+<p>Agent 首先应抽取：</p>
+<ul>
+<li>行为：429 不应立即失败；</li>
+<li>一致性：复用仓库已有重试模式；</li>
+<li>修改边界：下载命令及其测试；</li>
+<li>完成标准：新增回归测试，并通过相关检查；</li>
+<li>未知项：代码位置、重试策略、测试框架。</li>
+</ul>
+<p>这不是隐藏的“神奇规划器”必然生成的一张完整计划。公开源码能确认的是：用户输入、项目指令、工具定义和历史会进入模型请求；模型随后逐步决定行动。</p>
+<aside class="callout callout-limit"><span class="callout-symbol" aria-hidden="true">×</span><div><strong>不要把推理过程神化</strong><p>官方仓库展示了请求、工具和事件的编排，但不公开托管模型的内部推理。我们只能根据协议与可观察输出解释系统行为。</p></div></aside>
+<h2 id="阶段二先找地图再读细节">阶段二：先找地图，再读细节</h2>
+<p>典型探索会从低成本查询开始：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>rg -n &quot;429|retry|backoff&quot; src tests</span></span>
+<span class="line"><span>rg -n &quot;download&quot; src</span></span></code></pre>
+<p>模型可能先找到一个通用 <code>retryWithBackoff</code>，再定位下载路径的错误处理。此时它应该读取相邻实现、调用者和测试，而不是把整个仓库塞进 Context。</p>
+<p><span class="evidence evidence-analysis">公开证据上的分析</span> 这是基于 Codex 工具循环的教学示例，不是官方仓库中固定的搜索策略。模型会随任务、配置和仓库内容改变具体命令。</p>
+<h2 id="阶段三请求如何被组装">阶段三：请求如何被组装</h2>
+<p>在正式采样前，<code>build_prompt</code> 把以下要素组合起来：</p>
+<ul>
+<li>当前 Context 中的输入项；</li>
+<li>模型可见的工具定义；</li>
+<li>基础指令；</li>
+<li>是否支持并行工具；</li>
+<li>可选输出 schema。</li>
+</ul>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">turn.rs</span><code>codex-rs/core/src/session/turn.rs:1143-1158</code><b>build_prompt</b><p>Prompt 在这里表现为结构化请求，不只是拼接的一大段字符串。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/session/turn.rs#L1143-L1158" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/session/turn.rs">↗</a></aside>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>模型需要足够信息做下一步，但无限加载仓库既昂贵又会稀释重点。</p></div><div><span>02</span><b>如何工作</b><p>先用搜索定位，再读取相关片段；每次工具结果进入历史，动态补足证据。</p></div><div><span>03</span><b>为何这样设计</b><p>按需检索比一次性注入更适合不断变化的本地仓库。</p></div><div><span>04</span><b>源码落点</b><p>ContextManager 维护历史；build_prompt 取面向模型的历史和工具规格。</p></div><div><span>05</span><b>取舍与失败</b><p>搜索词错误会遗漏关键代码；上下文压缩也可能损失细节，需要重新读取。</p></div></div>
+<h2 id="阶段四从工具调用到真实补丁">阶段四：从工具调用到真实补丁</h2>
+<p>模型不会直接写磁盘。它输出一个符合工具 schema 的调用，Runtime 经过 router 和 registry 选择 <code>apply_patch</code> handler。Handler 解析 patch、校验路径与上下文，再执行文件修改。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>从模型输出到磁盘修改</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：从模型输出到磁盘修改">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+sequenceDiagram
+participant M as Model
+participant S as Stream handler
+participant R as Tool router
+participant O as Orchestrator
+participant P as apply_patch
+participant F as Filesystem
+M-&gt;&gt;S: function_call(apply_patch, patch)
+S-&gt;&gt;R: ToolCall
+R-&gt;&gt;O: ToolInvocation
+O-&gt;&gt;O: approval + sandbox decision
+O-&gt;&gt;P: execute
+P-&gt;&gt;P: parse + verify
+P-&gt;&gt;F: write selected files
+F--&gt;&gt;P: result
+P--&gt;&gt;M: structured tool output
+</pre></div><figcaption>Patch 是数据，Runtime 才是执行者。审批与沙箱位于模型和操作系统之间。</figcaption></figure>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">apply_patch.rs</span><code>codex-rs/core/src/tools/handlers/apply_patch.rs:331-487</code><b>ApplyPatchHandler</b><p>负责识别、解析、验证并执行 patch；语法规格由 apply_patch_spec.rs 暴露给模型。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/handlers/apply_patch.rs#L331-L487" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/handlers/apply_patch.rs">↗</a></aside>
+<p>一个教学示意 patch 可能是：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="diff"><code><span class="line"><span style="color:#B31D28;--shiki-dark:#FDAEB7">*** Update File: src/download.ts</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">@@</span></span>
+<span class="line"><span style="color:#B31D28;--shiki-dark:#FDAEB7"><span style="user-select:none">-</span>  if (!response.ok) throw new DownloadError(response.status);</span></span>
+<span class="line"><span style="color:#22863A;--shiki-dark:#85E89D"><span style="user-select:none">+</span>  if (response.status === 429) return retryWithBackoff(request, response);</span></span>
+<span class="line"><span style="color:#22863A;--shiki-dark:#85E89D"><span style="user-select:none">+</span>  if (!response.ok) throw new DownloadError(response.status);</span></span></code></pre>
+<aside class="callout callout-note"><span class="callout-symbol" aria-hidden="true">i</span><div><strong>上面是示意代码</strong><p>它只展示 Patch 的角色，不来自 Codex 官方仓库，也不是可复制的重试实现。真实修改必须先确认函数签名、幂等性、次数上限和测试约定。</p></div></aside>
+<h2 id="阶段五验证不是最后补一句">阶段五：验证不是最后补一句</h2>
+<p>合理的验证顺序由窄到宽：</p>
+<ol>
+<li>运行新增或最相关测试；</li>
+<li>失败则读取完整错误并修正；</li>
+<li>运行所属模块测试；</li>
+<li>视风险运行 lint、类型检查或完整构建；</li>
+<li>检查 <code>git diff</code>，确认没有意外改动。</li>
+</ol>
+<p>每一步仍是 Agent Loop，而不是独立的“测试阶段”。测试失败会作为新的观察送回模型。</p>
+<h2 id="阶段六报告已证实与未证实">阶段六：报告已证实与未证实</h2>
+<p>最终消息至少回答：</p>
+<ul>
+<li>改了哪些文件和行为；</li>
+<li>运行了哪些验证，结果如何；</li>
+<li>哪些环境没有运行；</li>
+<li>是否存在待用户决定的取舍。</li>
+</ul>
+<aside class="callout callout-tip"><span class="callout-symbol" aria-hidden="true">+</span><div><strong>好的最终消息像验收单</strong><p>“已修复”不够。给出文件、行为变化、验证命令和剩余边界，用户才能低成本复核。</p></div></aside>
+<p>接下来深入这条链里最容易被低估的部分：<a href="../context-engine/">Context 引擎</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/agent-loop/">← Agent Loop</a><a class="next" href="/codex-field-guide/docs/context-engine/">Context 引擎 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#一条看似简单的请求">一条看似简单的请求</a><a href="#阶段一把目标变成约束">阶段一：把“目标”变成约束</a><a href="#阶段二先找地图再读细节">阶段二：先找地图，再读细节</a><a href="#阶段三请求如何被组装">阶段三：请求如何被组装</a><a href="#阶段四从工具调用到真实补丁">阶段四：从工具调用到真实补丁</a><a href="#阶段五验证不是最后补一句">阶段五：验证不是最后补一句</a><a href="#阶段六报告已证实与未证实">阶段六：报告已证实与未证实</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

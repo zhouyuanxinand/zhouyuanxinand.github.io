@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>设计哲学与取舍 · Codex Field Guide</title>
+<meta name="description" content="Codex 的独特性不在单个工具，而在一组互相制约的选择：本地行动、结构化工具、事件协议、渐进上下文与可见控制。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a class="active" href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>源码深潜</span></div>
+  <div class="eyebrow">10 · ENGINEERING JUDGMENT</div>
+  <h1>设计哲学与取舍</h1>
+  <p class="desc">Codex 的独特性不在单个工具，而在一组互相制约的选择：本地行动、结构化工具、事件协议、渐进上下文与可见控制。</p>
+  <div class="meta"><span class="chip-meta">18 分钟</span><span class="chip-meta">进阶</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能评价 Codex 架构的优势、代价、限制与适用场景，而不是只列功能。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="设计不是功能清单">设计不是功能清单</h2>
+<p>从公开实现看，Codex 的核心选择可以概括为：</p>
+<blockquote>
+<p>让模型负责不确定的下一步决策，让本地 runtime 负责确定性的状态、工具、安全和观察。</p>
+</blockquote>
+<p>这条边界贯穿 Context、Tool、Session 和 Event。它带来能力，也带来复杂度。</p>
+<h2 id="选择一推理与行动分离">选择一：推理与行动分离</h2>
+<p>模型产生结构化 ToolCall，Rust runtime 执行。好处是：</p>
+<ul>
+<li>可以校验参数；</li>
+<li>可以统一插入审批与沙箱；</li>
+<li>可以记录开始、输出和结束；</li>
+<li>可以替换界面而复用核心。</li>
+</ul>
+<p>代价是每种能力都需要 schema、handler、错误模型和事件设计。模型也可能选错工具或构造无效参数。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">router.rs</span><code>codex-rs/core/src/tools/router.rs:180-259</code><b>ToolRouter::dispatch</b></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/router.rs#L180-L259" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/router.rs">↗</a></aside>
+<h2 id="选择二用事件连接核心与界面">选择二：用事件连接核心与界面</h2>
+<p>Event 让 TUI、exec 和 App Server 观察同一过程，而不必窥探 Session 内部。流式命令输出和审批尤其受益。</p>
+<p>代价是协议演进需要兼容；消费者必须正确处理顺序、增量、取消与遗漏。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">protocol.rs</span><code>codex-rs/protocol/src/protocol.rs:1261-1432</code><b>Event / EventMsg</b></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/protocol/src/protocol.rs#L1261-L1432" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/protocol/src/protocol.rs">↗</a></aside>
+<h2 id="选择三context-渐进构建">选择三：Context 渐进构建</h2>
+<p>Codex 不预先索引并注入整个仓库，而是利用 Shell、文件读取等工具按需探索，再把观察放回历史。</p>
+<p>优势：</p>
+<ul>
+<li>适用于任意仓库与工具链；</li>
+<li>信息来自当前磁盘，减少陈旧索引；</li>
+<li>能围绕任务逐步收窄。</li>
+</ul>
+<p>限制：</p>
+<ul>
+<li>搜索策略取决于模型；</li>
+<li>大仓库中可能耗时或遗漏；</li>
+<li>工具输出噪声会挤占窗口；</li>
+<li>compaction 会有损。</li>
+</ul>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">history.rs</span><code>codex-rs/core/src/context_manager/history.rs:62-218</code><b>ContextManager</b></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/context_manager/history.rs#L62-L218" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/context_manager/history.rs">↗</a></aside>
+<h2 id="选择四shell-作为通用适配层">选择四：Shell 作为通用适配层</h2>
+<p>复用 <code>git</code>、<code>rg</code>、语言工具链和项目脚本，使 Codex 无需为每个生态重写集成。它也是 CLI Agent 能迅速覆盖真实项目的原因之一。</p>
+<p>代价是 Shell 语义广、跨平台复杂、输出不稳定，安全边界必须靠沙箱和审批补上。</p>
+<h2 id="选择五patch-作为一等修改表达">选择五：Patch 作为一等修改表达</h2>
+<p>Patch 比任意脚本更容易审查、验证上下文和生成 diff，但它不擅长所有机械变换。大规模生成、格式化或 AST 迁移仍可能通过专用命令更合适。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>Codex 的工程平衡</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：Codex 的工程平衡">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart LR
+M[&quot;模型自主性&quot;] --- C[&quot;控制与审批&quot;]
+S[&quot;Shell 通用性&quot;] --- B[&quot;Sandbox 边界&quot;]
+L[&quot;长任务能力&quot;] --- X[&quot;Context 压缩损失&quot;]
+E[&quot;事件细粒度&quot;] --- P[&quot;协议复杂度&quot;]
+A[&quot;本地环境真实性&quot;] --- R[&quot;环境差异与风险&quot;]
+</pre></div><figcaption>能力并非越大越好。每条能力都要由观察性与控制边界配平。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>既要让 Agent 处理开放式工程任务，又不能把模型当成可信操作系统用户。</p></div><div><span>02</span><b>如何工作</b><p>不确定决策与确定执行分层，每次副作用都经过协议、策略和事件边界。</p></div><div><span>03</span><b>为何这样设计</b><p>局部可验证、可取消、可观察的行动比一次性生成完整方案更稳健。</p></div><div><span>04</span><b>源码落点</b><p>run_turn + ContextManager + ToolOrchestrator + Op/Event 共同形成边界。</p></div><div><span>05</span><b>取舍与失败</b><p>系统复杂，延迟高于补全；正确性依赖仓库测试与人类验收，无法消除模型错误。</p></div></div>
+<h2 id="优势在哪些地方特别强">优势：在哪些地方特别强</h2>
+<ul>
+<li><strong>真实环境闭环</strong>：能直接消费编译器、测试和 Git 的反馈；</li>
+<li><strong>语言/框架中立</strong>：Shell 和项目脚本让它适应不同生态；</li>
+<li><strong>多表面复用</strong>：CLI、非交互与 App Server 共享核心概念；</li>
+<li><strong>控制面明确</strong>：审批、沙箱、指令和事件都有独立落点；</li>
+<li><strong>源码可审计</strong>：本地 runtime 的大量行为可从公开 Rust 代码验证。</li>
+</ul>
+<h2 id="限制不要用产品叙事掩盖">限制：不要用产品叙事掩盖</h2>
+<h3 id="模型仍会犯错">模型仍会犯错</h3>
+<p>它可能修改错误层、写出只通过窄测试的实现，或把“命令成功”误当目标完成。</p>
+<h3 id="环境不一定可复现">环境不一定可复现</h3>
+<p>缺失服务、凭据、平台差异和测试数据会让本地验证停在有限范围。</p>
+<h3 id="长任务会漂移">长任务会漂移</h3>
+<p>历史不断增长，压缩会损失细节；早期目标可能被后续错误带偏。</p>
+<h3 id="安全是系统属性">安全是系统属性</h3>
+<p>审批、沙箱、凭据管理、依赖安全和代码审查必须共同工作。任何一个“安全模式”都不是万能开关。</p>
+<h3 id="公开源码有边界">公开源码有边界</h3>
+<p>模型训练、托管推理基础设施、云任务调度等不在本仓库中。本文不会从客户端类型名推测未公开内部实现。</p>
+<aside class="callout callout-limit"><span class="callout-symbol" aria-hidden="true">×</span><div><strong>适合的默认授权单位是“可回滚的小任务”</strong><p>目标越小、验证越清楚、环境越隔离，Agent 的收益越稳定。模糊的大型重构应先拆决策，再逐段执行。</p></div></aside>
+<h2 id="适用性判断">适用性判断</h2>
+<p>把任务放进四象限：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>易验证</th>
+<th>难验证</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>可回滚</td>
+<td>最适合自主执行</td>
+<td>先澄清验收，保持小步</td>
+</tr>
+<tr>
+<td>不可回滚</td>
+<td>执行前人工确认</td>
+<td>不应交给通用 Agent 自主完成</td>
+</tr>
+</tbody>
+</table>
+<p>下一章用同一组架构轴比较 <a href="../comparisons/">Claude Code、Aider、Cursor Agent 与 Agents SDK</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/source-map/">← 源码模块地图</a><a class="next" href="/codex-field-guide/docs/comparisons/">方案对比 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#设计不是功能清单">设计不是功能清单</a><a href="#选择一推理与行动分离">选择一：推理与行动分离</a><a href="#选择二用事件连接核心与界面">选择二：用事件连接核心与界面</a><a href="#选择三context-渐进构建">选择三：Context 渐进构建</a><a href="#选择四shell-作为通用适配层">选择四：Shell 作为通用适配层</a><a href="#选择五patch-作为一等修改表达">选择五：Patch 作为一等修改表达</a><a href="#优势在哪些地方特别强">优势：在哪些地方特别强</a><a href="#限制不要用产品叙事掩盖">限制：不要用产品叙事掩盖</a><a href="#适用性判断">适用性判断</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

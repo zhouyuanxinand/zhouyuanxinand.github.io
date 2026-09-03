@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGENTS.md 与配置 · Codex Field Guide</title>
+<meta name="description" content="把构建命令、目录边界和团队规则放进 Agent 的执行现场；理解发现顺序、覆盖关系与“指令不是权限”的边界。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a class="active" href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>安全边界</span></div>
+  <div class="eyebrow">08 · REPOSITORY CONTROL</div>
+  <h1>AGENTS.md 与配置</h1>
+  <p class="desc">把构建命令、目录边界和团队规则放进 Agent 的执行现场；理解发现顺序、覆盖关系与“指令不是权限”的边界。</p>
+  <div class="meta"><span class="chip-meta">18 分钟</span><span class="chip-meta">进阶</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能为仓库编写有效 AGENTS.md，并正确区分指令优先级、运行配置与沙箱强制。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="为什么仓库需要给-agent-的说明书">为什么仓库需要“给 Agent 的说明书”</h2>
+<p>新人会从 README、脚本和 CI 猜出项目约定；Agent 也面临同样问题，但时间更短、操作更快。<code>AGENTS.md</code> 把最关键的执行知识放到约定入口：</p>
+<ul>
+<li>安装、测试、构建命令；</li>
+<li>哪些目录可改、哪些是生成物；</li>
+<li>代码风格和测试要求；</li>
+<li>仓库特有的风险与验收标准；</li>
+<li>子目录中的例外。</li>
+</ul>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>通用模型不知道每个仓库的真实命令、边界和团队习惯。</p></div><div><span>02</span><b>如何工作</b><p>从全局与项目目录逐层发现指令文件，把适用内容加入 Context。</p></div><div><span>03</span><b>为何这样设计</b><p>规则与代码同库版本化，比依赖聊天中的临时提醒更可维护。</p></div><div><span>04</span><b>源码落点</b><p>agents_md.rs 寻找候选文件并沿项目根到 cwd 合并。</p></div><div><span>05</span><b>取舍与失败</b><p>指令是模型输入，不是 OS 强制；矛盾、冗长或过时规则会降低可靠性。</p></div></div>
+<h2 id="发现与覆盖顺序">发现与覆盖顺序</h2>
+<p>官方文档描述的核心顺序是：</p>
+<ol>
+<li>先读取 Codex home 中的全局指令，优先 override，找不到再用 base；</li>
+<li>从项目根目录走到当前工作目录；</li>
+<li>每个目录最多取一个候选指令文件；</li>
+<li>越接近当前目录的内容越靠后，因此能覆盖更宽泛规则；</li>
+<li>总大小受配置上限约束，官方默认值为 32 KiB。</li>
+</ol>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>AGENTS.md 指令层级</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：AGENTS.md 指令层级">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart TB
+G[&quot;~/.codex/AGENTS.override.md&lt;br/&gt;或 ~/.codex/AGENTS.md&quot;] --&gt; R[&quot;repo/AGENTS.md&quot;]
+R --&gt; P[&quot;repo/packages/AGENTS.md&quot;]
+P --&gt; C[&quot;repo/packages/api/AGENTS.override.md&quot;]
+C --&gt; U[&quot;当前用户请求&quot;]
+U --&gt; X[&quot;本轮 Context&quot;]
+</pre></div><figcaption>后加载的、更具体目录规则具有更高实际影响；用户当前请求仍是本次任务的直接目标。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<p><span class="evidence evidence-docs">官方文档</span> 完整规则见官方 <a href="https://learn.chatgpt.com/docs/agent-configuration/agents-md">AGENTS.md 指南</a>。</p>
+<p>公开实现与文档对应：它解析项目根，向下走到 cwd，并从 override、默认文件和配置的 fallback 列表中选择候选。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">agents_md.rs</span><code>codex-rs/core/src/agents_md.rs:51-247</code><b>load_project_instructions</b><p>包含读取、项目根遍历和候选文件选择逻辑。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/agents_md.rs#L51-L247" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/agents_md.rs">↗</a></aside>
+<h2 id="一份有效的-agentsmd">一份有效的 AGENTS.md</h2>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="md"><code><span class="line"><span style="color:#005CC5;--shiki-light-font-weight:bold;--shiki-dark:#79B8FF;--shiki-dark-font-weight:bold"># Repository instructions</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">-</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> Package manager: pnpm. Do not create npm or yarn lockfiles.</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">-</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> Before editing, run </span><span style="color:#005CC5;--shiki-dark:#79B8FF">`git status --short`</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> and preserve unrelated changes.</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">-</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> Source lives in </span><span style="color:#005CC5;--shiki-dark:#79B8FF">`packages/core/src`</span><span style="color:#24292E;--shiki-dark:#E1E4E8">; </span><span style="color:#005CC5;--shiki-dark:#79B8FF">`dist/`</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> is generated and must not be edited.</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">-</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> For core changes, run </span><span style="color:#005CC5;--shiki-dark:#79B8FF">`pnpm --filter @acme/core test`</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> and </span><span style="color:#005CC5;--shiki-dark:#79B8FF">`pnpm typecheck`</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">-</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> Database migrations require explicit user approval.</span></span>
+<span class="line"><span style="color:#E36209;--shiki-dark:#FFAB70">-</span><span style="color:#24292E;--shiki-dark:#E1E4E8"> Keep public API changes backward compatible; document unavoidable breaks.</span></span></code></pre>
+<p>它有效，是因为每条都能改变行动选择或验收方式。相比之下，“写优雅代码”“多思考”几乎不可验证。</p>
+<aside class="callout callout-tip"><span class="callout-symbol" aria-hidden="true">+</span><div><strong>写命令、边界和验收，不写口号</strong><p>Agent 最需要的是项目无法从语言常识推断出的事实，以及犯错成本高的约束。</p></div></aside>
+<h2 id="指令优先级不是简单文件排序">指令优先级不是简单文件排序</h2>
+<p>需要区分三类东西：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>例子</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>产品/系统指令</td>
+<td>安全与工具使用规则</td>
+<td>定义 Agent 的最高层行为边界</td>
+</tr>
+<tr>
+<td>用户与仓库指令</td>
+<td>当前任务、AGENTS.md</td>
+<td>指导如何完成具体工作</td>
+</tr>
+<tr>
+<td>强制策略</td>
+<td>sandbox、OS 权限</td>
+<td>决定动作技术上能否发生</td>
+</tr>
+</tbody>
+</table>
+<p>如果 <code>AGENTS.md</code> 写“可以访问任意密钥”，它不会自动突破沙箱。反过来，即使沙箱允许写入，指令仍可能要求不要修改某目录——这是行为约束而不是技术隔离。</p>
+<h2 id="configuration运行时选择">Configuration：运行时选择</h2>
+<p>Codex 的配置覆盖模型、审批、沙箱、工具、MCP、特性与界面等。公开源码通过 <code>ConfigBuilder</code> 和 config loader 解析多层来源。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">mod.rs</span><code>codex-rs/core/src/config/mod.rs:1266-1800</code><b>ConfigBuilder</b><p>把配置层解析成运行时使用的 Config；底层加载位于 codex-rs/config。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/config/mod.rs#L1266-L1800" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/config/mod.rs">↗</a></aside>
+<p>官方配置参考是变化最快的权威入口：<a href="https://learn.chatgpt.com/docs/config-file/config-reference">Configuration reference</a>。</p>
+<h3 id="教学示意">教学示意</h3>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="toml"><code><span class="line"><span style="color:#6A737D;--shiki-dark:#6A737D"># ~/.codex/config.toml</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">approval_policy = </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;on-request&quot;</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">sandbox_mode = </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;workspace-write&quot;</span></span>
+<span class="line"></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">[</span><span style="color:#6F42C1;--shiki-dark:#B392F0">projects</span><span style="color:#24292E;--shiki-dark:#E1E4E8">.</span><span style="color:#6F42C1;--shiki-dark:#B392F0">&quot;/path/to/repo&quot;</span><span style="color:#24292E;--shiki-dark:#E1E4E8">]</span></span>
+<span class="line"><span style="color:#24292E;--shiki-dark:#E1E4E8">trust_level = </span><span style="color:#032F62;--shiki-dark:#9ECBFF">&quot;trusted&quot;</span></span></code></pre>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>配置键会演进</strong><p>上面只用于说明职责分离。实际使用前请以当前 Codex 版本和官方参考为准，避免复制旧博客中的键名。</p></div></aside>
+<h2 id="常见失败">常见失败</h2>
+<ul>
+<li><strong>规则过长</strong>：真正关键命令被背景描述淹没；</li>
+<li><strong>规则冲突</strong>：根目录要求 A，子目录又模糊要求 B；</li>
+<li><strong>命令失真</strong>：CI 已迁移，AGENTS.md 仍写旧脚本；</li>
+<li><strong>把秘密写进去</strong>：指令会进入模型上下文，不应存凭据；</li>
+<li><strong>用指令代替权限</strong>：仅写“不要访问网络”不能取代网络沙箱；</li>
+<li><strong>覆盖范围误判</strong>：在错误 cwd 启动，导致预期子目录规则未加载。</li>
+</ul>
+<h2 id="维护方法">维护方法</h2>
+<p>把 AGENTS.md 当成可测试的运行手册：</p>
+<ol>
+<li>新人或 Agent 是否能按它完成安装和目标测试；</li>
+<li>CI 命令变化时同步更新；</li>
+<li>子目录只写差异，不重复整份根规则；</li>
+<li>定期删除失效背景；</li>
+<li>把不可违反的边界落实到权限、lint 或 CI。</li>
+</ol>
+<p>准备好这些概念后，可以正式进入 <a href="../source-map/">源码模块地图</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/sandbox-approvals/">← Sandbox 与 Approval</a><a class="next" href="/codex-field-guide/docs/source-map/">源码模块地图 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#为什么仓库需要给-agent-的说明书">为什么仓库需要“给 Agent 的说明书”</a><a href="#发现与覆盖顺序">发现与覆盖顺序</a><a href="#一份有效的-agentsmd">一份有效的 AGENTS.md</a><a href="#指令优先级不是简单文件排序">指令优先级不是简单文件排序</a><a href="#configuration运行时选择">Configuration：运行时选择</a><a href="#常见失败">常见失败</a><a href="#维护方法">维护方法</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

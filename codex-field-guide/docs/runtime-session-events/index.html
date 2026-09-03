@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Runtime 与 Session · Codex Field Guide</title>
+<meta name="description" content="从 CLI 到 Thread、Session、Turn、Step，再到 Op 与 Event：理解 Codex 如何承载一个可恢复、可观察的执行过程。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a class="active" href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>运行时</span></div>
+  <div class="eyebrow">05 · RUNTIME MODEL</div>
+  <h1>Runtime 与 Session</h1>
+  <p class="desc">从 CLI 到 Thread、Session、Turn、Step，再到 Op 与 Event：理解 Codex 如何承载一个可恢复、可观察的执行过程。</p>
+  <div class="meta"><span class="chip-meta">20 分钟</span><span class="chip-meta">源码</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能区分用户提交、运行状态与输出事件，并用公开源码术语描述一次 Codex 会话。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="为什么需要一套运行时对象">为什么需要一套运行时对象</h2>
+<p>如果 Codex 只调用一次模型，一个 <code>request → response</code> 就够了。但真实任务包含流式输出、工具子进程、审批等待、取消、恢复、压缩和多种界面。它需要一套稳定协议把“请求怎么进来”和“过程怎么出去”分开。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>概念层级：从界面到一次模型采样</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：概念层级：从界面到一次模型采样">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart TB
+UI[&quot;CLI / TUI / App Server / SDK&quot;] --&gt; TH[&quot;CodexThread&lt;br/&gt;外部控制句柄&quot;]
+TH --&gt; SE[&quot;Session&lt;br/&gt;长期状态与提交循环&quot;]
+SE --&gt; TU[&quot;Turn&lt;br/&gt;一次用户任务&quot;]
+TU --&gt; ST1[&quot;Sampling step&quot;]
+TU --&gt; ST2[&quot;Tool step&quot;]
+TU --&gt; ST3[&quot;Follow-up sampling&quot;]
+OP[&quot;Op&lt;br/&gt;提交 / 批准 / 取消 / 配置&quot;] --&gt; TH
+TH --&gt; EV[&quot;Event stream&lt;br/&gt;消息 / exec / patch / completion&quot;]
+EV --&gt; UI
+</pre></div><figcaption>这些术语服务于不同时间尺度。界面可以变化，Op/Event 协议和核心执行仍可复用。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<h2 id="thread面向调用者的句柄">Thread：面向调用者的句柄</h2>
+<p><code>CodexThread</code> 是调用方控制会话的主要通道。它可以提交 <code>Op</code>，也可以等待下一个 <code>Event</code>。这使 TUI、App Server 或其他宿主不必直接持有核心 Session 内部状态。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">codex_thread.rs</span><code>codex-rs/core/src/codex_thread.rs:182-450</code><b>CodexThread</b><p>submit 把 Op 送入会话；next_event 从事件通道读取输出。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/codex_thread.rs#L182-L450" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/codex_thread.rs">↗</a></aside>
+<h2 id="session长生命周期的状态容器">Session：长生命周期的状态容器</h2>
+<p>Session 创建时会解析配置、建立 Context、连接模型客户端和服务，并启动 <code>submission_loop</code>。它可以连续接受用户输入、审批响应、取消、压缩等操作。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">mod.rs</span><code>codex-rs/core/src/session/mod.rs:680-805</code><b>Session::spawn / submission_loop</b><p>Session::spawn 返回会话状态与通道，并启动持续消费 Op 的循环。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/session/mod.rs#L680-L805" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/session/mod.rs">↗</a></aside>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>长任务需要同时接受控制输入并持续产生异步状态，不能堵在一次函数返回上。</p></div><div><span>02</span><b>如何工作</b><p>输入使用 Op 通道，输出使用 Event 通道；Session 持有跨 Turn 的上下文与服务。</p></div><div><span>03</span><b>为何这样设计</b><p>协议与界面解耦后，TUI、无头 exec 和 App Server 可共享核心。</p></div><div><span>04</span><b>源码落点</b><p>CodexThread 包装输入/输出通道；Session::spawn 启动 submission_loop。</p></div><div><span>05</span><b>取舍与失败</b><p>事件消费者必须处理顺序、重复、取消和版本演进；内部状态并非都能从单个事件推断。</p></div></div>
+<h2 id="op外部对运行时说的话">Op：外部对运行时说的话</h2>
+<p>协议中的 <code>Op</code> 是带 id 的操作。代表性类别包括：</p>
+<ul>
+<li>用户输入；</li>
+<li>Shell、Patch 等批准或拒绝；</li>
+<li>中断、关闭、压缩；</li>
+<li>对某些运行配置或交互的响应。</li>
+</ul>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">protocol.rs</span><code>codex-rs/protocol/src/protocol.rs:522-679</code><b>Op</b><p>公开枚举给出了 runtime 可接受的控制操作。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/protocol/src/protocol.rs#L522-L679" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/protocol/src/protocol.rs">↗</a></aside>
+<h2 id="event运行时对外说的话">Event：运行时对外说的话</h2>
+<p><code>Event</code> 也带有 id，主体 <code>EventMsg</code> 覆盖：</p>
+<ul>
+<li>Turn 开始与完成；</li>
+<li>用户/Agent 消息；</li>
+<li>命令执行的开始、增量输出与结束；</li>
+<li>Patch 应用；</li>
+<li>审批请求；</li>
+<li>MCP 工具；</li>
+<li>错误、警告、token 使用等。</li>
+</ul>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">protocol.rs</span><code>codex-rs/protocol/src/protocol.rs:1261-1432</code><b>Event / EventMsg</b><p>事件枚举是 CLI、TUI、App Server 与核心之间最重要的可观察边界之一。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/protocol/src/protocol.rs#L1261-L1432" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/protocol/src/protocol.rs">↗</a></aside>
+<aside class="callout callout-note"><span class="callout-symbol" aria-hidden="true">i</span><div><strong>“事件驱动”不等于“完整 Event Sourcing”</strong><p>源码明确提供事件流和 rollout 持久化，但不能据此断言整个系统所有状态都由事件重建。这里把它称为事件协议，而不是未经证实的完整 Event Sourcing 架构。</p></div></aside>
+<h2 id="turn-与-step">Turn 与 Step</h2>
+<p><strong>Turn</strong> 是一次用户任务的业务边界。它可能包含多个执行步骤：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>Turn</span></span>
+<span class="line"><span>├─ 模型采样：决定搜索</span></span>
+<span class="line"><span>├─ 工具执行：rg</span></span>
+<span class="line"><span>├─ 模型采样：决定读文件</span></span>
+<span class="line"><span>├─ 工具执行：read</span></span>
+<span class="line"><span>├─ 模型采样：产生 patch</span></span>
+<span class="line"><span>├─ 工具执行：apply_patch</span></span>
+<span class="line"><span>├─ 工具执行：test</span></span>
+<span class="line"><span>└─ 模型采样：最终总结</span></span></code></pre>
+<p>“Step”适合作为教学概念描述循环中的一次采样或动作；具体内部类型会随版本变化，读源码时应以冻结 commit 为准。</p>
+<h2 id="rollout可追溯的会话轨迹">Rollout：可追溯的会话轨迹</h2>
+<p>仓库包含 rollout 相关模块，用于记录会话轨迹和元数据。它支撑恢复、调试或产品体验，但并不意味着每个运行模式都有完全相同的持久化保证。</p>
+<p><span class="evidence evidence-source">源码可证实</span> <code>codex-rs/core/src/rollout/</code> 和协议层的 rollout 类型可在本次冻结快照中确认。</p>
+<h2 id="一个界面如何消费事件">一个界面如何消费事件</h2>
+<p>以命令执行为例，界面不必等命令结束才更新：</p>
+<ol>
+<li>收到执行开始，创建一条命令卡片；</li>
+<li>收到 stdout 增量，追加显示；</li>
+<li>收到审批请求，展示决策控件；</li>
+<li>收到执行完成，标记退出码；</li>
+<li>收到 Turn 完成，收束整段任务。</li>
+</ol>
+<p>这正是为什么协议需要细粒度 Event，而不是最后只返回一大段文本。</p>
+<h2 id="运行时边界的价值">运行时边界的价值</h2>
+<table>
+<thead>
+<tr>
+<th>关注点</th>
+<th>放在哪里</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型决策</td>
+<td>sampling request / response</td>
+</tr>
+<tr>
+<td>长期上下文</td>
+<td>Session / ContextManager</td>
+</tr>
+<tr>
+<td>外部控制</td>
+<td>Op</td>
+</tr>
+<tr>
+<td>可观察过程</td>
+<td>Event</td>
+</tr>
+<tr>
+<td>真实副作用</td>
+<td>Tool handler + sandbox</td>
+</tr>
+<tr>
+<td>交互呈现</td>
+<td>CLI / TUI / App Server 客户端</td>
+</tr>
+</tbody>
+</table>
+<p>下一章沿着真实函数名，把这张对象地图串成 <a href="../end-to-end/">端到端调用链</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/tools-shell-patch/">← Tool、Shell 与 Patch</a><a class="next" href="/codex-field-guide/docs/end-to-end/">端到端调用链 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#为什么需要一套运行时对象">为什么需要一套运行时对象</a><a href="#thread面向调用者的句柄">Thread：面向调用者的句柄</a><a href="#session长生命周期的状态容器">Session：长生命周期的状态容器</a><a href="#op外部对运行时说的话">Op：外部对运行时说的话</a><a href="#event运行时对外说的话">Event：运行时对外说的话</a><a href="#turn-与-step">Turn 与 Step</a><a href="#rollout可追溯的会话轨迹">Rollout：可追溯的会话轨迹</a><a href="#一个界面如何消费事件">一个界面如何消费事件</a><a href="#运行时边界的价值">运行时边界的价值</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

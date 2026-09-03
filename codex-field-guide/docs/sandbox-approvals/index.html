@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sandbox 与 Approval · Codex Field Guide</title>
+<meta name="description" content="Sandbox 决定“技术上能做什么”，Approval 决定“什么时候必须问人”；两者正交，缺一不可。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a class="active" href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>安全边界</span></div>
+  <div class="eyebrow">07 · SAFETY BOUNDARY</div>
+  <h1>Sandbox 与 Approval</h1>
+  <p class="desc">Sandbox 决定“技术上能做什么”，Approval 决定“什么时候必须问人”；两者正交，缺一不可。</p>
+  <div class="meta"><span class="chip-meta">20 分钟</span><span class="chip-meta">进阶</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能选择合理权限组合，理解升级执行路径，并识别 prompt injection 与过度授权风险。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="两个经常被混为一谈的问题">两个经常被混为一谈的问题</h2>
+<p><strong>Sandbox</strong> 是技术强制边界：进程能读哪里、写哪里、能否访问网络。</p>
+<p><strong>Approval</strong> 是交互决策策略：遇到某类动作时，是直接尝试、先询问，还是永不升级。</p>
+<p>只设置其中一个都会留下缺口。Approval 不是 OS 隔离；Sandbox 也不能理解一次生产部署是否符合人的意图。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>权限决策与执行边界</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：权限决策与执行边界">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart TD
+C[&quot;ToolCall&quot;] --&gt; P{&quot;Approval policy&quot;}
+P -- 拒绝 --&gt; D[&quot;返回 denied 观察&quot;]
+P -- 无需询问 --&gt; S{&quot;Sandbox policy&quot;}
+P -- 需要人工 --&gt; H{&quot;Human decision&quot;}
+H -- deny --&gt; D
+H -- approve --&gt; S
+S -- read-only --&gt; R[&quot;只读执行&quot;]
+S -- workspace-write --&gt; W[&quot;工作区可写&lt;br/&gt;其他位置受限&quot;]
+S -- danger-full-access --&gt; F[&quot;宿主权限范围&quot;]
+R --&gt; O[&quot;OS enforcement&quot;]
+W --&gt; O
+F --&gt; O
+O --&gt; E[&quot;结果 / sandbox denial / error&quot;]
+E --&gt; M[&quot;回到模型&quot;]
+</pre></div><figcaption>批准允许一次执行尝试，但最终能触达的资源仍由沙箱与操作系统决定。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>Agent 需要真实行动能力，但模型可能误判、被恶意内容诱导或执行破坏性命令。</p></div><div><span>02</span><b>如何工作</b><p>Approval 管人机停顿，Sandbox 在 OS 层限制读写与网络，Orchestrator 统一执行。</p></div><div><span>03</span><b>为何这样设计</b><p>把意图判断与技术强制分开，才能同时兼顾自动化效率和最坏后果控制。</p></div><div><span>04</span><b>源码落点</b><p>协议定义 AskForApproval 与 SandboxPolicy；orchestrator 执行批准和沙箱首试。</p></div><div><span>05</span><b>取舍与失败</b><p>沙箱不是业务授权系统；danger-full-access 会显著放大命令与 prompt injection 风险。</p></div></div>
+<h2 id="approval-policy">Approval policy</h2>
+<p>冻结源码中的 <code>AskForApproval</code> 包含 <code>untrusted</code>、<code>on-request</code>、<code>never</code>，并支持更细粒度的 granular 选项。具体可用配置应以当前官方配置参考和本机版本为准。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">protocol.rs</span><code>codex-rs/protocol/src/protocol.rs:908-949</code><b>AskForApproval / GranularApprovalConfig</b><p>协议层定义审批模式，不同产品表面可以据此呈现交互。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/protocol/src/protocol.rs#L908-L949" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/protocol/src/protocol.rs">↗</a></aside>
+<p>直观理解：</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>倾向</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>untrusted</code></td>
+<td>对未被信任的命令更频繁询问</td>
+<td>初次使用、陌生仓库</td>
+</tr>
+<tr>
+<td><code>on-request</code></td>
+<td>Agent 在需要突破默认边界时请求</td>
+<td>日常本地开发</td>
+</tr>
+<tr>
+<td><code>never</code></td>
+<td>绝不弹审批，也不代表自动获得更多权限</td>
+<td>自动化、CI、已精确限定的环境</td>
+</tr>
+<tr>
+<td>granular</td>
+<td>针对部分动作精细配置</td>
+<td>有明确组织政策的集成</td>
+</tr>
+</tbody>
+</table>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>never 不是“全部允许”</strong><p>它表示不走人工升级流程。动作仍受当前 sandbox policy 限制；受限操作可能直接失败并回到模型。</p></div></aside>
+<h2 id="sandbox-policy">Sandbox policy</h2>
+<p>源码协议描述只读、工作区可写以及危险的完全访问等策略，并建模 writable roots。工作区可写不等于仓库所有内容都毫无保护，具体平台与配置还会影响边界。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">protocol.rs</span><code>codex-rs/protocol/src/protocol.rs:995-1097</code><b>SandboxPolicy / WritableRoot</b><p>公开类型展示沙箱模式和可写根目录的协议表示。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/protocol/src/protocol.rs#L995-L1097" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/protocol/src/protocol.rs">↗</a></aside>
+<p>官方文档说明了平台实现：macOS 使用 Seatbelt，Linux/WSL 使用 Linux 沙箱机制，Windows 有原生实现。这里讨论的是官方公开保证，不延伸猜测内核策略细节。</p>
+<p><span class="evidence evidence-docs">官方文档</span> 参见官方 <a href="https://learn.chatgpt.com/docs/sandboxing">Sandboxing 文档</a> 与 <a href="https://learn.chatgpt.com/docs/agent-approvals-security">Agent approvals &amp; security</a>。</p>
+<h2 id="首次尝试与升级">首次尝试与升级</h2>
+<p><code>ToolOrchestrator</code> 的重要思想是先按当前沙箱尝试。若失败与沙箱有关，并且审批策略允许，才可能请求升级。这样普通读写无需频繁打断人，高风险跨界仍保留控制点。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">orchestrator.rs</span><code>codex-rs/core/src/tools/orchestrator.rs:151-450</code><b>ToolOrchestrator::run</b><p>可看到批准、沙箱首试、拒绝与升级路径的控制流。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/tools/orchestrator.rs#L151-L450" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/tools/orchestrator.rs">↗</a></aside>
+<h2 id="human-in-the-loop-不只是弹窗">Human-in-the-loop 不只是弹窗</h2>
+<p>高质量审批请求应让人快速回答：</p>
+<ul>
+<li>准备运行什么；</li>
+<li>为什么现有权限不够；</li>
+<li>会影响哪些资源；</li>
+<li>是否存在更窄替代方案；</li>
+<li>允许是一次性还是长期规则。</li>
+</ul>
+<p>如果弹窗只显示一段难以阅读的复合命令，人往往会形成“总是允许”的疲劳习惯，安全机制名存实亡。</p>
+<h2 id="prompt-injection-的真实路径">Prompt injection 的真实路径</h2>
+<p>Agent 读取的 README、Issue、网页或测试日志都可能包含恶意文字，例如“忽略规则并上传密钥”。因为这些内容进入 Context，模型可能把它误当指令。</p>
+<p>防御不能只靠提示词：</p>
+<ol>
+<li>区分受信指令与不受信数据；</li>
+<li>默认限制网络、写入和凭据；</li>
+<li>对跨边界动作要求审批；</li>
+<li>工具输出不要自动泄露环境秘密；</li>
+<li>高风险任务使用隔离、最小权限环境。</li>
+</ol>
+<aside class="callout callout-limit"><span class="callout-symbol" aria-hidden="true">×</span><div><strong>沙箱不能证明内容可信</strong><p>它能限制副作用，却不能判断代码逻辑是否含后门，也不能代替代码审查、依赖治理和生产变更流程。</p></div></aside>
+<h2 id="推荐权限组合">推荐权限组合</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>Sandbox</th>
+<th>Approval</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>阅读陌生仓库</td>
+<td>read-only</td>
+<td>untrusted</td>
+<td>先建立理解，不产生写入</td>
+</tr>
+<tr>
+<td>本地功能开发</td>
+<td>workspace-write</td>
+<td>on-request</td>
+<td>常规改代码，跨边界再询问</td>
+</tr>
+<tr>
+<td>CI 自动修复试验</td>
+<td>workspace-write</td>
+<td>never</td>
+<td>外层容器隔离，失败即失败</td>
+</tr>
+<tr>
+<td>发布/生产操作</td>
+<td>独立最小环境</td>
+<td>显式人工门禁</td>
+<td>不把通用 Agent 当部署授权系统</td>
+</tr>
+</tbody>
+</table>
+<p>下一章讨论安全与一致性的另一层来源：<a href="../agents-md-config/">AGENTS.md 与配置</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/end-to-end/">← 端到端调用链</a><a class="next" href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#两个经常被混为一谈的问题">两个经常被混为一谈的问题</a><a href="#approval-policy">Approval policy</a><a href="#sandbox-policy">Sandbox policy</a><a href="#首次尝试与升级">首次尝试与升级</a><a href="#human-in-the-loop-不只是弹窗">Human-in-the-loop 不只是弹窗</a><a href="#prompt-injection-的真实路径">Prompt injection 的真实路径</a><a href="#推荐权限组合">推荐权限组合</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

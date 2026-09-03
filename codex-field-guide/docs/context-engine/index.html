@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Context 引擎 · Codex Field Guide</title>
+<meta name="description" content="Context 不是“把仓库全塞给模型”，而是一段被持续选择、追加、规范化、截断和压缩的工作记忆。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a class="active" href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>机制</span></div>
+  <div class="eyebrow">03 · WORKING MEMORY</div>
+  <h1>Context 引擎</h1>
+  <p class="desc">Context 不是“把仓库全塞给模型”，而是一段被持续选择、追加、规范化、截断和压缩的工作记忆。</p>
+  <div class="meta"><span class="chip-meta">18 分钟</span><span class="chip-meta">进阶</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能解释 Codex 每次采样看见什么、为什么会遗忘，以及如何为 Agent 提供高质量上下文。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="context-是一次采样的世界">Context 是一次采样的世界</h2>
+<p>模型不知道你的磁盘、终端或上一秒发生了什么。一次采样中没有被放进请求的信息，对模型来说就不存在。</p>
+<p>Codex 的 Context 可以理解为六层：</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>一次模型请求的 Context 构成</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：一次模型请求的 Context 构成">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart TB
+B[&quot;Base instructions&lt;br/&gt;产品与模型基础指令&quot;]
+D[&quot;Developer / repository instructions&lt;br/&gt;AGENTS.md 等&quot;]
+U[&quot;User input&lt;br/&gt;目标与补充&quot;]
+E[&quot;Environment context&lt;br/&gt;cwd / shell / permissions&quot;]
+H[&quot;History&lt;br/&gt;消息 / 工具调用 / 工具结果&quot;]
+S[&quot;Tool specs&lt;br/&gt;可调用能力与参数&quot;]
+B --&gt; P[&quot;Sampling request&quot;]
+D --&gt; P
+U --&gt; P
+E --&gt; P
+H --&gt; P
+S --&gt; P
+P --&gt; M[&quot;Model&quot;]
+</pre></div><figcaption>仓库本身不直接进入模型；它通过指令、用户输入和工具观察逐步投影进 Context。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<p>这里的“历史”不是简单字符串。协议层用不同 item 表示用户消息、assistant 消息、工具调用和工具结果；<code>ContextManager</code> 负责记录，并在请求前生成适合模型的视图。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">history.rs</span><code>codex-rs/core/src/context_manager/history.rs:62-218</code><b>ContextManager</b><p>提供 append、for_prompt、token 估算与回滚等上下文生命周期能力。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/context_manager/history.rs#L62-L218" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/context_manager/history.rs">↗</a></aside>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>仓库和长任务远大于模型上下文窗口，同时下一步只需要其中一小部分。</p></div><div><span>02</span><b>如何工作</b><p>以工具按需读取，把结果追加到历史；超长时规范化、截断或压缩。</p></div><div><span>03</span><b>为何这样设计</b><p>动态工作记忆能保留行动因果，也避免每次重发全部仓库。</p></div><div><span>04</span><b>源码落点</b><p>ContextManager 管历史；compact 模块把旧轨迹转换成更短摘要。</p></div><div><span>05</span><b>取舍与失败</b><p>压缩是有损的，错误输出会占用预算，重要细节可能需要重新读取。</p></div></div>
+<h2 id="静态输入与动态观察">静态输入与动态观察</h2>
+<h3 id="静态输入">静态输入</h3>
+<p>在一个 Turn 开始时，Runtime 会捕获本轮设置，例如模型、审批策略、沙箱、工作目录与项目指令。这给一轮执行提供相对稳定的边界。</p>
+<h3 id="动态观察">动态观察</h3>
+<p>搜索结果、文件内容、命令输出、测试失败、审批结果会随着循环追加。它们是模型认识真实环境的主要方式。</p>
+<aside class="callout callout-note"><span class="callout-symbol" aria-hidden="true">i</span><div><strong>Context 不是索引</strong><p>Codex 可以用搜索工具定位仓库内容，但公开 runtime 并不意味着有一个永远完整、自动更新的“全仓库知识库”。它依赖当前工具和模型选择来取得证据。</p></div></aside>
+<h2 id="为什么要规范化">为什么要规范化</h2>
+<p>真实工具输出可能很脏：上万行日志、二进制字符、重复状态、半完成的 tool call。直接累计会造成三类问题：</p>
+<ul>
+<li>超过模型窗口；</li>
+<li>重要信息被噪声淹没；</li>
+<li>请求结构不符合模型协议。</li>
+</ul>
+<p>因此 Context 管理不只是 token 计数，还要保持调用与结果的配对、删减不适合请求的 item，并在必要时回滚或压缩。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">history.rs</span><code>codex-rs/core/src/context_manager/history.rs:123-208</code><b>record_items / for_prompt</b><p>记录路径与面向模型的历史视图是分离的。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/context_manager/history.rs#L123-L208" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/context_manager/history.rs">↗</a></aside>
+<h2 id="compaction把轨迹变成新的起点">Compaction：把轨迹变成新的起点</h2>
+<p>当上下文接近上限，Codex 可以压缩已有对话。概念上，它把：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>几十轮搜索 + 文件片段 + 测试输出 + 中间讨论</span></span></code></pre>
+<p>折叠成：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>当前目标、已确认事实、已修改内容、验证状态、未解决问题</span></span></code></pre>
+<p>然后以这份摘要继续执行。公开源码中，压缩既有核心实现，也有对应 Task 类型。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">compact.rs</span><code>codex-rs/core/src/compact.rs</code><b>compact</b><p>实现对历史的压缩处理；任务封装位于 core/src/tasks/compact.rs。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/compact.rs" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/compact.rs">↗</a></aside>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>压缩不是无损序列化</strong><p>摘要可能丢掉某个边缘约束、精确错误文本或早期文件细节。长任务中，Agent 应在关键动作前重新读取权威文件，而不是只信摘要。</p></div></aside>
+<h2 id="prompt-cache-与稳定前缀">Prompt cache 与稳定前缀</h2>
+<p>模型 API 往往能复用稳定请求前缀。把基础指令、工具规格等相对稳定内容放在前部，有利于缓存；频繁变化的工具结果和用户补充放在后部。</p>
+<p>这是理解工程取舍的好例子：Context 排列既影响模型理解，也影响延迟与成本。具体服务端缓存细节不在本仓库公开范围内，本教材只讨论可观察的请求组织。</p>
+<h2 id="给-agent-上下文的实用原则">给 Agent 上下文的实用原则</h2>
+<h3 id="指令要可执行">指令要可执行</h3>
+<p>“保持高质量”不如“修改后运行 <code>pnpm test --filter core</code>，不得改生成文件”。</p>
+<h3 id="先给目标与验收再给背景">先给目标与验收，再给背景</h3>
+<p>Agent 需要知道怎样算完成。背景资料应服务于决策，而不是堆满窗口。</p>
+<h3 id="让权威信息落在仓库">让权威信息落在仓库</h3>
+<p>把长期有效的构建命令、目录边界和代码规范写进 <code>AGENTS.md</code> 或项目文档；临时偏好留在当前请求。</p>
+<h3 id="输出要主动限宽">输出要主动限宽</h3>
+<p>先 <code>rg</code> 再 <code>sed</code>，先目标测试再全量日志。工具的边界感直接决定 Context 质量。</p>
+<h2 id="失败模式">失败模式</h2>
+<table>
+<thead>
+<tr>
+<th>失败</th>
+<th>表现</th>
+<th>恢复</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检索偏航</td>
+<td>一直在错误目录搜索</td>
+<td>回到入口、测试和调用者交叉验证</td>
+</tr>
+<tr>
+<td>日志淹没</td>
+<td>模型忽略前面的关键约束</td>
+<td>收窄命令、摘要错误、重新读取规则</td>
+</tr>
+<tr>
+<td>陈旧观察</td>
+<td>文件已改但仍引用旧片段</td>
+<td>修改后重新读取或查看 diff</td>
+</tr>
+<tr>
+<td>压缩丢失</td>
+<td>忘记早期限制</td>
+<td>在行动前重载 AGENTS.md/关键文件</td>
+</tr>
+<tr>
+<td>隐含背景</td>
+<td>业务约束只在人脑里</td>
+<td>明确补充或暂停决策</td>
+</tr>
+</tbody>
+</table>
+<p>下一章看这些观察是如何通过 <a href="../tools-shell-patch/">Tool、Shell 与 Patch</a> 安全地作用于环境。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/prompt-to-patch/">← 从 Prompt 到 Patch</a><a class="next" href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#context-是一次采样的世界">Context 是一次采样的世界</a><a href="#静态输入与动态观察">静态输入与动态观察</a><a href="#为什么要规范化">为什么要规范化</a><a href="#compaction把轨迹变成新的起点">Compaction：把轨迹变成新的起点</a><a href="#prompt-cache-与稳定前缀">Prompt cache 与稳定前缀</a><a href="#给-agent-上下文的实用原则">给 Agent 上下文的实用原则</a><a href="#失败模式">失败模式</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

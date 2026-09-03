@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Loop · Codex Field Guide</title>
+<meta name="description" content="模型为什么会连续搜索、修改、测试？答案不是魔法，而是一个把模型输出和工具结果反复连接的状态循环。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a class="active" href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>起点</span></div>
+  <div class="eyebrow">01 · CORE MECHANISM</div>
+  <h1>Agent Loop</h1>
+  <p class="desc">模型为什么会连续搜索、修改、测试？答案不是魔法，而是一个把模型输出和工具结果反复连接的状态循环。</p>
+  <div class="meta"><span class="chip-meta">16 分钟</span><span class="chip-meta">入门</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能逐步解释一次 Agent Turn，识别继续、停止、失败和人工介入四种路径。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="从一次回答到多步执行">从“一次回答”到“多步执行”</h2>
+<p>语言模型本身只完成一次输入到输出的映射。Agent 能连续工作，是因为宿主程序把输出分类：</p>
+<ul>
+<li>如果输出是普通消息，视为本轮的候选终点；</li>
+<li>如果输出是工具调用，执行工具，把结果追加到历史，再次请求模型；</li>
+<li>如果执行触发审批，暂停并等待人的决定；</li>
+<li>如果被取消、达到限制或遇到不可恢复错误，终止本轮。</li>
+</ul>
+<p>这个宿主程序就是 Agent Loop 的真正执行者。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>Codex Agent Loop</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：Codex Agent Loop">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+stateDiagram-v2
+[*] --&gt; Assemble: 收集输入与上下文
+Assemble --&gt; Sample: 请求模型
+Sample --&gt; Final: assistant 消息
+Sample --&gt; Authorize: tool call
+Authorize --&gt; Execute: 允许或无需批准
+Authorize --&gt; Waiting: 需要人工批准
+Waiting --&gt; Execute: approve
+Waiting --&gt; Observe: deny
+Execute --&gt; Observe: stdout / diff / error
+Observe --&gt; Sample: 仍需后续推理
+Final --&gt; Verify: 结果陈述
+Verify --&gt; [*]
+</pre></div><figcaption>模型不直接接触文件系统。Runtime 把结构化调用路由到工具，再把观察结果送回模型。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>软件任务需要根据每一步真实结果动态调整，预先生成完整脚本往往不可靠。</p></div><div><span>02</span><b>如何工作</b><p>Runtime 反复执行采样；工具结果作为新观察追加到对话历史。</p></div><div><span>03</span><b>为何这样设计</b><p>模型擅长基于当前证据选择下一步，操作系统擅长确定性执行，两者各司其职。</p></div><div><span>04</span><b>源码落点</b><p>run_turn 管循环；handle_output_item_done 识别工具调用；工具 future 完成后形成下一轮输入。</p></div><div><span>05</span><b>取舍与失败</b><p>循环可能兜圈、消耗上下文或错误提前结束，因此需要预算、取消、压缩和验证。</p></div></div>
+<h2 id="一次-turn-内到底发生什么">一次 Turn 内到底发生什么</h2>
+<p>在 Codex 的术语里，用户提交一次任务后，会产生一个 Turn。一个 Turn 可以包含多次模型采样和多次工具执行。</p>
+<ol>
+<li><code>run_turn</code> 捕获本轮配置与运行环境；</li>
+<li>构建模型请求：输入历史、指令、工具 schema、模型参数；</li>
+<li>流式读取模型响应；</li>
+<li>对每个完成的输出 item 分类；</li>
+<li>工具调用被派发并异步执行；</li>
+<li>工具结果记录回 Context；</li>
+<li>若 <code>needs_follow_up</code> 为真，继续采样；</li>
+<li>无工具调用且拿到最终消息后，完成 Turn。</li>
+</ol>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">turn.rs</span><code>codex-rs/core/src/session/turn.rs:151-340</code><b>run_turn</b><p>这里是从本轮上下文捕获到连续采样的核心控制流。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/session/turn.rs#L151-L340" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/session/turn.rs">↗</a></aside>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">stream_events_utils.rs</span><code>codex-rs/core/src/stream_events_utils.rs:287-388</code><b>handle_output_item_done</b><p>函数把模型输出转换成消息记录或待执行的 ToolCall，并标记是否需要后续采样。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/stream_events_utils.rs#L287-L388" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/stream_events_utils.rs">↗</a></aside>
+<h2 id="动手观察一个缩小版循环">动手观察一个缩小版循环</h2>
+<p>下面不是连接真实仓库的 Agent，而是把一次“修复重试 bug”的典型事件按顺序回放。注意每一步都消费前一步的证据。</p>
+<section class="loop-demo" data-loop-demo data-steps="[{&quot;id&quot;:&quot;01&quot;,&quot;actor&quot;:&quot;USER&quot;,&quot;title&quot;:&quot;提交任务&quot;,&quot;event&quot;:&quot;Op::UserInput&quot;,&quot;detail&quot;:&quot;“修复登录失败，并运行相关测试。”&quot;,&quot;state&quot;:&quot;目标进入 Submission 队列；尚未执行任何代码。&quot;,&quot;log&quot;:&quot;$ codex\n> 修复登录失败，并运行相关测试&quot;},{&quot;id&quot;:&quot;02&quot;,&quot;actor&quot;:&quot;RUNTIME&quot;,&quot;title&quot;:&quot;捕获执行现场&quot;,&quot;event&quot;:&quot;capture_step_context&quot;,&quot;detail&quot;:&quot;冻结 cwd、模型、权限、环境、工具集合与当前历史。&quot;,&quot;state&quot;:&quot;同一次采样看到的 Context、Tool specs 与权限状态一致。&quot;,&quot;log&quot;:&quot;context  cwd=/workspace  policy=workspace-write\ninstructions  AGENTS.md · 2 files&quot;},{&quot;id&quot;:&quot;03&quot;,&quot;actor&quot;:&quot;MODEL&quot;,&quot;title&quot;:&quot;提出探索动作&quot;,&quot;event&quot;:&quot;function_call · exec_command&quot;,&quot;detail&quot;:&quot;模型先搜索登录入口、测试与最近改动。&quot;,&quot;state&quot;:&quot;模型只提出结构化调用；Runtime 决定能否执行。&quot;,&quot;log&quot;:&quot;→ exec_command {\&quot;cmd\&quot;:\&quot;rg -n \\\&quot;login|session\\\&quot; src tests\&quot;}&quot;},{&quot;id&quot;:&quot;04&quot;,&quot;actor&quot;:&quot;POLICY&quot;,&quot;title&quot;:&quot;审批与 Sandbox&quot;,&quot;event&quot;:&quot;ToolOrchestrator::run&quot;,&quot;detail&quot;:&quot;计算 approval requirement，并选择平台 Sandbox。&quot;,&quot;state&quot;:&quot;命令在 workspace-write 边界内，无需额外询问。&quot;,&quot;log&quot;:&quot;policy  allowed by sandbox\nsandbox macOS Seatbelt · network=off&quot;},{&quot;id&quot;:&quot;05&quot;,&quot;actor&quot;:&quot;TOOL&quot;,&quot;title&quot;:&quot;执行并回填结果&quot;,&quot;event&quot;:&quot;FunctionCallOutput&quot;,&quot;detail&quot;:&quot;stdout、stderr、退出码被截断和结构化，再写回会话历史。&quot;,&quot;state&quot;:&quot;模型获得证据，决定读取 auth/session.ts。&quot;,&quot;log&quot;:&quot;src/auth/session.ts:84: if (token.expiresAt < Date.now())\nexit 0 · 1 match&quot;},{&quot;id&quot;:&quot;06&quot;,&quot;actor&quot;:&quot;MODEL&quot;,&quot;title&quot;:&quot;生成最小补丁&quot;,&quot;event&quot;:&quot;apply_patch&quot;,&quot;detail&quot;:&quot;补丁被语法解析、路径校验，并作为独立工具执行。&quot;,&quot;state&quot;:&quot;TurnDiffTracker 记录本轮文件变化。&quot;,&quot;log&quot;:&quot;→ apply_patch\n- if (token.expiresAt < Date.now())\n+ if (token.expiresAt <= Date.now())&quot;},{&quot;id&quot;:&quot;07&quot;,&quot;actor&quot;:&quot;TOOL&quot;,&quot;title&quot;:&quot;验证行为&quot;,&quot;event&quot;:&quot;exec_command · test&quot;,&quot;detail&quot;:&quot;模型主动运行聚焦测试，并读取真实退出状态。&quot;,&quot;state&quot;:&quot;测试通过不是“感觉正确”，而是新的工具证据。&quot;,&quot;log&quot;:&quot;✓ session expiry boundary (12 ms)\nTests  8 passed · exit 0&quot;},{&quot;id&quot;:&quot;08&quot;,&quot;actor&quot;:&quot;RUNTIME&quot;,&quot;title&quot;:&quot;完成 Turn&quot;,&quot;event&quot;:&quot;EventMsg::TurnComplete&quot;,&quot;detail&quot;:&quot;最终消息、Token 使用量与 diff 通过事件交给界面。&quot;,&quot;state&quot;:&quot;文件系统已变更；用户可审查 diff、继续追问或回滚。&quot;,&quot;log&quot;:&quot;Done. Fixed the expiry boundary and ran the focused suite.\n1 file changed · 8 tests passed&quot;}]"><header><div><span>INTERACTIVE TRACE · SIMULATION</span><h3>一次修复任务，运行时里发生了什么？</h3></div><div class="demo-actions"><button type="button" data-demo-reset>重置</button><button type="button" class="primary" data-demo-play>自动播放</button><button type="button" class="primary" data-demo-next>下一步 →</button></div></header><div class="demo-grid"><ol class="demo-steps"><li class="active" data-step="0"><span>01</span><div><small>USER</small><b>提交任务</b></div></li><li data-step="1"><span>02</span><div><small>RUNTIME</small><b>捕获执行现场</b></div></li><li data-step="2"><span>03</span><div><small>MODEL</small><b>提出探索动作</b></div></li><li data-step="3"><span>04</span><div><small>POLICY</small><b>审批与 Sandbox</b></div></li><li data-step="4"><span>05</span><div><small>TOOL</small><b>执行并回填结果</b></div></li><li data-step="5"><span>06</span><div><small>MODEL</small><b>生成最小补丁</b></div></li><li data-step="6"><span>07</span><div><small>TOOL</small><b>验证行为</b></div></li><li data-step="7"><span>08</span><div><small>RUNTIME</small><b>完成 Turn</b></div></li></ol><div class="demo-stage"><div class="demo-event"><span id="demo-actor">USER</span><code id="demo-event">Op::UserInput</code></div><h4 id="demo-title">提交任务</h4><p id="demo-detail">“修复登录失败，并运行相关测试。”</p><div class="demo-state"><span>RUNTIME STATE</span><p id="demo-state">目标进入 Submission 队列；尚未执行任何代码。</p></div><div class="demo-terminal"><div><i></i><i></i><i></i><span>trace.log</span></div><pre id="demo-log">$ codex
+&gt; 修复登录失败，并运行相关测试</pre></div></div></div><footer><span>这是教学模拟，不是 Codex TUI 录屏。</span><span id="demo-counter">01 / 08</span></footer></section><script>
+  document.querySelectorAll('[data-loop-demo]:not([data-bound])').forEach((demo) => {
+    demo.dataset.bound = 'true';
+    const steps = JSON.parse(demo.dataset.steps || '[]');
+    let index = 0;
+    let timer;
+    const list = [...demo.querySelectorAll('[data-step]')];
+    const $ = (selector) => demo.querySelector(selector);
+    const render = (next) => {
+      index = Math.max(0, Math.min(steps.length - 1, next));
+      const step = steps[index];
+      list.forEach((item, itemIndex) => {
+        item.classList.toggle('active', itemIndex === index);
+        item.classList.toggle('done', itemIndex < index);
+      });
+      $('#demo-actor').textContent = step.actor;
+      $('#demo-event').textContent = step.event;
+      $('#demo-title').textContent = step.title;
+      $('#demo-detail').textContent = step.detail;
+      $('#demo-state').textContent = step.state;
+      $('#demo-log').textContent = step.log;
+      $('#demo-counter').textContent = `${String(index + 1).padStart(2, '0')} / ${String(steps.length).padStart(2, '0')}`;
+    };
+    const stop = () => {
+      if (timer) clearInterval(timer);
+      timer = undefined;
+      const play = $('[data-demo-play]');
+      if (play) play.textContent = '自动播放';
+    };
+    $('[data-demo-next]')?.addEventListener('click', () => {
+      stop();
+      render(index === steps.length - 1 ? 0 : index + 1);
+    });
+    $('[data-demo-reset]')?.addEventListener('click', () => { stop(); render(0); });
+    $('[data-demo-play]')?.addEventListener('click', (event) => {
+      if (timer) return stop();
+      event.currentTarget.textContent = '暂停';
+      if (index === steps.length - 1) render(0);
+      timer = setInterval(() => {
+        if (index === steps.length - 1) return stop();
+        render(index + 1);
+      }, 1350);
+    });
+    list.forEach((item, itemIndex) => item.addEventListener('click', () => { stop(); render(itemIndex); }));
+  });
+</script>
+<h2 id="工具错误不是程序错误">工具错误不是程序错误</h2>
+<p>对传统程序来说，命令返回非零通常意味着失败退出；对 Agent 来说，它还可能是<strong>有价值的观察</strong>。</p>
+<p>例如 <code>rg</code> 没找到目标、测试暴露另一个断言、Patch 因上下文不匹配而失败。Runtime 应把这些信息以结构化、长度受控的方式交还模型，让它决定换关键词、重新读文件或调整 patch。</p>
+<aside class="callout callout-tip"><span class="callout-symbol" aria-hidden="true">+</span><div><strong>把错误设计成可行动的观察</strong><p>好的工具结果不仅说“失败”，还包含退出码、标准错误、被截断信息和建议的恢复路径。</p></div></aside>
+<h2 id="何时停止">何时停止</h2>
+<p>停止条件不是单一的：</p>
+<table>
+<thead>
+<tr>
+<th>条件</th>
+<th>谁决定</th>
+<th>结果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型输出最终消息</td>
+<td>模型 + Runtime</td>
+<td>正常结束 Turn</td>
+</tr>
+<tr>
+<td>用户取消</td>
+<td>人</td>
+<td>中断当前任务</td>
+</tr>
+<tr>
+<td>审批拒绝</td>
+<td>人</td>
+<td>结果回到模型，可能改走安全路径</td>
+</tr>
+<tr>
+<td>上下文接近限制</td>
+<td>Runtime</td>
+<td>压缩历史后继续，或停止</td>
+</tr>
+<tr>
+<td>连接/模型临时错误</td>
+<td>Runtime</td>
+<td>有限重试</td>
+</tr>
+<tr>
+<td>不可恢复错误</td>
+<td>Runtime</td>
+<td>发出错误事件并结束</td>
+</tr>
+</tbody>
+</table>
+<p>源码中的网络采样路径包含重试处理；工具路径则由 router、registry 和 orchestrator 统一包装错误与事件。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">turn.rs</span><code>codex-rs/core/src/session/turn.rs:1171-1268</code><b>run_sampling_request</b><p>模型请求的流式消费与有限重试边界。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/core/src/session/turn.rs#L1171-L1268" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/core/src/session/turn.rs">↗</a></aside>
+<h2 id="并行工具不等于并行思考">并行工具不等于并行思考</h2>
+<p>Codex 可以把一组满足条件的工具调用并行调度，但下一次模型采样仍基于它们已返回的结果。并行主要减少独立读取或查询的等待时间，并不会消除共享状态冲突。</p>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>写操作需要更谨慎</strong><p>两个并行读取通常安全；两个同时修改同一文件则可能相互覆盖。并行能力必须服从工具语义，而不是只追求吞吐。</p></div></aside>
+<h2 id="一个判断口诀">一个判断口诀</h2>
+<p>看到任何 Agent 行为时，依次问：</p>
+<ol>
+<li>它现在看到了什么？</li>
+<li>模型选择了什么动作？</li>
+<li>谁真正执行这个动作？</li>
+<li>执行结果如何回到上下文？</li>
+<li>什么证据允许它结束？</li>
+</ol>
+<p>下一章把这个循环放进一个具体修改，追踪 <a href="../prompt-to-patch/">从 Prompt 到 Patch</a> 的全过程。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/what-is-codex/">← Codex 是什么</a><a class="next" href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#从一次回答到多步执行">从“一次回答”到“多步执行”</a><a href="#一次-turn-内到底发生什么">一次 Turn 内到底发生什么</a><a href="#动手观察一个缩小版循环">动手观察一个缩小版循环</a><a href="#工具错误不是程序错误">工具错误不是程序错误</a><a href="#何时停止">何时停止</a><a href="#并行工具不等于并行思考">并行工具不等于并行思考</a><a href="#一个判断口诀">一个判断口诀</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

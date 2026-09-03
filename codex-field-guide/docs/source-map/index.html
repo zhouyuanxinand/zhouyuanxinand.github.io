@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>源码模块地图 · Codex Field Guide</title>
+<meta name="description" content="官方仓库是大型 Rust workspace。本章按职责而非文件数量建立地图，并给出一条高收益阅读顺序。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a class="active" href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc">
+<header class="doc-head">
+  <div class="crumb"><a href="/codex-field-guide/">教材</a><span>/</span><span>源码深潜</span></div>
+  <div class="eyebrow">09 · CODEBASE MAP</div>
+  <h1>源码模块地图</h1>
+  <p class="desc">官方仓库是大型 Rust workspace。本章按职责而非文件数量建立地图，并给出一条高收益阅读顺序。</p>
+  <div class="meta"><span class="chip-meta">22 分钟</span><span class="chip-meta">源码</span><span class="chip-meta">源码快照 61a44880</span></div>
+  <div class="outcome"><span>学完这一章</span><p>能在 openai/codex 中快速定位 CLI、协议、核心循环、工具、执行与沙箱相关代码。</p></div>
+</header>
+<div class="doc-body">
+<h2 id="仓库不是一个-cli-文件">仓库不是一个 CLI 文件</h2>
+<p>在本教材冻结的 commit 上，主实现位于 <code>codex-rs/</code> Rust workspace。它把交互面、核心运行时、协议、执行工具与平台安全拆成多个 crate。阅读时最危险的做法是从目录名逐个扫描；更有效的是沿一次任务的数据流建立地图。</p>
+<figure class="diagram" data-diagram><header><div><span>DIAGRAM</span><b>Codex Rust workspace 职责地图</b></div><button type="button" class="diagram-zoom" aria-label="放大图表：Codex Rust workspace 职责地图">放大 ↗</button></header><div class="diagram-canvas"><pre class="mermaid">
+flowchart TB
+subgraph Surfaces[&quot;交互表面&quot;]
+  CLI[&quot;cli&lt;br/&gt;参数与子命令&quot;]
+  TUI[&quot;tui&lt;br/&gt;终端 UI&quot;]
+  EX[&quot;exec&lt;br/&gt;非交互执行&quot;]
+  AS[&quot;app-server&lt;br/&gt;产品集成协议&quot;]
+end
+subgraph Runtime[&quot;核心运行时&quot;]
+  CORE[&quot;core&lt;br/&gt;Session / Turn / Context / Tools&quot;]
+  PROTO[&quot;protocol&lt;br/&gt;Op / Event / wire types&quot;]
+  CONFIG[&quot;config&lt;br/&gt;配置加载与约束&quot;]
+end
+subgraph Action[&quot;执行与边界&quot;]
+  TOOLS[&quot;core/tools&lt;br/&gt;router / registry / handlers&quot;]
+  EXEC[&quot;exec / exec-server&lt;br/&gt;进程执行&quot;]
+  SANDBOX[&quot;linux-sandbox / seatbelt&lt;br/&gt;平台隔离&quot;]
+end
+CLI --&gt; TUI
+CLI --&gt; EX
+TUI --&gt; CORE
+EX --&gt; CORE
+AS --&gt; CORE
+CORE &lt;--&gt; PROTO
+CORE --&gt; CONFIG
+CORE --&gt; TOOLS
+TOOLS --&gt; EXEC
+EXEC --&gt; SANDBOX
+</pre></div><figcaption>箭头表示主要依赖/调用方向的教学简化，不代表 Cargo 依赖图的每一条边。</figcaption></figure><script type="module" src="/codex-field-guide/_astro/Mermaid.astro_astro_type_script_index_0_lang.Bi72njis.js"></script>
+<div class="five-questions"><div><span>01</span><b>解决什么</b><p>大型 workspace 中，同一个概念会跨入口、协议、核心和平台实现，单文件阅读容易误判。</p></div><div><span>02</span><b>如何工作</b><p>按职责分层，再沿用户输入到 Event 的链路逐层阅读。</p></div><div><span>03</span><b>为何这样设计</b><p>交互、协议、决策和副作用分开后，既能复用核心也便于测试边界。</p></div><div><span>04</span><b>源码落点</b><p>cli/tui/exec/app-server → core → protocol/tools → exec/sandbox。</p></div><div><span>05</span><b>取舍与失败</b><p>目录和类型会随版本调整；本地图只对冻结 commit 可追溯，不替代 Cargo 图。</p></div></div>
+<h2 id="第一层交互表面">第一层：交互表面</h2>
+<h3 id="codex-rscli"><code>codex-rs/cli</code></h3>
+<p>参数解析与总入口。它决定运行 TUI、exec、MCP、App Server 等哪条路径。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">main.rs</span><code>codex-rs/cli/src/main.rs:958-1039</code><b>cli_main</b></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/cli/src/main.rs#L958-L1039" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/cli/src/main.rs">↗</a></aside>
+<h3 id="codex-rstui"><code>codex-rs/tui</code></h3>
+<p>交互式终端界面：输入、消息呈现、审批、diff、状态等。理解 Agent Loop 不应从这里开始，但调 UI/Event 映射要回来读它。</p>
+<h3 id="codex-rsexec"><code>codex-rs/exec</code></h3>
+<p>非交互模式，适合脚本和自动化。官方也提供 <a href="https://learn.chatgpt.com/docs/non-interactive-mode">Non-interactive mode</a> 文档。</p>
+<h3 id="codex-rsapp-server"><code>codex-rs/app-server</code></h3>
+<p>为客户端集成提供服务端协议。它不是模型服务端本身，而是把本地 Codex 能力暴露给产品表面。协议说明见官方 <a href="https://learn.chatgpt.com/docs/app-server">App Server</a>。</p>
+<h2 id="第二层核心运行时">第二层：核心运行时</h2>
+<h3 id="codex-rscore"><code>codex-rs/core</code></h3>
+<p>最值得投入阅读时间的 crate：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>core/src/</span></span>
+<span class="line"><span>├─ session/          Session、submission loop、Turn</span></span>
+<span class="line"><span>├─ tasks/            普通任务、compact 等任务封装</span></span>
+<span class="line"><span>├─ context_manager/  历史与模型上下文</span></span>
+<span class="line"><span>├─ tools/            ToolSpec、router、registry、handlers</span></span>
+<span class="line"><span>├─ config/           运行时配置模型</span></span>
+<span class="line"><span>├─ rollout/          会话轨迹</span></span>
+<span class="line"><span>├─ thread_manager.rs Thread 创建、恢复、fork</span></span>
+<span class="line"><span>├─ codex_thread.rs   对外控制句柄</span></span>
+<span class="line"><span>├─ compact.rs        上下文压缩</span></span>
+<span class="line"><span>└─ agents_md.rs      仓库指令发现</span></span></code></pre>
+<h3 id="codex-rsprotocol"><code>codex-rs/protocol</code></h3>
+<p>跨界面的共同语言。先读 <code>Op</code>、<code>Event</code>、<code>EventMsg</code>、审批和沙箱策略，再看具体消费者。</p>
+<aside class="source-ref"><div class="source-ref-label">SOURCE TRACE</div><div class="source-ref-body"><span class="source-file">protocol.rs</span><code>codex-rs/protocol/src/protocol.rs:522-679</code><b>Op</b><p>输入控制面。EventMsg 位于同一文件约 1279 行起。</p></div><a href="https://github.com/openai/codex/blob/61a44880a85d2fd0d8770908dea5733495e571c8/codex-rs/protocol/src/protocol.rs#L522-L679" target="_blank" rel="noreferrer" aria-label="在 GitHub 查看 codex-rs/protocol/src/protocol.rs">↗</a></aside>
+<h3 id="codex-rsconfig"><code>codex-rs/config</code></h3>
+<p>负责配置来源、加载和约束；core 再把结果组装为运行时 <code>Config</code>。分开后，配置发现和业务使用不必耦在一起。</p>
+<h2 id="第三层动作与隔离">第三层：动作与隔离</h2>
+<h3 id="coresrctools"><code>core/src/tools</code></h3>
+<p>它不是“一堆函数”，而是一条能力管线：</p>
+<pre class="astro-code astro-code-themes github-light github-dark" style="background-color:#fff;--shiki-dark-bg:#24292e;color:#24292e;--shiki-dark:#e1e4e8;overflow-x:auto;white-space:pre-wrap;word-wrap:break-word" tabindex="0" data-language="text"><code><span class="line"><span>spec → router → registry → orchestrator → handler → output</span></span></code></pre>
+<h3 id="codex-rsexec-1"><code>codex-rs/exec*</code></h3>
+<p>处理进程执行、I/O 与相关协议。Shell handler 最终需要这些更底层能力。</p>
+<h3 id="平台-sandbox-crates">平台 sandbox crates</h3>
+<p>仓库包含 Linux sandbox、macOS Seatbelt 相关代码及 Windows 支持路径。平台细节不同，但上层通过共同策略表达读写与网络意图。</p>
+<aside class="callout callout-note"><span class="callout-symbol" aria-hidden="true">i</span><div><strong>crate 边界不等于安全边界</strong><p>真正的强制来自操作系统沙箱与权限。Rust 模块分层提升可维护性，却不能单独阻止恶意进程。</p></div></aside>
+<h2 id="推荐阅读顺序">推荐阅读顺序</h2>
+<h3 id="45-分钟建立骨架">45 分钟：建立骨架</h3>
+<ol>
+<li>根 <code>README.md</code> 与 <code>codex-rs/README.md</code>；</li>
+<li><code>cli/src/main.rs::cli_main</code>；</li>
+<li><code>protocol/src/protocol.rs::{Op, EventMsg}</code>；</li>
+<li><code>core/src/codex_thread.rs</code>。</li>
+</ol>
+<h3 id="90-分钟追一次-turn">90 分钟：追一次 Turn</h3>
+<ol>
+<li><code>thread_manager.rs::spawn_thread</code>；</li>
+<li><code>session/mod.rs::Session::spawn</code>；</li>
+<li><code>session/turn.rs::run_turn</code>；</li>
+<li><code>stream_events_utils.rs::handle_output_item_done</code>。</li>
+</ol>
+<h3 id="90-分钟追一次工具">90 分钟：追一次工具</h3>
+<ol>
+<li><code>tools/router.rs</code>；</li>
+<li><code>tools/registry.rs</code>；</li>
+<li><code>tools/orchestrator.rs</code>；</li>
+<li><code>tools/handlers/shell.rs</code>；</li>
+<li><code>tools/handlers/apply_patch.rs</code>。</li>
+</ol>
+<h2 id="读源码时记录四种证据">读源码时记录四种证据</h2>
+<table>
+<thead>
+<tr>
+<th>证据</th>
+<th>能证明什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>类型与枚举</td>
+<td>系统公开建模了哪些状态</td>
+</tr>
+<tr>
+<td>控制流</td>
+<td>某个版本实际怎样串联</td>
+</tr>
+<tr>
+<td>测试</td>
+<td>维护者认为哪些行为必须保持</td>
+</tr>
+<tr>
+<td>文档</td>
+<td>面向用户承诺的稳定表面</td>
+</tr>
+</tbody>
+</table>
+<aside class="callout callout-warning"><span class="callout-symbol" aria-hidden="true">!</span><div><strong>名字相似不等于同一层</strong><p>产品里的“thread”、协议里的 thread id、界面上的会话可能有不同生命周期。先看类型和调用者，再建立映射。</p></div></aside>
+<p>下一章不再只问“怎么实现”，而问 Codex <a href="../design-tradeoffs/">为什么这样设计</a>。</p>
+</div>
+<nav class="prevnext"><a class="prev" href="/codex-field-guide/docs/agents-md-config/">← AGENTS.md 与配置</a><a class="next" href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍 →</a></nav>
+</main>
+<aside class="toc"><span>本章目录</span><a href="#仓库不是一个-cli-文件">仓库不是一个 CLI 文件</a><a href="#第一层交互表面">第一层：交互表面</a><a href="#第二层核心运行时">第二层：核心运行时</a><a href="#第三层动作与隔离">第三层：动作与隔离</a><a href="#推荐阅读顺序">推荐阅读顺序</a><a href="#读源码时记录四种证据">读源码时记录四种证据</a></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>

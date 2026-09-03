@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Codex 深度技术教材</title>
+<meta name="description" content="从零理解 OpenAI Codex Coding Agent：Agent Loop、Runtime、Context、Tool、安全边界与源码实现。">
+<link rel="icon" href="/codex-field-guide/assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/codex-field-guide/assets/guide.css">
+
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({ startOnLoad: true, theme: 'base', themeVariables: { background: '#0b0e13', primaryColor: '#141a24', primaryTextColor: '#e6eaf2', primaryBorderColor: '#2a3546', lineColor: '#f0a832', secondaryColor: '#10141b', tertiaryColor: '#0b0e13', fontFamily: 'inherit' } });</script>
+
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="topbar"><button class="burger" id="burger" aria-label="打开章节导航" aria-expanded="false"><span></span><span></span><span></span></button>
+<a class="brand" href="/codex-field-guide/"><span class="brand-mark"></span><span class="brand-text">Codex <b>Field Guide</b></span></a>
+<span class="edition">SOURCE EDITION · 2026.07</span>
+<button class="search-btn" id="search-btn" type="button"><span>⌕ 搜索章节与概念</span><kbd>⌘K</kbd></button>
+<a class="src-link" href="https://github.com/openai/codex" target="_blank" rel="noreferrer">源码 ↗</a></header>
+<div class="shell">
+<nav class="side" id="side-nav"><div class="side-brand"><span>CODEX FIELD GUIDE</span><strong>从概念到源码</strong></div><div class="side-group"><span class="side-gname"><i>00</i>起点</span><a href="/codex-field-guide/docs/what-is-codex/">Codex 是什么</a><a href="/codex-field-guide/docs/agent-loop/">Agent Loop</a></div><div class="side-group"><span class="side-gname"><i>01</i>机制</span><a href="/codex-field-guide/docs/prompt-to-patch/">从 Prompt 到 Patch</a><a href="/codex-field-guide/docs/context-engine/">Context 引擎</a><a href="/codex-field-guide/docs/tools-shell-patch/">Tool、Shell 与 Patch</a></div><div class="side-group"><span class="side-gname"><i>02</i>运行时</span><a href="/codex-field-guide/docs/runtime-session-events/">Runtime 与 Session</a><a href="/codex-field-guide/docs/end-to-end/">端到端调用链</a></div><div class="side-group"><span class="side-gname"><i>03</i>安全边界</span><a href="/codex-field-guide/docs/sandbox-approvals/">Sandbox 与 Approval</a><a href="/codex-field-guide/docs/agents-md-config/">AGENTS.md 与配置</a></div><div class="side-group"><span class="side-gname"><i>04</i>源码深潜</span><a href="/codex-field-guide/docs/source-map/">源码模块地图</a><a href="/codex-field-guide/docs/design-tradeoffs/">设计哲学与取舍</a><a href="/codex-field-guide/docs/comparisons/">方案对比</a></div><div class="side-group"><span class="side-gname"><i>05</i>实践</span><a href="/codex-field-guide/docs/build-minimal-agent/">实现最小 Coding Agent</a><a href="/codex-field-guide/docs/source-basis/">研究基线与边界</a></div><div class="side-foot"><span class="dot"></span><div><b>Source-locked</b><small>main @ 61a44880</small></div></div></nav>
+<main class="doc home">
+
+<section class="hero">
+  <div class="kicker">OPENAI CODEX · SOURCE-BASED COURSE</div>
+  <h1>从第一次对话，<br>一直读到 <code>run_turn</code></h1>
+  <p class="lead">一份给普通开发者的 Codex Coding Agent 深度教材。不是功能清单，也不是 README 转述；我们沿着一次真实任务的证据链，理解模型如何探索仓库、调用工具、修改代码并验证结果。</p>
+  <div class="hero-actions"><a class="btn-primary" href="/codex-field-guide/docs/what-is-codex/">开始学习 →</a><a class="btn-ghost" href="/codex-field-guide/docs/source-basis/">查看研究基线</a></div>
+  <div class="hero-proof"><div><b>14</b><small>系统章节</small></div><div><b>≈ 1 day</b><small>主线学习时间</small></div><div><b>61a44880</b><small>固定源码快照</small></div><div><b>0.145.0</b><small>最近公开稳定版</small></div></div>
+</section>
+<section class="hsec"><div class="snum">00</div><div><span class="slabel">先建立一个判断</span>
+<h2>Codex 的关键不在“更会写代码”，而在把推理接进了可验证的执行循环。</h2>
+<p>普通代码生成器把文字变成代码片段；Coding Agent 必须维护任务状态、主动补足上下文、把动作交给受控工具、观察真实结果，并在失败后继续迭代。于是工程核心从“Prompt 写得多好”变成了“Runtime 能否让每次动作可观察、可限制、可恢复”。</p></div></section>
+<figure class="diagram"><header><div><span>DIAGRAM</span><b>Codex 的公开实现边界</b></div></header>
+<div class="diagram-canvas"><pre class="mermaid">flowchart LR
+  U["开发者&lt;br/&gt;goal + constraints"] --> C["Codex Surface&lt;br/&gt;CLI · IDE · App Server"]
+  C --> R["Runtime&lt;br/&gt;Session · Turn · Event"]
+  R --> X["Context&lt;br/&gt;instructions · history · world state"]
+  X --> M["Model&lt;br/&gt;reason + tool call"]
+  M --> T{"Tool Router"}
+  T --> S["Shell / Patch"]
+  T --> E["MCP / Extensions"]
+  S --> P["Approval + Sandbox"]
+  P --> W["Workspace"]
+  W --> R
+  R --> V["tests · diff · final answer"]</pre></div>
+<figcaption>教材重建图：根据 main@61a44880 的 crate 边界与调用链整理；不是 OpenAI 官方架构图。</figcaption></figure>
+<section class="hsec"><div class="snum">01</div><div><span class="slabel">一天学习路径</span>
+<h2>先理解循环，再进入运行时；最后才读源码。</h2>
+<p>每一阶段都回答同一组问题：它解决什么、如何工作、为何这样设计、源码在哪里、会怎样失败。</p></div></section>
+<div class="path">
+
+<section class="phase"><header><span class="pnum">00</span><div><small>PHASE 01</small><h3>起点</h3></div><em>AM</em></header><div class="pcards"><a class="pcard" href="/codex-field-guide/docs/what-is-codex/"><span>Codex 是什么</span><small>边界、能力与正确心智模型</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/agent-loop/"><span>Agent Loop</span><small>模型如何从回答者变成执行者</small><b>→</b></a></div></section><section class="phase"><header><span class="pnum">01</span><div><small>PHASE 02</small><h3>机制</h3></div><em>AM</em></header><div class="pcards"><a class="pcard" href="/codex-field-guide/docs/prompt-to-patch/"><span>从 Prompt 到 Patch</span><small>一次修改任务的完整闭环</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/context-engine/"><span>Context 引擎</span><small>历史、仓库信息与压缩</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/tools-shell-patch/"><span>Tool、Shell 与 Patch</span><small>把意图变成受控动作</small><b>→</b></a></div></section><section class="phase"><header><span class="pnum">02</span><div><small>PHASE 03</small><h3>运行时</h3></div><em>PM</em></header><div class="pcards"><a class="pcard" href="/codex-field-guide/docs/runtime-session-events/"><span>Runtime 与 Session</span><small>线程、Turn、Op 与 Event</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/end-to-end/"><span>端到端调用链</span><small>从 CLI 入口追到最终事件</small><b>→</b></a></div></section><section class="phase"><header><span class="pnum">03</span><div><small>PHASE 04</small><h3>安全边界</h3></div><em>PM</em></header><div class="pcards"><a class="pcard" href="/codex-field-guide/docs/sandbox-approvals/"><span>Sandbox 与 Approval</span><small>技术边界与人工决策</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/agents-md-config/"><span>AGENTS.md 与配置</span><small>把组织规则放进执行现场</small><b>→</b></a></div></section><section class="phase"><header><span class="pnum">04</span><div><small>PHASE 05</small><h3>源码深潜</h3></div><em>EVENING</em></header><div class="pcards"><a class="pcard" href="/codex-field-guide/docs/source-map/"><span>源码模块地图</span><small>Rust workspace 的职责分层</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/design-tradeoffs/"><span>设计哲学与取舍</span><small>为何是事件、工具与本地执行</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/comparisons/"><span>方案对比</span><small>Claude Code、Aider、Cursor 与 Agents SDK</small><b>→</b></a></div></section><section class="phase"><header><span class="pnum">05</span><div><small>PHASE 06</small><h3>实践</h3></div><em>EVENING</em></header><div class="pcards"><a class="pcard" href="/codex-field-guide/docs/build-minimal-agent/"><span>实现最小 Coding Agent</span><small>约 200 行的可运行骨架</small><b>→</b></a><a class="pcard" href="/codex-field-guide/docs/source-basis/"><span>研究基线与边界</span><small>版本、证据、未确认事项</small><b>→</b></a></div></section>
+</div>
+
+<section class="hsec"><div class="snum">02</div><div><span class="slabel">阅读方法</span>
+<h2>把“模型说了什么”和“系统保证了什么”分开。</h2></div></section>
+<div class="evidence-grid">
+<article><span class="emark e-s">S</span><h3>源码可证实</h3><p>类型、函数、控制流与测试能直接支持的结论。正文给出固定 commit 的文件与行号。</p></article>
+<article><span class="emark e-d">D</span><h3>官方文档</h3><p>用户可依赖的行为与配置；文档可能先于或后于 main，因此单独标注。</p></article>
+<article><span class="emark e-a">A</span><h3>公开证据上的分析</h3><p>用于解释设计动机的工程判断。它不是 OpenAI 对内部目标的正式声明。</p></article>
+</div>
+<section class="closing"><span>READY?</span><h2>从“Agent 到底是什么”开始。</h2><p>第一章只需要普通开发经验，不要求了解模型 API、Rust 或 Agent 框架。</p><a class="btn-primary" href="/codex-field-guide/docs/what-is-codex/">进入第 1 章 →</a></section>
+
+</main>
+<aside class="rail"><div class="rail-card"><span>RESEARCH SNAPSHOT</span><dl><div><dt>Repository</dt><dd>openai/codex</dd></div><div><dt>Branch</dt><dd>main</dd></div><div><dt>Commit</dt><dd>61a44880</dd></div><div><dt>Analyzed</dt><dd>2026-07-26</dd></div></dl><a href="/codex-field-guide/docs/source-basis/">完整研究记录 →</a></div><div class="rail-note"><span>适合谁</span><p>会使用 Git、读过项目代码，但没有 Coding Agent 经验的开发者。</p></div><div class="rail-note"><span>不是什么</span><p>不是 CLI 命令手册，不覆盖未公开的服务端模型训练与内部基础设施。</p></div></aside>
+</div>
+<dialog class="search-dialog" id="search-dialog"><div class="sd-head"><span>⌕</span><input id="search-input" type="search" placeholder="输入 Agent Loop、Sandbox、run_turn…" autocomplete="off"><kbd>ESC</kbd></div><div class="sd-results" id="search-results"></div><footer><span>↑↓ 选择</span><span>↵ 打开</span></footer></dialog>
+<script>
+// 阅读进度条
+const prog = document.getElementById('progress');
+addEventListener('scroll', () => {
+  const max = document.documentElement.scrollHeight - innerHeight;
+  prog.style.width = (max > 0 ? (scrollY / max) * 100 : 0) + '%%';
+}, { passive: true });
+// 移动端侧栏
+const burger = document.getElementById('burger');
+burger.addEventListener('click', () => {
+  const nav = document.getElementById('side-nav');
+  const open = !nav.classList.contains('open');
+  nav.classList.toggle('open', open);
+  burger.setAttribute('aria-expanded', String(open));
+});
+// 代码复制按钮
+document.querySelectorAll('pre:not(.mermaid)').forEach(pre => {
+  const btn = document.createElement('button');
+  btn.className = 'copy-btn'; btn.textContent = '复制';
+  btn.addEventListener('click', () => {
+    navigator.clipboard.writeText(pre.textContent || '');
+    btn.textContent = '已复制 ✓';
+    setTimeout(() => btn.textContent = '复制', 1600);
+  });
+  pre.style.position = 'relative';
+  pre.appendChild(btn);
+});
+// 目录高亮
+const tocLinks = [...document.querySelectorAll('.toc a')];
+const heads = [...document.querySelectorAll('.doc-body h2[id]')];
+if (tocLinks.length && heads.length) {
+  const io = new IntersectionObserver(es => {
+    const vis = es.find(e => e.isIntersecting);
+    if (!vis) return;
+    tocLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + vis.target.id));
+  }, { rootMargin: '-15%% 0px -72%% 0px' });
+  heads.forEach(h => io.observe(h));
+}
+
+const SEARCH_INDEX = [{"title": "Codex 是什么", "description": "边界、能力与正确心智模型", "group": "00", "href": "/codex-field-guide/docs/what-is-codex/", "query": "codex 是什么 边界、能力与正确心智模型 00 what-is-codex"}, {"title": "Agent Loop", "description": "模型如何从回答者变成执行者", "group": "00", "href": "/codex-field-guide/docs/agent-loop/", "query": "agent loop 模型如何从回答者变成执行者 00 agent-loop"}, {"title": "从 Prompt 到 Patch", "description": "一次修改任务的完整闭环", "group": "01", "href": "/codex-field-guide/docs/prompt-to-patch/", "query": "从 prompt 到 patch 一次修改任务的完整闭环 01 prompt-to-patch"}, {"title": "Context 引擎", "description": "历史、仓库信息与压缩", "group": "01", "href": "/codex-field-guide/docs/context-engine/", "query": "context 引擎 历史、仓库信息与压缩 01 context-engine"}, {"title": "Tool、Shell 与 Patch", "description": "把意图变成受控动作", "group": "01", "href": "/codex-field-guide/docs/tools-shell-patch/", "query": "tool、shell 与 patch 把意图变成受控动作 01 tools-shell-patch"}, {"title": "Runtime 与 Session", "description": "线程、Turn、Op 与 Event", "group": "02", "href": "/codex-field-guide/docs/runtime-session-events/", "query": "runtime 与 session 线程、turn、op 与 event 02 runtime-session-events"}, {"title": "端到端调用链", "description": "从 CLI 入口追到最终事件", "group": "02", "href": "/codex-field-guide/docs/end-to-end/", "query": "端到端调用链 从 cli 入口追到最终事件 02 end-to-end"}, {"title": "Sandbox 与 Approval", "description": "技术边界与人工决策", "group": "03", "href": "/codex-field-guide/docs/sandbox-approvals/", "query": "sandbox 与 approval 技术边界与人工决策 03 sandbox-approvals"}, {"title": "AGENTS.md 与配置", "description": "把组织规则放进执行现场", "group": "03", "href": "/codex-field-guide/docs/agents-md-config/", "query": "agents.md 与配置 把组织规则放进执行现场 03 agents-md-config"}, {"title": "源码模块地图", "description": "Rust workspace 的职责分层", "group": "04", "href": "/codex-field-guide/docs/source-map/", "query": "源码模块地图 rust workspace 的职责分层 04 source-map"}, {"title": "设计哲学与取舍", "description": "为何是事件、工具与本地执行", "group": "04", "href": "/codex-field-guide/docs/design-tradeoffs/", "query": "设计哲学与取舍 为何是事件、工具与本地执行 04 design-tradeoffs"}, {"title": "方案对比", "description": "Claude Code、Aider、Cursor 与 Agents SDK", "group": "04", "href": "/codex-field-guide/docs/comparisons/", "query": "方案对比 claude code、aider、cursor 与 agents sdk 04 comparisons"}, {"title": "实现最小 Coding Agent", "description": "约 200 行的可运行骨架", "group": "05", "href": "/codex-field-guide/docs/build-minimal-agent/", "query": "实现最小 coding agent 约 200 行的可运行骨架 05 build-minimal-agent"}, {"title": "研究基线与边界", "description": "版本、证据、未确认事项", "group": "05", "href": "/codex-field-guide/docs/source-basis/", "query": "研究基线与边界 版本、证据、未确认事项 05 source-basis"}];
+const dlg = document.getElementById('search-dialog');
+const inp = document.getElementById('search-input');
+const res = document.getElementById('search-results');
+let sel = 0;
+function render(q) {
+  const n = (q || '').trim().toLowerCase();
+  const list = n ? SEARCH_INDEX.filter(i => i.query.includes(n)) : SEARCH_INDEX.slice(0, 7);
+  sel = 0;
+  res.innerHTML = list.map((i, x) => `<a href="${i.href}" class="${x === 0 ? 'sel' : ''}"><span class="ri">${String(x + 1).padStart(2, '0')}</span><span><b>${i.title}</b><small>${i.description}</small></span><em>${i.group}</em></a>`).join('');
+}
+document.getElementById('search-btn').addEventListener('click', () => { dlg.showModal(); render(inp.value); inp.focus(); });
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); dlg.showModal(); render(inp.value); inp.focus(); }
+  if (e.key === 'Escape' && dlg.open) dlg.close();
+});
+inp.addEventListener('input', () => render(inp.value));
+inp.addEventListener('keydown', e => {
+  const links = [...res.querySelectorAll('a')];
+  if (!links.length) return;
+  if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+    e.preventDefault();
+    sel = (sel + (e.key === 'ArrowDown' ? 1 : -1) + links.length) % links.length;
+    links.forEach((l, i) => l.classList.toggle('sel', i === sel));
+    links[sel].scrollIntoView({ block: 'nearest' });
+  }
+  if (e.key === 'Enter') { e.preventDefault(); links[sel].click(); }
+});
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>
