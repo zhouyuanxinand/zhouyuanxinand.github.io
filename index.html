@@ -13,258 +13,182 @@
 <meta property="og:image" content="https://zhouyuanxinand.github.io/assets/og-image.png">
 <link rel="prefetch" href="home.html">
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;1,500&family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
-/* ============ TOKENS ============ */
+/* ============ 编辑宣言风 · 米色纸面 + 大衬线 + 橙红点缀 ============ */
 :root{
-  --ink:#fafafa;
-  --muted:#a7a6a6;
-  --pill:#ffffff;
-  --pill-ink:#050505;
+  --paper:#f4efe6;
+  --ink:#17140f;
+  --muted:#6e6659;
+  --accent:#e14e1f;
+  --rule:rgba(23,20,15,0.16);
+  --serif:"Playfair Display","Noto Serif SC",serif;
+  --cserif:"Noto Serif SC",serif;
+  --sans:"Noto Sans SC",-apple-system,"PingFang SC",sans-serif;
+  --mono:"JetBrains Mono",Consolas,monospace;
   --ease:cubic-bezier(.22,1,.36,1);
-
-  /* responsive unit system — reference canvas 1487 × 1058 */
-  --u:calc(100vh / 1058);
-  --uw:calc(100vw / 1487);
-  --h:clamp(var(--u), calc(var(--u) * .65 + var(--uw) * .35), calc(var(--u) * 1.16));
 }
-@supports (height:100dvh){ :root{ --u:calc(100dvh / 1058); } }
-
-/* ============ RESET / STAGE ============ */
 *,*::before,*::after{ margin:0; padding:0; box-sizing:border-box; }
 html,body{ height:100%; }
-html{ overflow:hidden; }
 body{
-  background:#050505;
+  background:var(--paper);
   color:var(--ink);
-  font-family:'Manrope',system-ui,-apple-system,'Segoe UI',sans-serif;
+  font-family:var(--sans);
   -webkit-font-smoothing:antialiased;
-  -moz-osx-font-smoothing:grayscale;
   text-rendering:geometricPrecision;
   overflow:hidden;
 }
-.stage{ position:fixed; inset:0; background:#050505; }
-
-/* ============ VIDEO PLATE ============ */
-.plate{ position:absolute; inset:0; overflow:hidden; }
-.plate-video{
-  position:absolute;
-  left:50%;
-  top:calc(1 * var(--u));
-  width:calc(1492 * var(--u));
-  height:calc(1054 * var(--u));
-  transform:translateX(calc(-50% - calc(0.5 * var(--u))));
-  object-fit:cover;
-  pointer-events:none;
+.stage{
+  position:fixed; inset:0;
+  display:flex; flex-direction:column;
+  transition:opacity 2.6s ease;
 }
-.plate::after{
-  content:"";
-  position:absolute; inset:0;
-  pointer-events:none;
-  background:
-    linear-gradient(to bottom,
-      rgba(5,5,5,0) 78.8%, rgba(5,5,5,.23) 79.6%, rgba(5,5,5,.45) 81.4%,
-      rgba(5,5,5,.75) 83.3%, rgba(5,5,5,.84) 85.2%, rgba(5,5,5,.888) 88%,
-      rgba(5,5,5,.905) 91%, rgba(5,5,5,.96) 95%, #050505 100%),
-    linear-gradient(to right,
-      #050505 calc(50% - calc(746 * var(--u))),
-      transparent calc(50% - calc(676 * var(--u))),
-      transparent calc(50% + calc(676 * var(--u))),
-      #050505 calc(50% + calc(746 * var(--u))));
-}
+.stage.leaving{ opacity:0; pointer-events:none; }
 
-/* ============ PILL ============ */
-.pill{
-  display:inline-flex; align-items:center; justify-content:center;
-  background:var(--pill); color:var(--pill-ink);
-  border-radius:999px; text-decoration:none; font-weight:500;
-  transition:opacity .25s;
+/* ---------- 顶栏 ---------- */
+.topbar{
+  display:flex; align-items:center; justify-content:space-between;
+  padding:26px 44px;
+  border-bottom:1px solid var(--rule);
 }
-.pill:hover{ opacity:.88; }
+.logo{ font-family:var(--sans); font-weight:700; font-size:19px; letter-spacing:0.04em; color:var(--ink); text-decoration:none; }
+.top-enter{
+  font-size:14px; color:var(--ink); text-decoration:none;
+  display:inline-flex; align-items:center; gap:6px;
+  transition:color .2s;
+}
+.top-enter:hover{ color:var(--accent); }
 
-/* ============ HERO ============ */
-.headline{
-  position:absolute;
-  left:calc(75.5 * var(--u));
-  top:calc(230.5 * var(--u));
-  font-size:calc(71.6 * var(--h));
-  line-height:calc(80.5 * var(--h));
-  font-weight:400;
-  letter-spacing:calc(.3 * var(--h));
+/* ---------- 主视觉 ---------- */
+.hero{
+  flex:1; display:grid;
+  grid-template-columns:minmax(0,1.15fr) minmax(0,0.85fr);
+  align-items:center;
+  gap:40px;
+  padding:0 44px;
+  max-width:1440px; width:100%; margin:0 auto;
+}
+.hero-left{ min-width:0; }
+.hero-label{
+  font-size:13.5px; color:var(--accent); font-weight:500;
+  letter-spacing:0.06em; margin-bottom:26px;
+}
+.hero h1{
+  font-family:var(--serif);
+  font-size:clamp(56px, 7.2vw, 118px);
+  font-weight:500;
+  line-height:1.06;
+  letter-spacing:-0.01em;
   color:var(--ink);
-  white-space:nowrap;
-  z-index:2;
 }
-.headline span{ display:block; }
-
-.sub{
-  position:absolute;
-  left:calc(75.5 * var(--u));
-  top:calc(calc(230.5 * var(--u)) + calc(189 * var(--h)));
-  font-size:calc(20.7 * var(--h));
-  line-height:calc(23.5 * var(--h));
-  font-weight:400;
-  word-spacing:calc(1.8 * var(--h));
-  color:var(--muted);
-  z-index:2;
+.hero h1 .l2{ display:block; font-style:italic; }
+.hero-rule{ height:1px; background:var(--rule); margin:34px 0 26px; max-width:520px; }
+.hero-stats{ display:flex; gap:34px; }
+.hero-stats b{
+  font-family:var(--cserif); font-weight:900; font-size:26px;
+  color:var(--accent); margin-right:6px;
 }
-.sub span{ display:block; white-space:nowrap; }
+.hero-stats span{ font-size:13px; color:var(--muted); }
+.hero-stats > div{ display:flex; align-items:baseline; }
 
-.pill-cta{
-  position:absolute;
-  left:calc(74.9 * var(--u));
-  top:calc(calc(230.5 * var(--u)) + calc(264.5 * var(--h)));
-  width:calc(175.6 * var(--h));
-  height:calc(50 * var(--h));
-  font-size:calc(20.6 * var(--h));
-  z-index:2;
+/* 右侧大字「鑫」 */
+.hero-mark{
+  font-family:var(--cserif); font-weight:900;
+  font-size:clamp(220px, 30vw, 420px);
+  line-height:1; color:var(--accent);
+  text-align:center;
+  user-select:none;
 }
 
-/* ============ ENTRANCE ANIMATIONS ============ */
-@keyframes rise{ from{ opacity:0; transform:translateY(calc(14 * var(--u))); } }
+/* ---------- 底部编号链接 ---------- */
+.bottom-links{
+  display:grid; grid-template-columns:1fr 1fr 1fr;
+  border-top:1px solid var(--rule);
+}
+.bottom-links a{
+  display:flex; align-items:baseline; gap:18px;
+  padding:26px 44px;
+  color:var(--ink); text-decoration:none;
+  border-right:1px solid var(--rule);
+  transition:background .2s;
+}
+.bottom-links a:last-child{ border-right:none; }
+.bottom-links a:hover{ background:rgba(225,78,31,0.05); }
+.bottom-links .num{
+  font-family:var(--serif); font-size:26px; font-weight:600;
+  color:var(--accent); font-style:italic;
+}
+.bottom-links .name{ font-size:17px; font-weight:500; }
+.bottom-links .arrow{ margin-left:auto; color:var(--accent); font-size:18px; }
 
+/* ---------- 入场动画 ---------- */
+@keyframes rise{ from{ opacity:0; transform:translateY(22px); } }
 @media (prefers-reduced-motion: no-preference){
-  .headline{ animation:rise .9s var(--ease) .06s both; }
-  .sub{ animation:rise .9s var(--ease) .14s both; }
-  .pill-cta{ animation:rise .9s var(--ease) .22s both; }
+  .topbar{ animation:rise .7s var(--ease) both; }
+  .hero-label{ animation:rise .8s var(--ease) .08s both; }
+  .hero h1{ animation:rise .9s var(--ease) .16s both; }
+  .hero-rule,.hero-stats{ animation:rise .9s var(--ease) .26s both; }
+  .hero-mark{ animation:rise 1s var(--ease) .22s both; }
+  .bottom-links{ animation:rise .8s var(--ease) .34s both; }
 }
 
-/* ============ PORTRAIT / MOBILE ============ */
-@media (max-aspect-ratio: 11/10){
-  :root{ --m:min(calc(100vw / 430), 1.34px); --u:var(--m); }
-
-  html,body{ overflow:auto; }
-  .stage{
-    position:relative; inset:auto;
-    min-height:100vh; min-height:100dvh;
-    display:flex; flex-direction:column;
-    padding-top:env(safe-area-inset-top);
-    padding-bottom:env(safe-area-inset-bottom);
-  }
-
-  .plate-video{
-    inset:0; left:0; top:0;
-    width:100%; height:100%;
-    transform:none;
-    object-position:43% center;
-  }
-  .plate::after{
-    background:
-      linear-gradient(to right,
-        rgba(5,5,5,.86) 0%, rgba(5,5,5,.66) 42%,
-        rgba(5,5,5,.20) 78%, rgba(5,5,5,.10) 100%),
-      linear-gradient(to bottom,
-        rgba(5,5,5,.72) 0%, rgba(5,5,5,.34) 24%, rgba(5,5,5,.34) 56%,
-        rgba(5,5,5,.80) 82%, rgba(5,5,5,.97) 94%, #050505 100%);
-  }
-
-  .hero{
-    position:relative; z-index:2;
-    flex:1; display:flex; flex-direction:column; justify-content:center;
-    padding:calc(40 * var(--u)) calc(24 * var(--u));
-  }
-  .headline{
-    position:relative; left:auto; top:auto;
-    white-space:normal;
-    font-size:calc(52 * var(--u));
-    line-height:1.14;
-    letter-spacing:calc(.3 * var(--u));
-  }
-  .headline span{ display:inline; }
-  .sub{
-    position:relative; left:auto; top:auto;
-    margin-top:calc(18 * var(--u));
-    font-size:calc(16.5 * var(--u));
-    line-height:1.5;
-    word-spacing:normal;
-  }
-  .sub span{ display:inline; white-space:normal; }
-  .pill-cta{
-    position:relative; left:auto; top:auto;
-    width:auto; height:auto; align-self:flex-start;
-    margin-top:calc(30 * var(--u));
-    padding:calc(14 * var(--u)) calc(30 * var(--u));
-    font-size:calc(15.5 * var(--u));
-  }
-}
-/* tablet band */
-@media (min-width:600px) and (max-aspect-ratio: 11/10){
-  :root{ --m:min(calc(100vw / 860), calc(100vh / 760), 1.25px); --u:var(--m); }
-  .plate-video{ object-position:44% center; }
-  .plate::after{
-    background:
-      linear-gradient(to right,
-        rgba(5,5,5,.84) 0%, rgba(5,5,5,.60) 42%,
-        rgba(5,5,5,.16) 78%, rgba(5,5,5,.06) 100%),
-      linear-gradient(to bottom,
-        rgba(5,5,5,.66) 0%, rgba(5,5,5,.28) 24%, rgba(5,5,5,.30) 56%,
-        rgba(5,5,5,.78) 82%, rgba(5,5,5,.96) 94%, #050505 100%);
-  }
-  .headline span{ display:block; }
+/* ---------- 移动端 ---------- */
+@media (max-width: 760px){
+  body{ overflow:auto; }
+  .stage{ position:relative; min-height:100vh; min-height:100dvh; }
+  .topbar{ padding:20px 22px; }
+  .hero{ grid-template-columns:1fr; gap:8px; padding:36px 22px; align-content:start; }
+  .hero-mark{ font-size:150px; text-align:left; order:2; margin-top:12px; }
+  .hero-stats{ flex-wrap:wrap; gap:18px; }
+  .bottom-links{ grid-template-columns:1fr; }
+  .bottom-links a{ border-right:none; border-bottom:1px solid var(--rule); padding:20px 22px; }
 }
 </style>
 </head>
 <body>
 <div class="stage" id="stage">
 
-  <div class="plate">
-    <video class="plate-video" autoplay muted loop playsinline preload="auto" aria-hidden="true">
-      <source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260808_112712_da9d53df-6d27-4b12-bdf6-aa9dc2622bdf.mp4" type="video/mp4">
-    </video>
-  </div>
+  <header class="topbar">
+    <a class="logo" href="home.html">周园鑫</a>
+    <a class="top-enter" href="home.html">进入主页 →</a>
+  </header>
 
   <main class="hero">
-    <h1 class="headline"><span>Stay hungry.</span><span>Stay foolish.</span></h1>
-    <p class="sub"><span>Writing code, chasing ideas — exploring how systems learn,</span><span>scale, and quietly shape the world we live in.</span></p>
-    <a class="pill pill-cta" href="home.html"><span>Get Started</span></a>
+    <div class="hero-left">
+      <p class="hero-label">后端开发 / AI 应用 / 持续写作</p>
+      <h1><span class="l1">Stay hungry.</span><span class="l2">Stay foolish.</span></h1>
+      <div class="hero-rule"></div>
+      <div class="hero-stats">
+        <div><b>4</b><span>段实习</span></div>
+        <div><b>2</b><span>次创业</span></div>
+        <div><b>14 章</b><span>技术教材</span></div>
+      </div>
+    </div>
+    <div class="hero-mark" aria-hidden="true">鑫</div>
   </main>
+
+  <nav class="bottom-links">
+    <a href="home.html"><span class="num">01</span><span class="name">进入主页</span><span class="arrow">→</span></a>
+    <a href="posts.html"><span class="num">02</span><span class="name">阅读随笔</span><span class="arrow">→</span></a>
+    <a href="assets/resume.pdf" target="_blank" rel="noopener"><span class="num">03</span><span class="name">下载简历</span><span class="arrow">↓</span></a>
+  </nav>
 
 </div>
 
 <script>
-// 跟随视频中人物行走的步伐渐进淡出：播放进度 → 透明度
-// 前 22% 保持完整画面，之后随步伐渐隐（smoothstep 缓动，起步收尾更柔），
-// 走到 96% 时完全透明并进入主页；视频加载失败时退化为按时间驱动。
+// 停留一段时间后渐进淡出，自动进入主页（视频已移除，按时间驱动）
 (function () {
-  var video = document.querySelector(".plate-video");
-  var stage = document.getElementById("stage");
-  var HOLD = 0.22, END = 0.96;
-  var FALLBACK_MS = 11000;
-  var start = null, done = false, revealed = false;
-
-  function revealBase() {
-    if (revealed) return; revealed = true;
+  var HOLD_MS = 9000;   // 停留时长
+  var FADE_MS = 2800;   // 淡出时长
+  setTimeout(function () {
     var saved = null;
     try { saved = localStorage.getItem("theme"); } catch (e) {}
     var dark = saved ? saved === "dark"
       : window.matchMedia("(prefers-color-scheme: dark)").matches;
     document.body.style.background = dark ? "#101418" : "#fafaf7";
-  }
-  function goHome() {
-    if (done) return; done = true;
-    window.location.href = "home.html";
-  }
-  function applyProgress(p) {
-    var f = (p - HOLD) / (END - HOLD);
-    f = f < 0 ? 0 : f > 1 ? 1 : f;
-    var e = f * f * (3 - 2 * f);
-    if (e > 0) revealBase();
-    stage.style.opacity = String(1 - e);
-    if (f >= 1) goHome();
-  }
-  function tick(ts) {
-    if (done) return;
-    if (start === null) start = ts;
-    var p;
-    if (video && video.readyState >= 1 && video.duration > 0) {
-      p = video.currentTime / video.duration;
-    } else {
-      p = (ts - start) / FALLBACK_MS;
-    }
-    applyProgress(p);
-    requestAnimationFrame(tick);
-  }
-  requestAnimationFrame(tick);
+    document.getElementById("stage").classList.add("leaving");
+    setTimeout(function () { window.location.href = "home.html"; }, FADE_MS);
+  }, HOLD_MS);
 })();
 </script>
 </body>
