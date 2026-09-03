@@ -31,6 +31,17 @@ body {
 ::selection { background: var(--accent); color: #fff; }
 .wrap { max-width: 1060px; margin: 0 auto; padding: 0 32px; }
 
+/* 纸面颗粒质感（固定层，pointer-events 穿透，不影响滚动性能） */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  z-index: 55;
+  pointer-events: none;
+  opacity: 0.5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='240' height='240' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
 /* ---------- 顶栏 ---------- */
 .site-nav {
   position: sticky; top: 0; z-index: 10;
@@ -53,18 +64,49 @@ body {
 .nav-links a:hover, .nav-links a.active { color: var(--accent); }
 
 /* ---------- 分区通用 ---------- */
-section { border-bottom: 1px solid var(--line); padding: 72px 0; }
+section { border-bottom: 1px solid var(--line); padding: 88px 0; }
+
+/* 编辑式分区大标题：斜体大编号 + 衬线大标题 + 发丝线 */
+.sec-head {
+  display: flex; align-items: flex-start; gap: 22px;
+  margin-bottom: 52px;
+}
+.sec-num {
+  font-family: var(--serif); font-style: italic; font-weight: 500;
+  font-size: clamp(56px, 7vw, 88px);
+  line-height: 0.9;
+  color: transparent;
+  -webkit-text-stroke: 1.5px var(--accent);
+  flex: none;
+}
+.sec-head-text { flex: 1; min-width: 0; }
+.sec-head-text h2 {
+  font-family: var(--cserif);
+  font-size: clamp(30px, 4vw, 44px);
+  font-weight: 900;
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+.sec-head-text .sec-en {
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.24em;
+  color: var(--ink-faint);
+  display: inline-block; margin-top: 10px;
+}
+.sec-head-text::after {
+  content: ""; display: block; height: 1px; background: var(--line);
+  margin-top: 22px;
+}
+
+/* 兼容旧的小标签样式（posts 等页仍用 style.css，不受影响） */
 .sec-label {
   display: flex; align-items: baseline; gap: 14px;
   margin-bottom: 40px;
+  font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em;
+  color: var(--ink-faint);
 }
 .sec-label b {
   font-family: var(--serif); font-style: italic; font-weight: 600;
   font-size: 26px; color: var(--accent);
-}
-.sec-label {
-  font-family: var(--mono); font-size: 12px; letter-spacing: 0.2em;
-  color: var(--ink-faint);
 }
 .sec-label::after { content: ""; flex: 1; height: 1px; background: var(--line); }
 
@@ -97,8 +139,14 @@ section { border-bottom: 1px solid var(--line); padding: 72px 0; }
 .hero-portrait { display: flex; justify-content: center; }
 .hero-portrait img {
   width: 100%; max-width: 460px; display: block;
-  /* 插画边缘自然融入米色纸面 */
+  /* 插画边缘自然融入米色纸面；微斜切入，制造与标题的交叠张力 */
   filter: saturate(1.02);
+  transform: rotate(2.5deg);
+}
+@media (min-width: 900px) {
+  /* 桌面端：头像向左探入标题区 */
+  .hero-portrait { margin-left: -90px; position: relative; z-index: 0; }
+  .hero-text { position: relative; z-index: 1; }
 }
 .hero .hero-kicker {
   font-size: 13.5px; color: var(--accent); font-weight: 500;
@@ -160,6 +208,19 @@ section { border-bottom: 1px solid var(--line); padding: 72px 0; }
   transition: border-color 0.2s;
 }
 .card:hover { border-color: var(--ink); }
+/* 项目卡悬停：标题箭头滑出 */
+.card h3 { position: relative; }
+.card h3::after {
+  content: "→";
+  font-family: var(--sans); font-weight: 400;
+  color: var(--accent);
+  margin-left: 8px;
+  display: inline-block;
+  opacity: 0;
+  transform: translateX(-6px);
+  transition: opacity 0.25s ease, transform 0.25s cubic-bezier(.22,1,.36,1);
+}
+.card:hover h3::after { opacity: 1; transform: none; }
 a.card { display: block; text-decoration: none; color: inherit; }
 .card h3 { font-family: var(--serif); font-size: 21px; font-weight: 700; }
 .card h3 a { color: inherit; text-decoration: none; }
@@ -296,9 +357,18 @@ a.card { display: block; text-decoration: none; color: inherit; }
   display: flex; align-items: baseline; gap: 22px;
   padding: 20px 8px;
   text-decoration: none; color: inherit;
-  transition: background 0.2s;
+  transition: background 0.2s, padding-left 0.25s cubic-bezier(.22,1,.36,1);
+  position: relative;
 }
-.post-list a:hover { background: var(--accent-soft); }
+.post-list a::after {
+  content: "→";
+  position: absolute; right: 8px;
+  color: var(--accent);
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+.post-list a:hover { background: var(--accent-soft); padding-left: 18px; }
+.post-list a:hover::after { opacity: 1; }
 .post-list .p-date {
   font-family: var(--mono); font-size: 12px; color: var(--ink-faint);
   white-space: nowrap;
@@ -306,9 +376,22 @@ a.card { display: block; text-decoration: none; color: inherit; }
 .post-list .p-title { font-family: var(--cserif); font-weight: 700; font-size: 17px; }
 .post-list .p-summary { font-size: 13px; color: var(--ink-faint); margin-left: auto; }
 
-/* ---------- 页脚 ---------- */
-.site-footer { padding: 44px 0; }
-.site-footer .wrap {
+/* ---------- 页脚：海报式结束语 ---------- */
+.site-footer { padding: 88px 0 44px; }
+.foot-motto {
+  font-family: var(--cserif); font-weight: 900;
+  font-size: clamp(30px, 4.6vw, 52px);
+  line-height: 1.4;
+  color: var(--ink);
+  margin-bottom: 56px;
+}
+.foot-motto::after {
+  content: "";
+  display: block; width: 72px; height: 3px;
+  background: var(--accent);
+  margin-top: 26px;
+}
+.site-footer .foot-row {
   display: flex; justify-content: space-between; align-items: center;
   flex-wrap: wrap; gap: 8px;
   font-family: var(--mono); font-size: 12px;
