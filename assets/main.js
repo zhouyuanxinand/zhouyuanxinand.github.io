@@ -242,15 +242,18 @@
       var dpr = Math.min(window.devicePixelRatio || 1, 2);
 
       var initParticles = function () {
-        var dispW = pImg.clientWidth || 460;
-        var dispH = dispW; // 方形
+        // 严格对齐静态图的实际渲染尺寸，保证不变小
+        var dispW = pImg.offsetWidth || 460;
+        var dispH = pImg.offsetHeight || dispW;
+        pCanvas.style.width = dispW + "px";
+        pCanvas.style.height = dispH + "px";
         pCanvas.width = dispW * dpr;
         pCanvas.height = dispH * dpr;
         pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-        // 离屏采样：把图按显示尺寸画到离屏 canvas 读像素
+        // 离屏采样：细步长让粒子拼出与原图一致的平滑插画
         var off = document.createElement("canvas");
-        var step = 4; // 采样步长，控制粒子密度
+        var step = 2;
         off.width = Math.round(dispW / step);
         off.height = Math.round(dispH / step);
         var octx = off.getContext("2d");
@@ -261,10 +264,8 @@
           for (var x = 0; x < off.width; x++) {
             var i = (y * off.width + x) * 4;
             var a = data[i + 3];
-            if (a < 140) continue; // 跳过透明背景
+            if (a < 140) continue; // 仅跳过透明背景，保留全部插画像素
             var r = data[i], g = data[i + 1], b = data[i + 2];
-            // 跳过接近纸色的像素（喷绘留白）
-            if (r > 235 && g > 230 && b > 220) continue;
             particles.push({
               ox: x * step, oy: y * step,
               x: x * step, y: y * step,
