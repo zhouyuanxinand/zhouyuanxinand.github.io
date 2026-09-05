@@ -16,7 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="assets/home.css">
-  <script src="assets/main.js?v=3"></script>
+  <script src="assets/main.js?v=4"></script>
 </head>
 <body>
 
@@ -51,7 +51,10 @@
         <!-- 点击复制邮箱地址 -->
         <button class="chip" id="copy-email" type="button" title="点击复制邮箱">Email</button>
       </div>
+      <div class="contrib">
+        <img src="https://ghchart.rshah.org/e14e1f/zhouyuanxinand" alt="GitHub 贡献热力图" loading="lazy">
       </div>
+    </div>
       <div class="hero-portrait"><img src="assets/avatar.png" alt="头像插画" width="760" height="760"></div>
     </div>
   </header>
@@ -388,5 +391,12 @@
     </div>
   </footer>
 
+
+  <!-- ⌘K 命令面板 -->
+  <dialog class="cmdk" id="cmdk">
+    <div class="cmdk-head"><span>⌕</span><input id="cmdk-input" type="text" placeholder="输入命令或跳转目标…" autocomplete="off"><kbd>ESC</kbd></div>
+    <div class="cmdk-list" id="cmdk-list"></div>
+    <footer><span>↑↓ 选择</span><span>↵ 执行</span><span>⌘K 呼出</span></footer>
+  </dialog>
 </body>
 </html>

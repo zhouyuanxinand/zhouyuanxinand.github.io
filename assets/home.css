@@ -474,3 +474,72 @@ a.card { display: block; text-decoration: none; color: inherit; }
   .exp-head { flex-wrap: wrap; }
   .exp-date { width: 100%; order: 3; padding-left: 54px; }
 }
+
+/* 页面间平滑过渡（Chrome View Transitions） */
+@view-transition { navigation: auto; }
+
+/* ---------- 鼠标墨点轨迹 ---------- */
+.ink-dot {
+  position: fixed;
+  border-radius: 50%;
+  background: var(--accent);
+  opacity: 0.45;
+  pointer-events: none;
+  z-index: 54;
+  transform: translate(-50%, -50%);
+  animation: ink-fade 0.8s ease-out forwards;
+}
+@keyframes ink-fade {
+  to { opacity: 0; transform: translate(-50%, 4px) scale(0.3); }
+}
+
+/* ---------- 贡献热力图 ---------- */
+.contrib { margin-top: 26px; max-width: 640px; }
+.contrib img {
+  width: 100%; display: block;
+  /* 让绿色贡献图融入米色纸面：橙色调由 URL 参数控制 */
+  border-radius: 6px;
+}
+
+/* ---------- ⌘K 命令面板 ---------- */
+.cmdk {
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--card);
+  color: var(--ink);
+  width: min(560px, 92vw);
+  padding: 0;
+  position: fixed; top: 15vh; left: 50%; transform: translateX(-50%);
+  box-shadow: 0 24px 60px rgba(23, 20, 15, 0.25);
+}
+.cmdk::backdrop { background: rgba(23, 20, 15, 0.4); backdrop-filter: blur(3px); }
+.cmdk-head {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.cmdk-head span { color: var(--accent); font-size: 18px; }
+.cmdk-head input {
+  flex: 1; background: none; border: none; outline: none;
+  color: var(--ink); font-size: 15px; font-family: var(--sans);
+}
+.cmdk-head kbd {
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+  border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px;
+}
+.cmdk-list { max-height: 320px; overflow-y: auto; }
+.cmdk-item {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 12px 18px; border: none; background: none;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink); font-size: 14px; font-family: var(--sans);
+  text-align: left; cursor: pointer;
+}
+.cmdk-item.sel { background: var(--accent-soft); }
+.ci-idx { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+.ci-label { font-weight: 500; }
+.ci-hint { margin-left: auto; font-size: 12px; color: var(--ink-faint); }
+.cmdk footer {
+  display: flex; gap: 18px; padding: 10px 18px;
+  border-top: 1px solid var(--line);
+  font-family: var(--mono); font-size: 11px; color: var(--ink-faint);
+}

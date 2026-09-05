@@ -209,6 +209,138 @@
       }
     }
 
+    // ============ 推特博主风创意特效 ============
+
+    // 5. 鼠标墨点轨迹：移动时留下渐隐的橙色墨点（纸面手绘感）
+    if (noReduce && finePointer) {
+      var lastDot = 0;
+      document.addEventListener("pointermove", function (e) {
+        var now = Date.now();
+        if (now - lastDot < 45) return;
+        lastDot = now;
+        var d = document.createElement("span");
+        d.className = "ink-dot";
+        var s = 3 + Math.random() * 5;
+        d.style.left = e.clientX + "px";
+        d.style.top = e.clientY + "px";
+        d.style.width = s + "px";
+        d.style.height = s + "px";
+        document.body.appendChild(d);
+        d.addEventListener("animationend", function () { d.remove(); });
+      });
+    }
+
+    // 6. 头像 3D 视差：鼠标在 Hero 区移动时头像轻微跟随
+    var portraitImg = document.querySelector(".hero-portrait img");
+    var heroEl = document.querySelector(".hero");
+    if (portraitImg && heroEl && noReduce && finePointer) {
+      portraitImg.style.transition = "transform .25s cubic-bezier(.22,1,.36,1)";
+      heroEl.addEventListener("pointermove", function (e) {
+        var r = heroEl.getBoundingClientRect();
+        var x = (e.clientX - r.left) / r.width - 0.5;
+        var y = (e.clientY - r.top) / r.height - 0.5;
+        portraitImg.style.transform =
+          "rotate(2.5deg) perspective(900px) rotateY(" + (x * 8) + "deg) rotateX(" + (-y * 8) + "deg)";
+      });
+      heroEl.addEventListener("pointerleave", function () {
+        portraitImg.style.transform = "rotate(2.5deg)";
+      });
+    }
+
+    // 7. ⌘K 命令面板
+    var CMDS = [
+      { label: "进入主页", hint: "首页顶部", act: function () { window.scrollTo({ top: 0, behavior: "smooth" }); } },
+      { label: "全部随笔", hint: "Writing", act: function () { location.href = "posts.html"; } },
+      { label: "Codex Field Guide", hint: "14 章技术教材", act: function () { location.href = "/codex-field-guide/"; } },
+      { label: "Awesome AI Roadmap", hint: "200 篇知识图谱", act: function () { location.href = "roadmap/index.html"; } },
+      { label: "下载简历 PDF", hint: "后端开发_周园鑫", act: function () { window.open("assets/resume.pdf", "_blank"); } },
+      { label: "GitHub 主页", hint: "zhouyuanxinand", act: function () { window.open("https://github.com/zhouyuanxinand", "_blank"); } },
+      { label: "复制邮箱", hint: "3089729486@qq.com", act: function () {
+          var em = "3089729486@qq.com";
+          if (navigator.clipboard) navigator.clipboard.writeText(em);
+          var t = document.createElement("div");
+          t.className = "copy-toast show";
+          t.innerHTML = "已复制到剪贴板：<b>" + em + "</b>";
+          document.body.appendChild(t);
+          setTimeout(function () { t.classList.remove("show"); setTimeout(function(){ t.remove(); }, 300); }, 2000);
+        } },
+      { label: "项目：Archify", hint: "自然语言生成架构图", act: function () { window.open("https://tt-a1i.github.io/archify/", "_blank"); } },
+      { label: "项目：hiveteam", hint: "浏览器里的 Agent 团队", act: function () { window.open("https://zhouyuanxinand.github.io/hiveteam/", "_blank"); } },
+      { label: "项目：simplify-codebase", hint: "代码简化与防回退", act: function () { window.open("https://zhouyuanxinand.github.io/code-janitor/", "_blank"); } },
+    ];
+    var cmdk = document.getElementById("cmdk");
+    var cmdkInput = document.getElementById("cmdk-input");
+    var cmdkList = document.getElementById("cmdk-list");
+    var cmdkSel = 0;
+    var cmdkFiltered = CMDS;
+    function cmdkRender(q) {
+      var n = (q || "").trim().toLowerCase();
+      cmdkFiltered = n ? CMDS.filter(function (c) { return (c.label + c.hint).toLowerCase().includes(n); }) : CMDS;
+      cmdkSel = 0;
+      cmdkList.innerHTML = cmdkFiltered.map(function (c, i) {
+        return '<button type="button" class="cmdk-item' + (i === 0 ? " sel" : "") + '" data-i="' + i + '">' +
+          '<span class="ci-idx">' + String(i + 1).padStart(2, "0") + '</span>' +
+          '<span class="ci-label">' + c.label + "</span>" +
+          '<span class="ci-hint">' + c.hint + "</span></button>";
+      }).join("");
+    }
+    function cmdkOpen() { cmdk.showModal(); cmdkRender(cmdkInput.value); cmdkInput.focus(); }
+    if (cmdk && cmdkInput && cmdkList) {
+      document.addEventListener("keydown", function (e) {
+        if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") { e.preventDefault(); cmdkOpen(); }
+        if (e.key === "Escape" && cmdk.open) cmdk.close();
+      });
+      cmdkInput.addEventListener("input", function () { cmdkRender(cmdkInput.value); });
+      cmdkInput.addEventListener("keydown", function (e) {
+        var items = cmdkList.querySelectorAll(".cmdk-item");
+        if (!items.length) return;
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+          e.preventDefault();
+          cmdkSel = (cmdkSel + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+          items.forEach(function (el, i) { el.classList.toggle("sel", i === cmdkSel); });
+          items[cmdkSel].scrollIntoView({ block: "nearest" });
+        }
+        if (e.key === "Enter") {
+          e.preventDefault();
+          var c = cmdkFiltered[cmdkSel];
+          if (c) { cmdk.close(); c.act(); }
+        }
+      });
+      cmdkList.addEventListener("click", function (e) {
+        var btn = e.target.closest(".cmdk-item");
+        if (!btn) return;
+        var c = cmdkFiltered[+btn.getAttribute("data-i")];
+        if (c) { cmdk.close(); c.act(); }
+      });
+      cmdk.addEventListener("click", function (e) { if (e.target === cmdk) cmdk.close(); });
+    }
+
+    // 8. 英文字母解码：分区英文小标（PROJECTS 等）进入视口时收敛成型
+    var secEns = document.querySelectorAll(".sec-en");
+    if (secEns.length && noReduce) {
+      var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      var decodeText = function (el) {
+        var target = el.getAttribute("data-final");
+        var frame = 0, total = 20;
+        var timer = setInterval(function () {
+          frame++;
+          el.textContent = target.split("").map(function (c, i) {
+            if (c === " " || c === "/" || c === "·") return c;
+            return frame / total > (i + 1) / target.length ? c
+              : letters[Math.floor(Math.random() * 26)];
+          }).join("");
+          if (frame >= total) { el.textContent = target; clearInterval(timer); }
+        }, 40);
+      };
+      secEns.forEach(function (el) { el.setAttribute("data-final", el.textContent); });
+      var so = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { decodeText(e.target); so.unobserve(e.target); }
+        });
+      }, { threshold: 0.5 });
+      secEns.forEach(function (el) { so.observe(el); });
+    }
+
     // 滚动入场动画
     var io = new IntersectionObserver(function (entries) {
       entries.forEach(function (e) {

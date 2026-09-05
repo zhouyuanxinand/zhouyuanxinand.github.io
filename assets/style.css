@@ -528,3 +528,6 @@ a.card { display: block; text-decoration: none; color: inherit; }
   .exp-head { flex-wrap: wrap; }
   .exp-date { width: 100%; order: 3; padding-left: 54px; }
 }
+
+/* 页面间平滑过渡（Chrome View Transitions） */
+@view-transition { navigation: auto; }
