@@ -230,10 +230,103 @@
       });
     }
 
-    // 6. 头像 3D 视差：鼠标在 Hero 区移动时头像轻微跟随
+    // 6a. 头像粒子喷绘：2D 图转成粒子，鼠标穿过散开、离开后合拢
+    var canvasActive = false;
+    var pCanvas = document.getElementById("portrait-canvas");
+    var pImg = document.getElementById("portrait-img");
+    var pWrap = document.getElementById("hero-portrait");
+    if (pCanvas && pImg && pWrap && noReduce && finePointer) {
+      var pctx = pCanvas.getContext("2d");
+      var particles = [];
+      var pmouse = { x: -9999, y: -9999 };
+      var dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      var initParticles = function () {
+        var dispW = pImg.clientWidth || 460;
+        var dispH = dispW; // 方形
+        pCanvas.width = dispW * dpr;
+        pCanvas.height = dispH * dpr;
+        pctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+        // 离屏采样：把图按显示尺寸画到离屏 canvas 读像素
+        var off = document.createElement("canvas");
+        var step = 4; // 采样步长，控制粒子密度
+        off.width = Math.round(dispW / step);
+        off.height = Math.round(dispH / step);
+        var octx = off.getContext("2d");
+        octx.drawImage(pImg, 0, 0, off.width, off.height);
+        var data = octx.getImageData(0, 0, off.width, off.height).data;
+        particles = [];
+        for (var y = 0; y < off.height; y++) {
+          for (var x = 0; x < off.width; x++) {
+            var i = (y * off.width + x) * 4;
+            var a = data[i + 3];
+            if (a < 140) continue; // 跳过透明背景
+            var r = data[i], g = data[i + 1], b = data[i + 2];
+            // 跳过接近纸色的像素（喷绘留白）
+            if (r > 235 && g > 230 && b > 220) continue;
+            particles.push({
+              ox: x * step, oy: y * step,
+              x: x * step, y: y * step,
+              vx: 0, vy: 0,
+              c: "rgb(" + r + "," + g + "," + b + ")",
+              s: step
+            });
+          }
+        }
+        pWrap.classList.add("canvas-on");
+      };
+
+      var tick = function () {
+        pctx.clearRect(0, 0, pCanvas.width / dpr, pCanvas.height / dpr);
+        var R = 60, R2 = R * R;
+        for (var i = 0; i < particles.length; i++) {
+          var p = particles[i];
+          // 鼠标排斥
+          var dx = p.x - pmouse.x, dy = p.y - pmouse.y;
+          var d2 = dx * dx + dy * dy;
+          if (d2 < R2 && d2 > 0.01) {
+            var d = Math.sqrt(d2);
+            var f = (R - d) / R * 2.2;
+            p.vx += (dx / d) * f;
+            p.vy += (dy / d) * f;
+          }
+          // 弹簧回位 + 阻尼
+          p.vx += (p.ox - p.x) * 0.06;
+          p.vy += (p.oy - p.y) * 0.06;
+          p.vx *= 0.86;
+          p.vy *= 0.86;
+          p.x += p.vx;
+          p.y += p.vy;
+          pctx.fillStyle = p.c;
+          pctx.fillRect(p.x, p.y, p.s, p.s);
+        }
+        requestAnimationFrame(tick);
+      };
+
+      var src = new Image();
+      src.onload = function () {
+        pImg.src = src.src; // 保证尺寸可用
+        initParticles();
+        tick();
+      };
+      src.src = pImg.getAttribute("src");
+
+      pWrap.addEventListener("pointermove", function (e) {
+        var r = pCanvas.getBoundingClientRect();
+        pmouse.x = e.clientX - r.left;
+        pmouse.y = e.clientY - r.top;
+      });
+      pWrap.addEventListener("pointerleave", function () {
+        pmouse.x = -9999; pmouse.y = -9999;
+      });
+      canvasActive = true;
+    }
+
+    // 6. 头像 3D 视差：鼠标在 Hero 区移动时头像轻微跟随（粒子模式关闭时）
     var portraitImg = document.querySelector(".hero-portrait img");
     var heroEl = document.querySelector(".hero");
-    if (portraitImg && heroEl && noReduce && finePointer) {
+    if (portraitImg && heroEl && noReduce && finePointer && !canvasActive) {
       portraitImg.style.transition = "transform .25s cubic-bezier(.22,1,.36,1)";
       heroEl.addEventListener("pointermove", function (e) {
         var r = heroEl.getBoundingClientRect();

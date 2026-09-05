@@ -153,10 +153,14 @@ section { border-bottom: 1px solid var(--line); padding: 88px 0; }
   transform: rotate(2.5deg);
 }
 @media (min-width: 900px) {
-  /* 桌面端：头像向左探入标题区 */
-  .hero-portrait { margin-left: -90px; position: relative; z-index: 0; }
+  /* 人物整体右移：贴右列右缘，不再探入标题区 */
+  .hero-portrait { justify-content: flex-end; margin-left: 0; position: relative; z-index: 0; }
   .hero-text { position: relative; z-index: 1; }
 }
+/* 粒子喷绘画布（启用时替代静态图） */
+.hero-portrait canvas { display: none; width: 100%; max-width: 460px; aspect-ratio: 1; }
+.hero-portrait.canvas-on canvas { display: block; }
+.hero-portrait.canvas-on img { display: none; }
 .hero .hero-kicker {
   font-size: 13.5px; color: var(--accent); font-weight: 500;
   letter-spacing: 0.06em; margin-bottom: 26px;
