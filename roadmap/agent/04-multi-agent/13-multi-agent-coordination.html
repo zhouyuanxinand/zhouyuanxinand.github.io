@@ -1,0 +1,1351 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Multi-Agent 协作与路由 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Multi-Agent 协作与路由 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>多智能体系统</span> / <span>Multi-Agent 协作与路由</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="multi-agent">第十三章：Multi-Agent 协作、路由与动态切换</h1>
+<h2 id="131">13.1 问题的本质</h2>
+<p>多 Agent 分工只回答了：</p>
+<blockquote>
+<p><strong>谁擅长做什么？</strong></p>
+</blockquote>
+<p>一个完整协作系统还必须回答：</p>
+<ol>
+<li>任务如何描述和分配？</li>
+<li>Agent 之间如何传递结果？</li>
+<li>状态由谁维护？</li>
+<li>下一步由谁决定？</li>
+<li>控制权是否需要转移？</li>
+<li>失败、超时和循环如何处理？</li>
+<li>如何追踪整条执行链路？</li>
+</ol>
+<p>这些问题可以分为四层：</p>
+<pre class="mermaid">flowchart TB
+    C[Multi-Agent Coordination] --> COM[Communication]
+    C --> ST[State]
+    C --> RT[Routing]
+    C --> CT[Control Transfer]
+
+    COM --> MSG[Message / RPC / Event]
+    ST --> SHARED[Shared State / Artifact]
+    RT --> STATIC[Static / Dynamic / Hybrid]
+    CT --> DELEGATE[Delegation]
+    CT --> HANDOFF[Handoff]
+</pre>
+
+<h2 id="132">13.2 协作拓扑</h2>
+<p>可以将常见拓扑归纳为四类：</p>
+<ol>
+<li>Pipeline；</li>
+<li>Centralized Orchestrator；</li>
+<li>Shared Workspace / Blackboard；</li>
+<li>Peer-to-Peer / Negotiation。</li>
+</ol>
+<p>真实系统经常混合使用。</p>
+<h2 id="133-pipeline">13.3 Pipeline</h2>
+<p>Agent 按预定义顺序依次执行：</p>
+<pre class="mermaid">flowchart LR
+    R[Research Agent] --> W[Writer Agent]
+    W --> V[Reviewer Agent]
+    V --> P[Publisher]
+</pre>
+
+<h3 id="1331">13.3.1 适用场景</h3>
+<ul>
+<li>阶段顺序稳定；</li>
+<li>上下游接口明确；</li>
+<li>每个阶段具有不同专业上下文；</li>
+<li>需要清晰审计链路。</li>
+</ul>
+<h3 id="1332">13.3.2 优势</h3>
+<ul>
+<li>控制流简单；</li>
+<li>容易测试；</li>
+<li>状态和责任清晰；</li>
+<li>成本和延迟容易估算。</li>
+</ul>
+<h3 id="1333">13.3.3 风险</h3>
+<ul>
+<li>上游错误传播；</li>
+<li>中间 Agent 成为瓶颈；</li>
+<li>早期 Agent 可能不知道下游真正需要什么；</li>
+<li>固定流程难以处理例外。</li>
+</ul>
+<p>每个阶段应输出结构化 Artifact，并设置 Gate。</p>
+<h2 id="134-centralized-orchestrator">13.4 Centralized Orchestrator</h2>
+<p>Orchestrator 负责：</p>
+<ul>
+<li>理解全局目标；</li>
+<li>拆分任务；</li>
+<li>选择 Worker；</li>
+<li>管理依赖；</li>
+<li>跟踪状态；</li>
+<li>收集和验证结果；</li>
+<li>重试或重新规划。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    U[User] --> O[Orchestrator]
+    O --> R[Research Agent]
+    O --> C[Coding Agent]
+    O --> V[Review Agent]
+    R --> A[Artifact Store]
+    C --> A
+    V --> A
+    A --> O
+</pre>
+
+<p>对单团队生产系统，中心化模式通常是比较稳妥的默认选项，因为：</p>
+<ul>
+<li>全局目标集中；</li>
+<li>路由可追踪；</li>
+<li>权限容易统一控制；</li>
+<li>失败路径容易定位；</li>
+<li>可以集中管理预算和并发。</li>
+</ul>
+<p>但 Orchestrator 也可能成为：</p>
+<ul>
+<li>单点故障；</li>
+<li>调度瓶颈；</li>
+<li>大 Context 聚集点；</li>
+<li>全局错误来源。</li>
+</ul>
+<p>大型系统常采用分层 Orchestrator，而不是一个 Agent 管理所有 Worker。</p>
+<h2 id="135-shared-workspace-blackboard">13.5 Shared Workspace / Blackboard</h2>
+<p>多个 Agent 通过共享工作区交换 Task、事实和 Artifact。</p>
+<pre class="mermaid">flowchart TB
+    B[Shared Workspace<br/>Task Ledger + Artifacts + Facts]
+    A1[Agent A] <--> B
+    A2[Agent B] <--> B
+    A3[Agent C] <--> B
+</pre>
+
+<p>优势：</p>
+<ul>
+<li>Agent 不需要互相传递完整对话；</li>
+<li>结果可被多个 Agent 复用；</li>
+<li>支持异步协作；</li>
+<li>新 Agent 可以读取当前状态后加入。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>并发写冲突；</li>
+<li>过期状态；</li>
+<li>未验证信息污染全局；</li>
+<li>责任边界模糊；</li>
+<li>权限范围过大。</li>
+</ul>
+<p>共享工作区需要 Schema、版本、所有权和写入规则。</p>
+<h2 id="136-peer-to-peer-negotiation">13.6 Peer-to-Peer / Negotiation</h2>
+<p>Agent 之间直接通信、协商或委派：</p>
+<pre class="mermaid">flowchart LR
+    A[Agent A] <--> B[Agent B]
+    B <--> C[Agent C]
+    C <--> D[Agent D]
+    D <--> A
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>跨组织 Agent；</li>
+<li>开放生态；</li>
+<li>模拟与博弈；</li>
+<li>没有统一中央控制方；</li>
+<li>局部自治比全局一致更重要。</li>
+</ul>
+<p>它不是天然不可用于生产，但必须解决：</p>
+<ul>
+<li>Agent Discovery；</li>
+<li>身份和信任；</li>
+<li>任务所有权；</li>
+<li>重复领取；</li>
+<li>故障检测；</li>
+<li>消息幂等；</li>
+<li>冲突；</li>
+<li>全局完成判定；</li>
+<li>费用和权限。</li>
+</ul>
+<p>对单团队应用而言，这些分布式协调成本往往高于中心化模式。</p>
+<h2 id="137">13.7 通信方式不是只有两种</h2>
+<p>“消息传递”和“共享状态”是两个重要思路，但消息传递本身包含多种模式：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>特点</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Request / Response</td>
+<td>调用方等待结果</td>
+<td>短任务、强依赖</td>
+</tr>
+<tr>
+<td>Queue</td>
+<td>Worker 从队列领取任务</td>
+<td>异步任务、削峰</td>
+</tr>
+<tr>
+<td>Pub/Sub</td>
+<td>发布者不指定具体订阅者</td>
+<td>事件广播、解耦</td>
+</tr>
+<tr>
+<td>Event Stream</td>
+<td>保存有序事件</td>
+<td>状态重建、审计</td>
+</tr>
+<tr>
+<td>Shared State</td>
+<td>多节点读写状态</td>
+<td>图工作流、紧密协作</td>
+</tr>
+<tr>
+<td>Artifact Store</td>
+<td>通过 URI 交换大结果</td>
+<td>文档、代码、数据集</td>
+</tr>
+</tbody>
+</table>
+<p>生产系统常同时使用：</p>
+<blockquote>
+<p><strong>消息触发执行 + State 保存事实 + Artifact 传递大结果。</strong></p>
+</blockquote>
+<h2 id="138-request-response">13.8 Request / Response</h2>
+<p>调用 Agent 明确知道目标 Agent，并同步等待结果。</p>
+<pre class="mermaid">sequenceDiagram
+    participant O as Orchestrator
+    participant R as Research Agent
+
+    O->>R: Research Task
+    R-->>O: Research Result
+</pre>
+
+<p>优势：</p>
+<ul>
+<li>实现简单；</li>
+<li>错误可直接返回；</li>
+<li>适合短任务。</li>
+</ul>
+<p>限制：</p>
+<ul>
+<li>调用方被阻塞；</li>
+<li>长任务容易超时；</li>
+<li>强耦合；</li>
+<li>不适合断线恢复。</li>
+</ul>
+<h2 id="139-queue">13.9 Queue</h2>
+<p>Producer 将 Task 放入队列，Worker 竞争消费。</p>
+<pre class="mermaid">flowchart LR
+    P[Producer] --> Q[Task Queue]
+    Q --> W1[Worker 1]
+    Q --> W2[Worker 2]
+    Q --> W3[Worker N]
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>后台任务；</li>
+<li>Worker Pool；</li>
+<li>弹性扩缩容；</li>
+<li>重试；</li>
+<li>流量削峰。</li>
+</ul>
+<p>需要考虑：</p>
+<ul>
+<li>At-least-once Delivery；</li>
+<li>Idempotency；</li>
+<li>Visibility Timeout；</li>
+<li>Dead-letter Queue；</li>
+<li>Retry Backoff；</li>
+<li>Task Lease。</li>
+</ul>
+<p>分布式系统中很难依赖“绝对只执行一次”，更常见做法是至少一次投递配合幂等执行。</p>
+<h2 id="1310-pubsub">13.10 Pub/Sub</h2>
+<p>Publisher 将事件发送到 Topic，不需要知道具体订阅者：</p>
+<pre class="mermaid">flowchart LR
+    P[Publisher Agent] --> T[Topic]
+    T --> A[Subscriber A]
+    T --> B[Subscriber B]
+    T --> C[Subscriber C]
+</pre>
+
+<p>“发送方不需要知道谁在等待结果”准确描述的是 Pub/Sub，而不是所有消息传递。</p>
+<p>适合：</p>
+<ul>
+<li>多个 Agent 对同一事件做不同处理；</li>
+<li>审计、通知和监控；</li>
+<li>松耦合扩展。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>消费顺序；</li>
+<li>重复事件；</li>
+<li>Schema 演进；</li>
+<li>难以知道所有下游是否完成。</li>
+</ul>
+<h2 id="1311-event-stream">13.11 Event Stream</h2>
+<p>Event Stream 保存任务发生的有序事件：</p>
+<pre><code class="language-json">{
+  &quot;event_id&quot;: &quot;evt-1004&quot;,
+  &quot;event_type&quot;: &quot;agent.task.completed&quot;,
+  &quot;task_id&quot;: &quot;task-42&quot;,
+  &quot;agent_id&quot;: &quot;research-agent&quot;,
+  &quot;sequence&quot;: 17,
+  &quot;artifact_uri&quot;: &quot;artifact://research-result.json&quot;,
+  &quot;timestamp&quot;: &quot;2026-08-28T09:00:00Z&quot;
+}
+</code></pre>
+<p>优势：</p>
+<ul>
+<li>可审计；</li>
+<li>可回放；</li>
+<li>可以从事件重建状态；</li>
+<li>便于多个消费者独立处理。</li>
+</ul>
+<p>需要：</p>
+<ul>
+<li>Event Schema；</li>
+<li>顺序键；</li>
+<li>幂等消费；</li>
+<li>保留策略；</li>
+<li>版本兼容。</li>
+</ul>
+<h2 id="1312-artifact-store">13.12 Artifact Store</h2>
+<p>Agent 不应通过消息传递大型完整内容。</p>
+<p>推荐消息只包含：</p>
+<ul>
+<li>摘要；</li>
+<li>Schema；</li>
+<li>URI；</li>
+<li>Hash；</li>
+<li>来源；</li>
+<li>权限。</li>
+</ul>
+<pre><code class="language-json">{
+  &quot;artifact_id&quot;: &quot;report-draft-2&quot;,
+  &quot;uri&quot;: &quot;artifact://report-draft-2.md&quot;,
+  &quot;schema&quot;: &quot;research-report&quot;,
+  &quot;content_hash&quot;: &quot;sha256:...&quot;,
+  &quot;summary&quot;: &quot;包含三家竞品的产品、定价与风险对比&quot;
+}
+</code></pre>
+<p>接收 Agent 按需读取，避免：</p>
+<ul>
+<li>消息体过大；</li>
+<li>Context 重复；</li>
+<li>多次序列化；</li>
+<li>内容版本不一致。</li>
+</ul>
+<h2 id="1313">13.13 共享状态如何分层</h2>
+<pre class="mermaid">flowchart TB
+    S[System State] --> G[Global State]
+    S --> T[Task State]
+    S --> P[Private Agent State]
+    S --> A[Artifact State]
+    S --> E[Event / Audit State]
+</pre>
+
+<h3 id="13131-global-state">13.13.1 Global State</h3>
+<p>所有相关 Agent 可以读取：</p>
+<ul>
+<li>用户原始目标；</li>
+<li>全局约束；</li>
+<li>总体进度；</li>
+<li>预算；</li>
+<li>最终输出引用。</li>
+</ul>
+<h3 id="13132-task-state">13.13.2 Task State</h3>
+<p>某个子任务需要：</p>
+<ul>
+<li>状态；</li>
+<li>输入；</li>
+<li>依赖；</li>
+<li>Owner；</li>
+<li>Deadline；</li>
+<li>Result；</li>
+<li>Error。</li>
+</ul>
+<h3 id="13133-private-agent-state">13.13.3 Private Agent State</h3>
+<p>只供单个 Agent 使用：</p>
+<ul>
+<li>局部 Working Memory；</li>
+<li>临时候选；</li>
+<li>未验证笔记；</li>
+<li>局部工具状态。</li>
+</ul>
+<p>私有状态不应默认暴露给其他 Agent。</p>
+<h3 id="13134-artifact-state">13.13.4 Artifact State</h3>
+<p>保存大体积、可版本化的产出引用。</p>
+<h3 id="13135-audit-state">13.13.5 Audit State</h3>
+<p>保存不可随意修改的消息、路由和操作记录。</p>
+<h2 id="1314">13.14 状态写入不能简单概括为“只追加”</h2>
+<p>Append-only 适合：</p>
+<ul>
+<li>Event Log；</li>
+<li>审计记录；</li>
+<li>消息历史；</li>
+<li>不可变 Artifact 版本。</li>
+</ul>
+<p>但以下状态需要更新：</p>
+<ul>
+<li>当前 Owner；</li>
+<li>任务状态；</li>
+<li>剩余预算；</li>
+<li>当前计划版本；</li>
+<li>Lease；</li>
+<li>最新有效结果。</li>
+</ul>
+<p>更准确的策略是：</p>
+<table>
+<thead>
+<tr>
+<th>数据</th>
+<th>推荐更新方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Event / Audit</td>
+<td>Append-only</td>
+</tr>
+<tr>
+<td>Current Status</td>
+<td>受版本控制地覆盖</td>
+</tr>
+<tr>
+<td>Messages</td>
+<td>Reducer 追加、替换或删除</td>
+</tr>
+<tr>
+<td>Set / Tags</td>
+<td>Union Reducer</td>
+</tr>
+<tr>
+<td>Counter</td>
+<td>Atomic Increment</td>
+</tr>
+<tr>
+<td>Artifact</td>
+<td>新版本 + 不可变引用</td>
+</tr>
+<tr>
+<td>Task Owner</td>
+<td>Compare-and-Swap / Lease</td>
+</tr>
+</tbody>
+</table>
+<h2 id="1315-langgraph-state">13.15 LangGraph State 的准确理解</h2>
+<p>LangGraph 以 Graph、Node、Edge 和 State 构建工作流：</p>
+<ul>
+<li>Node 接收当前 State；</li>
+<li>Node 返回部分 State Update；</li>
+<li>每个 State Channel 使用 Reducer 合并更新；</li>
+<li>Edge 决定下一个 Node；</li>
+<li>Checkpointer 可以持久化状态。</li>
+</ul>
+<p>LangGraph 并不是所有字段都“只追加”：</p>
+<ul>
+<li>没有自定义 Reducer 时，默认更新通常覆盖旧值；</li>
+<li>列表可以使用 Append Reducer；</li>
+<li>可以定义自定义 Reducer；</li>
+<li>某些场景可以显式 Overwrite。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    OLD[Current State Value] --> R[Reducer]
+    UPDATE[Node Update] --> R
+    R --> NEW[New State Value]
+</pre>
+
+<p>因此，必须为每个字段明确设计合并语义。</p>
+<h2 id="1316">13.16 并发写入</h2>
+<p>多个 Agent 并行更新同一状态时，需要处理：</p>
+<ul>
+<li>Lost Update；</li>
+<li>Dirty Read；</li>
+<li>Write Conflict；</li>
+<li>Ordering；</li>
+<li>Duplicate Delivery。</li>
+</ul>
+<h3 id="13161">13.16.1 字段所有权</h3>
+<p>给每个字段明确唯一写入者：</p>
+<pre><code class="language-text">research_result  -&gt; Research Agent
+code_artifact    -&gt; Coding Agent
+review_status    -&gt; Review Agent
+global_status    -&gt; Orchestrator
+</code></pre>
+<p>这是最简单的冲突预防方式。</p>
+<h3 id="13162-optimistic-concurrency">13.16.2 Optimistic Concurrency</h3>
+<p>写入时携带版本：</p>
+<pre><code class="language-json">{
+  &quot;task_id&quot;: &quot;task-42&quot;,
+  &quot;expected_version&quot;: 7,
+  &quot;update&quot;: {
+    &quot;status&quot;: &quot;completed&quot;
+  }
+}
+</code></pre>
+<p>版本不匹配则拒绝，并要求重新读取状态。</p>
+<h3 id="13163-reducer">13.16.3 Reducer</h3>
+<p>对于可合并数据，定义确定性 Reducer：</p>
+<ul>
+<li>List Append；</li>
+<li>Set Union；</li>
+<li>Max Timestamp；</li>
+<li>Highest-confidence Value；</li>
+<li>Domain-specific Merge。</li>
+</ul>
+<h3 id="13164-lease">13.16.4 Lease</h3>
+<p>一个 Agent 在有限时间内拥有 Task：</p>
+<pre><code class="language-json">{
+  &quot;owner&quot;: &quot;agent-a&quot;,
+  &quot;lease_expires_at&quot;: &quot;2026-08-28T09:05:00Z&quot;
+}
+</code></pre>
+<p>Agent 失联后 Lease 过期，任务可以重新分配。</p>
+<h2 id="1317">13.17 错误必须成为一等状态</h2>
+<p>错误不能只写进日志或被静默吞掉。</p>
+<pre><code class="language-json">{
+  &quot;task_id&quot;: &quot;research-a&quot;,
+  &quot;status&quot;: &quot;blocked&quot;,
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;RATE_LIMITED&quot;,
+    &quot;message&quot;: &quot;Search API rate limit exceeded&quot;,
+    &quot;retryable&quot;: true,
+    &quot;retry_after_seconds&quot;: 30,
+    &quot;source&quot;: &quot;search-tool&quot;
+  }
+}
+</code></pre>
+<p>Orchestrator 可以据此：</p>
+<ul>
+<li>延迟重试；</li>
+<li>切换 Tool；</li>
+<li>切换 Agent；</li>
+<li>跳过可选任务；</li>
+<li>重规划；</li>
+<li>终止；</li>
+<li>请求人工处理。</li>
+</ul>
+<h2 id="1318-routing">13.18 Routing 是什么</h2>
+<p>Routing 决定：</p>
+<blockquote>
+<p><strong>当前状态下，应该由哪个 Agent 或节点处理下一步。</strong></p>
+</blockquote>
+<p>Routing 不一定意味着控制权永久转移，也可能只是委派一个子任务。</p>
+<p>常见策略：</p>
+<ol>
+<li>Static Rule；</li>
+<li>State-machine / Graph Edge；</li>
+<li>Capability-based；</li>
+<li>Score-based；</li>
+<li>LLM-based；</li>
+<li>Learned Router；</li>
+<li>Hybrid。</li>
+</ol>
+<h2 id="1319-static-routing">13.19 Static Routing</h2>
+<p>使用规则、状态机或固定 Edge：</p>
+<pre class="mermaid">flowchart LR
+    I[Input] --> R{Intent}
+    R -->|退款| REF[Refund Agent]
+    R -->|技术问题| TECH[Technical Agent]
+    R -->|普通咨询| FAQ[FAQ Agent]
+</pre>
+
+<p>优势：</p>
+<ul>
+<li>可预测；</li>
+<li>延迟低；</li>
+<li>易测试；</li>
+<li>适合安全和合规；</li>
+<li>不需要额外模型调用。</li>
+</ul>
+<p>限制：</p>
+<ul>
+<li>只能处理已定义路径；</li>
+<li>规则增加后难以维护；</li>
+<li>模糊输入容易落入错误分支。</li>
+</ul>
+<h2 id="1320-capability-based-routing">13.20 Capability-based Routing</h2>
+<p>Router 根据 Agent Capability 选择目标。</p>
+<p>Capability Registry 可以记录：</p>
+<pre><code class="language-json">{
+  &quot;agent_id&quot;: &quot;research-agent&quot;,
+  &quot;capabilities&quot;: [
+    &quot;web_search&quot;,
+    &quot;source_validation&quot;,
+    &quot;competitor_research&quot;
+  ],
+  &quot;input_schema&quot;: &quot;research-task&quot;,
+  &quot;output_schema&quot;: &quot;research-artifact&quot;,
+  &quot;permissions&quot;: [
+    &quot;public-web-read&quot;
+  ],
+  &quot;status&quot;: &quot;available&quot;
+}
+</code></pre>
+<p>选择时还需考虑：</p>
+<ul>
+<li>当前可用性；</li>
+<li>权限；</li>
+<li>成本；</li>
+<li>延迟；</li>
+<li>历史成功率；</li>
+<li>数据位置；</li>
+<li>风险。</li>
+</ul>
+<h2 id="1321-score-based-routing">13.21 Score-based Routing</h2>
+<p>可以为每个候选 Agent 计算分数：</p>
+<p>$$
+Score(a)=\alpha C_a+\beta Q_a+\gamma A_a-\delta L_a-\epsilon K_a-\zeta R_a
+$$</p>
+<p>其中：</p>
+<ul>
+<li><code>Cₐ</code>：Capability Match；</li>
+<li><code>Qₐ</code>：历史质量；</li>
+<li><code>Aₐ</code>：Availability；</li>
+<li><code>Lₐ</code>：Latency；</li>
+<li><code>Kₐ</code>：Cost；</li>
+<li><code>Rₐ</code>：Risk。</li>
+</ul>
+<p>评分可以由规则、统计模型或 LLM 辅助生成。</p>
+<h2 id="1322-llm-based-dynamic-routing">13.22 LLM-based Dynamic Routing</h2>
+<p>LLM 根据：</p>
+<ul>
+<li>当前目标；</li>
+<li>已完成工作；</li>
+<li>当前状态；</li>
+<li>候选 Agent；</li>
+<li>能力描述；</li>
+<li>权限和预算；</li>
+</ul>
+<p>返回目标 Agent。</p>
+<pre><code class="language-json">{
+  &quot;target_agent&quot;: &quot;review-agent&quot;,
+  &quot;reason&quot;: &quot;代码已经生成，但尚未通过独立审查&quot;,
+  &quot;handoff_type&quot;: &quot;delegation&quot;,
+  &quot;confidence&quot;: 0.91,
+  &quot;payload&quot;: {
+    &quot;artifact_uri&quot;: &quot;artifact://patch.diff&quot;
+  }
+}
+</code></pre>
+<h3 id="13221">13.22.1 优势</h3>
+<ul>
+<li>能处理模糊意图；</li>
+<li>可以综合多个信号；</li>
+<li>能覆盖部分未显式编码的组合情况。</li>
+</ul>
+<h3 id="13222">13.22.2 局限</h3>
+<ul>
+<li>可能路由错误；</li>
+<li>输出具有概率性；</li>
+<li>增加 Token 和延迟；</li>
+<li>可能选择越权 Agent；</li>
+<li>候选过多时判断质量下降。</li>
+</ul>
+<h3 id="13223">13.22.3 不一定额外增加一次模型调用</h3>
+<p>如果 Orchestrator 当前模型调用本来就需要决定下一动作，可以让它同时返回 Route。</p>
+<p>只有把路由做成独立 LLM 节点时，才一定新增调用。</p>
+<h2 id="1323-dynamic-routing">13.23 Dynamic Routing 必须受约束</h2>
+<p>动态不等于允许模型选择任意 Agent。</p>
+<p>Runtime 应：</p>
+<ul>
+<li>只暴露允许的候选；</li>
+<li>检查输入输出 Schema；</li>
+<li>校验权限；</li>
+<li>检查目标 Agent 可用性；</li>
+<li>设置最大切换次数；</li>
+<li>提供安全 Fallback；</li>
+<li>记录路由原因和 Trace。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    L[LLM Route Proposal] --> A[Allowlist]
+    A --> P[Permission Check]
+    P --> S[Schema Check]
+    S --> B[Budget / Loop Check]
+    B --> D[Dispatch]
+</pre>
+
+<h2 id="1324-hybrid-routing">13.24 Hybrid Routing</h2>
+<p>Hybrid Routing 将确定性控制与模型判断组合：</p>
+<pre class="mermaid">flowchart TB
+    S[Current State] --> H{High-risk or Fixed Path?}
+    H -->|是| STATIC[Static Route]
+    H -->|否| RULE{Rule Match?}
+    RULE -->|是| STATIC
+    RULE -->|否| LLM[LLM Router within Allowlist]
+    LLM --> CONF{Confidence and Validation Pass?}
+    CONF -->|是| TARGET[Target Agent]
+    CONF -->|否| SAFE[Safe Stop / Human / Orchestrator]
+</pre>
+
+<p>需要修正一个常见说法：</p>
+<blockquote>
+<p>不是“静态负责保底，动态负责兜底所有异常”。</p>
+</blockquote>
+<p>高风险异常的最终兜底应该是：</p>
+<ul>
+<li>安全停止；</li>
+<li>人工处理；</li>
+<li>确定性 Fallback；</li>
+</ul>
+<p>而不是无条件交给 LLM。</p>
+<h2 id="1325-delegation-handoff">13.25 Delegation 与 Handoff</h2>
+<p>这两个概念都能让另一个 Agent 工作，但控制权不同。</p>
+<h3 id="13251-delegation">13.25.1 Delegation</h3>
+<p>当前 Agent 保留控制权，将一个子任务交给 Worker：</p>
+<pre class="mermaid">sequenceDiagram
+    participant O as Orchestrator
+    participant W as Worker
+
+    O->>W: Delegate Subtask
+    W-->>O: Return Artifact
+    O->>O: Decide Next Step
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>Orchestrator 需要保持全局视角；</li>
+<li>子任务边界明确；</li>
+<li>多个 Worker 并行；</li>
+<li>结果需要统一合并。</li>
+</ul>
+<h3 id="13252-handoff">13.25.2 Handoff</h3>
+<p>当前 Agent 将后续对话或任务控制权转给另一个 Agent：</p>
+<pre class="mermaid">sequenceDiagram
+    participant U as User
+    participant T as Triage Agent
+    participant R as Refund Agent
+
+    U->>T: 请求退款
+    T->>R: Handoff + Structured Context
+    R->>U: 接管后续交互
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>接收 Agent 应直接面向用户；</li>
+<li>专业 Agent 需要持续控制后续回合；</li>
+<li>任务边界稳定；</li>
+<li>不需要原 Agent 汇总结果。</li>
+</ul>
+<h3 id="13253">13.25.3 对比</h3>
+<table>
+<thead>
+<tr>
+<th>Delegation</th>
+<th>Handoff</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>调用方保留控制权</td>
+<td>控制权转移</td>
+</tr>
+<tr>
+<td>Worker 返回结果给调用方</td>
+<td>接收 Agent 继续处理</td>
+</tr>
+<tr>
+<td>适合子任务</td>
+<td>适合职责切换</td>
+</tr>
+<tr>
+<td>常用于 Orchestrator-Workers</td>
+<td>常用于客服分流</td>
+</tr>
+</tbody>
+</table>
+<h2 id="1326-openai-swarm-agents-sdk">13.26 OpenAI Swarm 与 Agents SDK</h2>
+<p>Swarm 是 OpenAI 早期用于展示 Handoff 的教育性、实验性框架。</p>
+<p>当前应以 OpenAI Agents SDK 作为工程参考。Agents SDK 是 Swarm 的 production-ready upgrade，并支持：</p>
+<ul>
+<li>Agents；</li>
+<li>Agents as Tools；</li>
+<li>Handoffs；</li>
+<li>Guardrails；</li>
+<li>Sessions；</li>
+<li>Human-in-the-loop；</li>
+<li>Tracing。</li>
+</ul>
+<p>在 Agents SDK 中，Handoff 通常作为一种 Tool 暴露给模型，例如：</p>
+<pre><code class="language-text">transfer_to_refund_agent
+</code></pre>
+<p>模型选择该 Tool 后，Runtime 将控制权转给对应 Agent。</p>
+<h2 id="1327-handoff-contract">13.27 Handoff Contract</h2>
+<p>一个可靠 Handoff 不应只传一句“交给你了”。</p>
+<pre><code class="language-json">{
+  &quot;handoff_id&quot;: &quot;handoff-42&quot;,
+  &quot;from_agent&quot;: &quot;triage-agent&quot;,
+  &quot;to_agent&quot;: &quot;refund-agent&quot;,
+  &quot;task_id&quot;: &quot;task-100&quot;,
+  &quot;reason&quot;: &quot;用户报告重复扣款&quot;,
+  &quot;goal&quot;: &quot;确认订单并处理退款&quot;,
+  &quot;context_summary&quot;: &quot;用户已完成身份验证&quot;,
+  &quot;artifacts&quot;: [
+    &quot;artifact://order-details.json&quot;
+  ],
+  &quot;constraints&quot;: [
+    &quot;退款前必须再次确认金额&quot;
+  ],
+  &quot;deadline&quot;: &quot;2026-08-28T10:00:00Z&quot;,
+  &quot;return_policy&quot;: &quot;do_not_return&quot;
+}
+</code></pre>
+<p>至少包含：</p>
+<ul>
+<li>来源和目标 Agent；</li>
+<li>Goal；</li>
+<li>Reason；</li>
+<li>已完成内容；</li>
+<li>未完成内容；</li>
+<li>必需 Artifact；</li>
+<li>约束；</li>
+<li>权限；</li>
+<li>Deadline；</li>
+<li>返回或终止策略。</li>
+</ul>
+<h2 id="1328-handoff-context-filtering">13.28 Handoff Context Filtering</h2>
+<p>接收 Agent 不应默认看到全部历史。</p>
+<p>可以传递：</p>
+<ul>
+<li>结构化摘要；</li>
+<li>当前目标；</li>
+<li>已验证事实；</li>
+<li>必要 Artifact；</li>
+<li>用户明确约束；</li>
+<li>相关最近消息。</li>
+</ul>
+<p>不应默认传递：</p>
+<ul>
+<li>其他 Agent 的私有 Scratchpad；</li>
+<li>无关 Tool Result；</li>
+<li>敏感凭据；</li>
+<li>未验证推测；</li>
+<li>完整隐藏推理。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    FULL[Full Source Context] --> FILTER[Handoff Input Filter]
+    FILTER --> GOAL[Goal]
+    FILTER --> FACTS[Verified Facts]
+    FILTER --> ART[Artifacts]
+    FILTER --> RECENT[Relevant History]
+    GOAL --> TARGET[Target Agent Context]
+    FACTS --> TARGET
+    ART --> TARGET
+    RECENT --> TARGET
+</pre>
+
+<h2 id="1329-handoff">13.29 Handoff 循环</h2>
+<p>简单记录“访问过哪个 Agent”可以发现部分循环，但也可能误伤合法返回。</p>
+<p>更稳健的检测信号：</p>
+<ul>
+<li>总 Handoff 次数；</li>
+<li>同一 Agent 访问次数；</li>
+<li>相同 Task State Hash 重复出现；</li>
+<li>相同 Agent Pair 反复切换；</li>
+<li>多轮没有新 Artifact；</li>
+<li>Goal Progress 没有变化。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    A[Agent A] --> B[Agent B]
+    B --> C[Agent C]
+    C --> A
+    A -.No Progress Detected.-> STOP[Stop / Orchestrator / Human]
+</pre>
+
+<p>允许合理的回访，但要求：</p>
+<ul>
+<li>状态已经变化；</li>
+<li>有新的 Artifact；</li>
+<li>有明确返回原因；</li>
+<li>不超过预算。</li>
+</ul>
+<h2 id="1330-routing-fallback">13.30 Routing Fallback</h2>
+<p>Router 无法可靠选择时，应返回：</p>
+<pre><code class="language-json">{
+  &quot;route_status&quot;: &quot;UNRESOLVED&quot;,
+  &quot;reason&quot;: &quot;两个 Agent 的能力都不足以处理法律判断&quot;,
+  &quot;recommended_action&quot;: &quot;human_review&quot;
+}
+</code></pre>
+<p>不要：</p>
+<ul>
+<li>随机选择 Agent；</li>
+<li>静默落到权限最高的 Agent；</li>
+<li>无限重试 Router；</li>
+<li>把未知任务交给万能 Agent。</li>
+</ul>
+<h2 id="1331-agent-discovery">13.31 Agent Discovery</h2>
+<p>动态系统需要 Capability Registry：</p>
+<pre class="mermaid">flowchart LR
+    A[Agent Registration] --> R[Capability Registry]
+    Q[Task Requirement] --> R
+    R --> C[Candidate Agents]
+    C --> ROUTER[Router]
+</pre>
+
+<p>Registry 应记录：</p>
+<ul>
+<li>Agent ID；</li>
+<li>Skills；</li>
+<li>Input / Output Schema；</li>
+<li>Endpoint；</li>
+<li>Authentication；</li>
+<li>Availability；</li>
+<li>Cost；</li>
+<li>Latency；</li>
+<li>Version；</li>
+<li>Trust Level。</li>
+</ul>
+<p>A2A Agent Card 可以承担跨系统能力描述，但系统内部仍可能需要运行时 Registry。</p>
+<h2 id="1332-a2a">13.32 A2A 的作用</h2>
+<p>A2A 为独立 Agent 系统提供：</p>
+<ul>
+<li>Agent Card；</li>
+<li>Task；</li>
+<li>Message；</li>
+<li>Artifact；</li>
+<li>Streaming；</li>
+<li>Push Notification；</li>
+<li>Task Lifecycle；</li>
+<li>多种协议绑定。</li>
+</ul>
+<p>它允许 Agent 在不了解彼此内部 Memory、Tools 和实现细节的情况下协作。</p>
+<pre class="mermaid">sequenceDiagram
+    participant C as A2A Client
+    participant S as Remote Agent
+
+    C->>S: Get Agent Card
+    S-->>C: Capabilities + Auth
+    C->>S: Send Message / Create Task
+    S-->>C: Task Status
+    S-->>C: Artifact or Stream
+</pre>
+
+<p>A2A 解决互操作协议，不替代：</p>
+<ul>
+<li>Orchestrator；</li>
+<li>Task Decomposition；</li>
+<li>Router；</li>
+<li>权限策略；</li>
+<li>费用结算；</li>
+<li>结果验证。</li>
+</ul>
+<p>A2A 的 binding、Agent Card 与 Task 状态机详见 <a href="../../tools/04-agent-communication/11-a2a-protocol.html">Tools：A2A 协议</a>；跨组织身份、回调 SSRF、token audience 和 Card 信任边界详见 <a href="../../tools/02-mcp/15-tool-protocol-security.html">Tool Protocol 安全</a>。</p>
+<h2 id="1333-agent-schema">13.33 Agent 协作消息 Schema</h2>
+<p>推荐消息字段：</p>
+<pre><code class="language-json">{
+  &quot;message_id&quot;: &quot;msg-900&quot;,
+  &quot;schema_version&quot;: &quot;1.0&quot;,
+  &quot;task_id&quot;: &quot;task-42&quot;,
+  &quot;correlation_id&quot;: &quot;run-101&quot;,
+  &quot;causation_id&quot;: &quot;msg-899&quot;,
+  &quot;sender&quot;: &quot;orchestrator&quot;,
+  &quot;recipient&quot;: &quot;research-agent&quot;,
+  &quot;message_type&quot;: &quot;task.request&quot;,
+  &quot;idempotency_key&quot;: &quot;task-42-research-v1&quot;,
+  &quot;deadline&quot;: &quot;2026-08-28T09:10:00Z&quot;,
+  &quot;trace_id&quot;: &quot;trace-77&quot;,
+  &quot;payload&quot;: {
+    &quot;goal&quot;: &quot;调研竞品 A&quot;,
+    &quot;artifact_schema&quot;: &quot;competitor-research&quot;
+  }
+}
+</code></pre>
+<p>字段作用：</p>
+<ul>
+<li><code>message_id</code>：唯一消息；</li>
+<li><code>task_id</code>：归属任务；</li>
+<li><code>correlation_id</code>：关联一次完整运行；</li>
+<li><code>causation_id</code>：追踪因果链；</li>
+<li><code>idempotency_key</code>：防重复副作用；</li>
+<li><code>deadline</code>：防止过期任务继续执行；</li>
+<li><code>trace_id</code>：可观测性。</li>
+</ul>
+<h2 id="1334">13.34 取消传播</h2>
+<p>用户取消全局任务时，需要取消：</p>
+<ul>
+<li>正在执行的 Worker；</li>
+<li>队列中的 Task；</li>
+<li>外部 Tool；</li>
+<li>后续依赖；</li>
+<li>尚未完成的 Handoff。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    CANCEL[Cancel Global Task] --> O[Orchestrator]
+    O --> W1[Cancel Worker A]
+    O --> W2[Cancel Worker B]
+    O --> Q[Remove Queued Tasks]
+    O --> T[Cancel Tool Calls]
+</pre>
+
+<p>Agent 和 Tool 必须支持 Cancellation Token 或任务状态检查。</p>
+<h2 id="1335">13.35 超时与重试</h2>
+<h3 id="13351-timeout">13.35.1 Timeout</h3>
+<p>区分：</p>
+<ul>
+<li>单次 Tool Timeout；</li>
+<li>Agent Step Timeout；</li>
+<li>Task Timeout；</li>
+<li>全局 Run Timeout。</li>
+</ul>
+<h3 id="13352-retry">13.35.2 Retry</h3>
+<p>只对可重试错误执行，并采用：</p>
+<ul>
+<li>Exponential Backoff；</li>
+<li>Jitter；</li>
+<li>最大次数；</li>
+<li>幂等键。</li>
+</ul>
+<h3 id="13353-fallback">13.35.3 Fallback</h3>
+<p>可以：</p>
+<ul>
+<li>切换 Agent；</li>
+<li>切换 Tool；</li>
+<li>降级模型；</li>
+<li>返回部分结果；</li>
+<li>请求人工处理。</li>
+</ul>
+<h2 id="1336">13.36 可观测性</h2>
+<p>Multi-Agent 必须记录：</p>
+<ul>
+<li>谁创建了 Task；</li>
+<li>谁路由给谁；</li>
+<li>为什么选择该 Agent；</li>
+<li>传递了哪些 Context 和 Artifact；</li>
+<li>每个 Agent 做了什么；</li>
+<li>哪个步骤失败；</li>
+<li>Token、费用和延迟；</li>
+<li>Handoff 次数；</li>
+<li>最终结果来源。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    O[Orchestrator] -.Trace.-> OBS[Observability]
+    A1[Agent A] -.Trace.-> OBS
+    A2[Agent B] -.Trace.-> OBS
+    Q[Queue / State] -.Metrics.-> OBS
+    T[Tools] -.Logs.-> OBS
+</pre>
+
+<p>建议统一：</p>
+<ul>
+<li>Trace ID；</li>
+<li>Span；</li>
+<li>Task ID；</li>
+<li>Agent ID；</li>
+<li>Artifact ID；</li>
+<li>Route Decision；</li>
+<li>Error Code。</li>
+</ul>
+<h2 id="1337">13.37 安全</h2>
+<p>动态切换会扩大权限边界。</p>
+<p>必须检查：</p>
+<ul>
+<li>来源 Agent 是否有权委派；</li>
+<li>目标 Agent 是否有权处理数据；</li>
+<li>Handoff Payload 是否包含敏感信息；</li>
+<li>目标 Agent 是否被允许调用高风险 Tool；</li>
+<li>外部 Agent 身份是否可信；</li>
+<li>消息是否被篡改或重放。</li>
+</ul>
+<h3 id="13371-confused-deputy">13.37.1 Confused Deputy</h3>
+<p>低权限 Agent 可能诱导高权限 Agent 代替它执行敏感操作。</p>
+<p>防护：</p>
+<ul>
+<li>每次 Tool Call 重新授权；</li>
+<li>不继承来源 Agent 的隐含权限；</li>
+<li>记录原始用户身份和意图；</li>
+<li>高风险操作重新确认；</li>
+<li>Handoff 不自动升级权限。</li>
+</ul>
+<h2 id="1338">13.38 客服系统示例</h2>
+<pre class="mermaid">flowchart TB
+    U[User Request] --> T[Triage Workflow]
+    T --> R{Static Rules}
+
+    R -->|订单查询| O[Order Agent]
+    R -->|退款| F[Refund Agent]
+    R -->|技术问题| X[Technical Agent]
+    R -->|无法识别| L[LLM Router]
+
+    L --> C{Validated Route}
+    C -->|通过| TARGET[Allowed Agent]
+    C -->|低置信度| H[Human Support]
+
+    F --> APPROVE{Refund Approval}
+    APPROVE -->|批准| TOOL[Refund Tool]
+    APPROVE -->|拒绝| H
+</pre>
+
+<p>设计要点：</p>
+<ul>
+<li>常见意图使用静态路由；</li>
+<li>模糊意图在 Allowlist 内动态路由；</li>
+<li>退款 Handoff 传递订单 Artifact；</li>
+<li>Refund Agent 不继承无限权限；</li>
+<li>执行退款前需要审批；</li>
+<li>未识别请求安全转人工。</li>
+</ul>
+<h2 id="1339">13.39 代码协作示例</h2>
+<pre class="mermaid">flowchart TB
+    G[User Goal] --> O[Coding Orchestrator]
+    O --> E[Explore Agent]
+    E --> A[Architecture Artifact]
+    A --> O
+    O --> C[Coding Agent]
+    C --> D[Patch Artifact]
+    D --> R[Review Agent]
+    R --> V{Pass?}
+    V -->|否| C
+    V -->|是| O
+    O --> G
+</pre>
+
+<p>推荐：</p>
+<ul>
+<li>Explore Agent 只读；</li>
+<li>Coding Agent 可修改工作区；</li>
+<li>Review Agent 只读 Diff；</li>
+<li>Orchestrator 保留最终控制；</li>
+<li>Patch 和报告使用 Artifact；</li>
+<li>Review Finding 使用结构化 Schema；</li>
+<li>最大修订次数由 Runtime 控制。</li>
+</ul>
+<h2 id="1340">13.40 选型表</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐机制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>固定顺序处理</td>
+<td>Pipeline</td>
+</tr>
+<tr>
+<td>复杂任务统一调度</td>
+<td>Orchestrator</td>
+</tr>
+<tr>
+<td>多 Worker 并发</td>
+<td>Queue + Task Ledger</td>
+</tr>
+<tr>
+<td>多消费者响应事件</td>
+<td>Pub/Sub</td>
+</tr>
+<tr>
+<td>多 Agent 复用结果</td>
+<td>Shared Workspace + Artifact</td>
+</tr>
+<tr>
+<td>跨组织 Agent 互操作</td>
+<td>A2A</td>
+</tr>
+<tr>
+<td>专业 Agent 接管用户会话</td>
+<td>Handoff</td>
+</tr>
+<tr>
+<td>Worker 完成子任务后返回</td>
+<td>Delegation</td>
+</tr>
+<tr>
+<td>高风险或稳定主流程</td>
+<td>Static Routing</td>
+</tr>
+<tr>
+<td>模糊、开放式低风险分流</td>
+<td>Constrained LLM Routing</td>
+</tr>
+<tr>
+<td>大量 Agent</td>
+<td>Hierarchical Orchestrator</td>
+</tr>
+</tbody>
+</table>
+<h2 id="1341">13.41 推荐生产架构</h2>
+<pre class="mermaid">flowchart TB
+    INPUT[User / Event] --> WF[Deterministic Workflow]
+    WF --> ROUTER[Hybrid Router]
+
+    ROUTER --> REG[Capability Registry]
+    REG --> POLICY[Permission + Risk Policy]
+    POLICY --> LEDGER[Task Ledger]
+
+    LEDGER --> QUEUE[Task Queue]
+    QUEUE --> A1[Agent A]
+    QUEUE --> A2[Agent B]
+    QUEUE --> AN[Agent N]
+
+    A1 --> ART[Artifact Store]
+    A2 --> ART
+    AN --> ART
+
+    A1 --> EVENTS[Event Stream]
+    A2 --> EVENTS
+    AN --> EVENTS
+
+    EVENTS --> STATE[Materialized State]
+    STATE --> ROUTER
+    ART --> VERIFY[Verifier]
+    VERIFY --> JOIN[Result Aggregator]
+    JOIN --> WF
+
+    ROUTER -->|Handoff| SPECIAL[Specialist Agent]
+    ROUTER -->|Low Confidence| HUMAN[Human Review]
+
+    WF -.Trace.-> OBS[Observability]
+    ROUTER -.Route Decisions.-> OBS
+    A1 -.Spans.-> OBS
+    A2 -.Spans.-> OBS
+    AN -.Spans.-> OBS
+</pre>
+
+<p>核心原则：</p>
+<ol>
+<li>确定性 Workflow 控制高层边界；</li>
+<li>Hybrid Router 在 Allowlist 内选择 Agent；</li>
+<li>Task Ledger 是任务状态真相源；</li>
+<li>Queue 负责异步分发；</li>
+<li>Artifact Store 传递大结果；</li>
+<li>Event Stream 保留审计和状态变化；</li>
+<li>Verifier 检查输出；</li>
+<li>Handoff 只用于真正需要转移控制权的场景；</li>
+<li>低置信度和高风险请求安全停止或转人工。</li>
+</ol>
+<h2 id="1342">13.42 设计检查表</h2>
+<h3 id="13421">13.42.1 协作拓扑</h3>
+<ul>
+<li>为什么选择 Pipeline、Orchestrator、Blackboard 或 P2P？</li>
+<li>是否存在不必要的 Agent？</li>
+<li>谁拥有全局目标和最终决策权？</li>
+</ul>
+<h3 id="13422">13.42.2 通信</h3>
+<ul>
+<li>使用 Request/Response、Queue、Pub/Sub 还是 Event Stream？</li>
+<li>消息是否有 Schema 和版本？</li>
+<li>是否支持幂等、重试和取消？</li>
+<li>大结果是否使用 Artifact？</li>
+</ul>
+<h3 id="13423">13.42.3 状态</h3>
+<ul>
+<li>Global、Task、Private State 是否分开？</li>
+<li>每个字段由谁写？</li>
+<li>Reducer 是覆盖、追加还是自定义合并？</li>
+<li>并发冲突如何检测？</li>
+</ul>
+<h3 id="13424-routing">13.42.4 Routing</h3>
+<ul>
+<li>静态规则能覆盖哪些路径？</li>
+<li>LLM Router 的候选是否受 Allowlist 限制？</li>
+<li>权限、成本和可用性是否参与选择？</li>
+<li>低置信度如何安全退出？</li>
+</ul>
+<h3 id="13425-handoff">13.42.5 Handoff</h3>
+<ul>
+<li>是否真的需要转移控制权，还是 Delegation 足够？</li>
+<li>Handoff Contract 是否完整？</li>
+<li>是否过滤无关或敏感 Context？</li>
+<li>如何检测循环和无进展？</li>
+</ul>
+<h3 id="13426-reliability">13.42.6 Reliability</h3>
+<ul>
+<li>Agent 超时后谁接管？</li>
+<li>Task Lease 如何过期？</li>
+<li>Error 是否进入状态？</li>
+<li>是否支持局部重试和重新规划？</li>
+</ul>
+<h3 id="13427-security">13.42.7 Security</h3>
+<ul>
+<li>Handoff 是否导致权限升级？</li>
+<li>外部 Agent 是否经过认证？</li>
+<li>Shared State 是否存在跨租户泄露？</li>
+<li>高风险操作是否重新授权？</li>
+</ul>
+<h3 id="13428-observability">13.42.8 Observability</h3>
+<ul>
+<li>是否有统一 Trace ID？</li>
+<li>能否还原每次 Route 和 Handoff？</li>
+<li>能否统计 Agent 成功率、成本和延迟？</li>
+<li>能否定位循环、重复工作和消息丢失？</li>
+</ul>
+<h2 id="1343">13.43 常见反模式</h2>
+<h3 id="13431-agent">13.43.1 所有 Agent 共享完整对话</h3>
+<p>造成 Context 污染、隐私扩大和 Token 浪费。</p>
+<h3 id="13432-state">13.43.2 所有 State 字段都追加</h3>
+<p>当前状态、Owner 和预算无法正确更新。</p>
+<h3 id="13433-state">13.43.3 所有 State 字段都覆盖</h3>
+<p>并发结果和历史事件会丢失。</p>
+<h3 id="13434-message-passing-pubsub">13.43.4 Message Passing 等同 Pub/Sub</h3>
+<p>忽略了 Request/Response、Queue 和 Event Stream 的不同语义。</p>
+<h3 id="13435-llm-router-agent">13.43.5 LLM Router 可以选择任意 Agent</h3>
+<p>容易越权、误路由和形成循环。</p>
+<h3 id="13436">13.43.6 动态路由作为所有异常的最终兜底</h3>
+<p>高风险未知情况应安全停止或转人工。</p>
+<h3 id="13437-handoff-delegation">13.43.7 Handoff 与 Delegation 混为一谈</h3>
+<p>导致控制权不清和结果无人汇总。</p>
+<h3 id="13438-agent">13.43.8 只记录经过的 Agent 名称防循环</h3>
+<p>无法区分合法回访与无进展循环。</p>
+<h3 id="13439">13.43.9 错误只写日志</h3>
+<p>Router 和 Orchestrator 无法根据失败状态决策。</p>
+<h3 id="134310">13.43.10 大结果通过消息反复复制</h3>
+<p>造成传输和 Context 成本，应改用 Artifact。</p>
+<h2 id="1344">13.44 本章总结</h2>
+<p>Multi-Agent 协作要把通信、状态、路由、控制权转移、可靠性、安全和可观测性一起设计清楚，少掉任何一项，系统一放大就容易出问题。</p>
+<p>单团队生产环境里，更常见的组合是：</p>
+<blockquote>
+<p><strong>Workflow 控制高层边界，Orchestrator 管理任务，Hybrid Router 选择 Worker，消息触发执行，State 记录事实，Artifact 传递结果，Verifier 检查质量。</strong></p>
+</blockquote>
+<p>Handoff 适合让专业 Agent 直接接住后续交互；Delegation 更像把一段子任务外包出去，结果再交回原调用方。动态路由也别放得太开，候选集、权限、预算和退出条件都要先收紧；真正拿不准或已经碰到高风险时，直接安全停止或转人工更稳妥。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/graph-api">LangGraph Graph API</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/">OpenAI Agents SDK</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/handoffs/">OpenAI Agents SDK: Handoffs</a></li>
+<li><a href="https://a2a-protocol.org/latest/specification/">A2A Protocol Specification</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chain 与 LCEL · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Chain 与 LCEL — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>基础架构</span> / <span>Chain 与 LCEL</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="chain-lcel">第二章：Chain 的设计理念与 LCEL</h1>
+<h2 id="21-chain">2.1 Chain 解决什么问题</h2>
+<p>以最简单的商品评价分类为例。完整过程<strong>不是只调用一次模型</strong>，而是：</p>
+<pre><code>清洗用户输入 → 把变量填进 Prompt → 调用模型 → 把返回的消息解析成业务需要的字符串
+</code></pre>
+<h3 id="211">2.1.1 全部手写会遇到什么</h3>
+<ul>
+<li>这个函数返回字符串，下一个函数却要消息对象——<strong>一堆胶水逻辑</strong>；</li>
+<li>同步调用写一套，异步调用再写一套；</li>
+<li>想加流式输出、批处理、重试和链路追踪，<strong>又得分别改造每一步</strong>。</li>
+</ul>
+<p>步骤只有三个时还能手写维护；等流程变成「问题改写 → 检索 → 文档整理 → Prompt → 模型 → 结构化解析」，接口转换、中间结果搬运和错误处理就会快速散落在各个步骤里。</p>
+<h3 id="212-chain">2.1.2 Chain 的两个视角</h3>
+<table>
+<thead>
+<tr>
+<th>视角</th>
+<th>Chain 是什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>业务视角</strong></td>
+<td>把多个处理步骤串成一个完整任务</td>
+</tr>
+<tr>
+<td><strong>软件设计视角</strong></td>
+<td><strong>数据流编排和组件组合</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>它先把各个零件收拢到统一调用协议，再按数据流接成完整任务。</strong> 调用方不用逐个驱动内部步骤，只需要给整条链输入、从整条链拿输出。</p>
+<h2 id="22-chain">2.2 Chain 只能线性执行吗</h2>
+<p>Chain 常被理解成从左到右的一根直线。最简单的 Chain 确实如此：</p>
+<pre><code>用户输入 → Prompt 模板 → Chat Model → 输出解析器 → 字符串答案
+</code></pre>
+<p><strong>但真实应用还可能出现并行分支和条件分支</strong>：</p>
+<pre class="mermaid">flowchart LR
+    Q["用户问题"] --> R["知识库检索"]
+    Q --> P["原样保留"]
+    R --> M["汇合到 Prompt"]
+    P --> M
+    M --> L["模型"]
+
+    style M fill:#e8f0fe
+</pre>
+
+<h3 id="221">2.2.1 更准确地说</h3>
+<blockquote>
+<p><strong>Chain 描述了一张事先确定好的数据流图。</strong> 节点负责处理数据，连接关系决定数据往哪里走。</p>
+<p><strong>即使某个节点内部调用了结果不确定的 LLM，流程拓扑本身仍然是开发者提前写好的。</strong></p>
+</blockquote>
+<h3 id="222-chain-agent">2.2.2 Chain 与 Agent 的分界</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>谁决定下一步</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Chain</strong></td>
+<td><strong>开发者</strong>决定「下一步调用谁」——偏<strong>确定性编排</strong></td>
+</tr>
+<tr>
+<td><strong>Agent</strong></td>
+<td><strong>模型</strong>根据当前状态动态决定「下一步做什么工具、是否继续循环」——偏<strong>运行时决策</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="23-runnable">2.3 Runnable 解决了什么</h2>
+<p>Prompt、模型、检索器和解析器之所以能接在一起，是因为它们都实现了 Runnable。Runnable 是 LangChain 的统一调用协议：组件内部实现可以不同，只要遵守这套协议，就能被统一调用，也能继续和其他组件组合。</p>
+<h3 id="231">2.3.1 统一的执行接口</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>接口</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>处理单个输入</td>
+<td><code>invoke</code> / <code>ainvoke</code></td>
+</tr>
+<tr>
+<td>输入变成一批</td>
+<td><code>batch</code> / <code>abatch</code></td>
+</tr>
+<tr>
+<td>边生成边展示</td>
+<td><code>stream</code> / <code>astream</code>（<strong>前提是内部组件真正支持流式</strong>）</td>
+</tr>
+</tbody>
+</table>
+<p>执行方式统一之后，<code>with_config</code>、<code>with_retry</code>、<code>with_fallbacks</code> 才能在同一抽象上附加配置、重试和降级能力。</p>
+<h3 id="232-runnable">2.3.2 组合后的结果仍然是 Runnable</h3>
+<p>两个组件接成一条小链后，这条小链还可以继续接到更大的链里。因此可以先封装局部流程，再把它挂到更大的数据流上。</p>
+<p>Runnable 还暴露<strong>输入、输出和配置的 schema</strong>，并允许通过 config 携带标签、元数据。这些能力让框架更容易检查数据契约，也方便 LangSmith 之类的追踪系统识别整条调用链里的<strong>父子运行关系</strong>。</p>
+<h3 id="233-runnable">2.3.3 但别把 Runnable 理解成魔法</h3>
+<p><strong>前一个步骤输出什么类型，后一个步骤就必须能够接住什么类型。</strong></p>
+<table>
+<thead>
+<tr>
+<th>组件</th>
+<th>通常接收</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>ChatPromptTemplate</code></td>
+<td>字典</td>
+</tr>
+<tr>
+<td>Chat Model</td>
+<td>格式化后的 Prompt Value 或消息</td>
+</tr>
+<tr>
+<td><code>StrOutputParser</code></td>
+<td>模型消息，输出字符串</td>
+</tr>
+</tbody>
+</table>
+<p><strong>类型接不上，链照样会在运行时报错。</strong></p>
+<h2 id="24-lcel">2.4 LCEL 不只是语法糖</h2>
+<p>LCEL 全称 <strong>LangChain Expression Language</strong>，最显眼的写法是用 <code>|</code> 把 Runnable 接起来。</p>
+<p>这里的 <code>|</code> 不是普通的 Python 管道：</p>
+<blockquote>
+<p><code>prompt | model | parser</code> <strong>声明的是三个 Runnable 的组合关系</strong>，LangChain 会据此构造一个 <code>RunnableSequence</code>。在这个序列里，前一步的输出会作为后一步的输入。</p>
+</blockquote>
+<h3 id="241">2.4.1 一条完整的链</h3>
+<pre><code class="language-python">from langchain.chat_models import init_chat_model
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+
+# Prompt 本身就是 Runnable，输入是包含 product 和 review 的字典
+prompt = ChatPromptTemplate.from_messages([
+    (&quot;system&quot;, &quot;你是商品评价分类助手，只回答 positive、neutral 或 negative。&quot;),
+    (&quot;human&quot;, &quot;商品：{product}\n评价：{review}&quot;),
+])
+
+# 统一的模型初始化入口，运行前需安装对应 Provider 包并配好密钥
+model = init_chat_model(&quot;&lt;provider&gt;:&lt;your-model-id&gt;&quot;, temperature=0)
+
+# LCEL 把三个步骤组合为 RunnableSequence
+chain = prompt | model | StrOutputParser()
+
+# 整条 chain 仍然是 Runnable
+result = chain.invoke({
+    &quot;product&quot;: &quot;机械键盘&quot;,
+    &quot;review&quot;: &quot;手感不错，但空格键声音有点大。&quot;,
+})
+print(result)
+</code></pre>
+<p>这里的 <code>chain</code> 不是执行结果，而是一份已经组装好的「可执行流程」。只有调用 <code>invoke</code> 时，数据才真正从左向右流动。</p>
+<p><strong>要异步不用重写内部流程</strong>，改成 <code>await chain.ainvoke(...)</code>；批量用 <code>chain.batch([...])</code>；流式遍历 <code>chain.stream(...)</code>。</p>
+<p>LCEL 的价值在于流程只组装一次，后续可以用同一套接口执行同步、异步、批量和流式调用。</p>
+<h3 id="242">2.4.2 流式能力的限制</h3>
+<p><code>RunnableSequence</code> 会<strong>尽量</strong>保留各组件的流式能力，<strong>但如果中间某个组件不支持流式转换，输出就要等它完成后才能继续流出</strong>。</p>
+<p>例如普通 <code>RunnableLambda</code> 默认不实现流式转换，<strong>放错位置就可能推迟首个输出块</strong>。</p>
+<h2 id="25">2.5 并行与汇合</h2>
+<p><strong>Runnable 不只支持串行，还支持并行。</strong></p>
+<p>比如同一篇文章，既要生成摘要又要给出标题——两个任务互不依赖，没必要先后等待：</p>
+<pre><code class="language-python">from langchain_core.runnables import RunnableParallel
+
+summary_chain = (
+    ChatPromptTemplate.from_template(&quot;用两句话总结这篇文章：\n{article}&quot;)
+    | model | parser
+)
+title_chain = (
+    ChatPromptTemplate.from_template(&quot;为这篇文章起一个简洁标题：\n{article}&quot;)
+    | model | parser
+)
+
+# 两个分支接收相同的输入字典，分别执行不同任务
+chain = RunnableParallel(summary=summary_chain, title=title_chain)
+
+result = chain.invoke({&quot;article&quot;: &quot;这里放待处理的文章正文&quot;})
+print(result[&quot;title&quot;], result[&quot;summary&quot;])
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>原语</th>
+<th>解决</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>RunnableSequence</code></td>
+<td><strong>先做 A，再做 B</strong></td>
+</tr>
+<tr>
+<td><code>RunnableParallel</code></td>
+<td><strong>把相同输入同时交给 A 和 B</strong></td>
+</tr>
+</tbody>
+</table>
+<p>在 LCEL 里，字典也可以在组合上下文中被自动转换为 <code>RunnableParallel</code>。显式写出类名时，执行模型会更直观。</p>
+<h2 id="26">2.6 为什么统一协议能不断扩展</h2>
+<p>统一协议的价值不只在「方便串起来」，还在于它让流程可以逐步扩展：</p>
+<pre class="mermaid">flowchart TB
+    A["① 可组合<br/>每个步骤只处理自己的输入输出<br/>小链可以继续组成大链<br/>换掉某个模型/解析器/检索器<br/>不必推翻整条业务流程"]
+    A --> B["② 执行方式统一<br/>单次、异步、批量、流式收拢到统一接口<br/>组合后的流程才有机会继承这些能力"]
+    B --> C["③ 声明式数据流<br/>主要表达『数据先去哪，再去哪』<br/>不用把线程调度、回调传递、中间结果搬运<br/>混在业务逻辑里"]
+    C --> D["④ 横切能力可复用<br/>重试、回退、标签、元数据、追踪<br/>可以附着在某个 Runnable，也可作用于整条链"]
+    D --> E["生产排查时看到的不再只是最终报错<br/>而是这次运行究竟经过了哪些子步骤"]
+
+    style E fill:#e6f4ea
+</pre>
+
+<p>这里的限制也要一并看到：接口统一只代表调用方式一致，<strong>最终效果仍取决于内部组件是否真正支持对应模式</strong>。</p>
+<h2 id="27-chain">2.7 旧式 Chain 为什么被弃用</h2>
+<p>这是版本迁移里最常见的混淆点。</p>
+<h3 id="271-chain">2.7.1 旧式 Chain 的问题</h3>
+<p>早期 LangChain 提供大量<strong>面向具体场景的类</strong>：<code>LLMChain</code> 封装 Prompt 加模型，<code>SequentialChain</code> 把多条旧式 Chain 顺序连接。它们在老项目和老教程里非常常见，<strong>所以很多人会误以为这就是今天的标准答案</strong>。</p>
+<p>问题在于：</p>
+<blockquote>
+<p>专用 Chain 类越来越多，<strong>每个类的输入字段、返回结构和扩展方式不完全一致</strong>。开发者既要记住大量类名，又很难把它们自由拼装。</p>
+</blockquote>
+<h3 id="272">2.7.2 方向的转变</h3>
+<p><strong>从「为每个场景造一个专用类」转向「提供少量统一原语，让开发者自己组合」。</strong></p>
+<p><code>LLMChain(prompt=prompt, llm=model)</code> 能做的事，现在通常直接写成 <code>prompt | model | parser</code>——<strong>数据流更清楚，组合能力也更一致</strong>。</p>
+<h3 id="273">2.7.3 现状</h3>
+<p>LangChain v1 的迁移指南已经把旧式 chains 明确移到 <strong><code>langchain-classic</code></strong>，其中包括 <code>LLMChain</code>、<code>ConversationChain</code>、<code>SequentialChain</code> 等旧 API。</p>
+<blockquote>
+<p><strong>它们不是突然不能运行了。</strong> 维护旧系统时仍可以安装兼容包，<strong>但新项目不应该因为看到旧教程就继续把这些当成首选</strong>。</p>
+</blockquote>
+<p><strong>正确的态度</strong>：看到老代码里的 <code>LLMChain</code> 要能读懂它过去解决了什么问题；写新代码时优先用 Runnable 与 LCEL。</p>
+<h2 id="28">2.8 三种编排方式怎么选</h2>
+<p>Chain 适合固定数据流，不适合把所有流程都塞进一条超长 LCEL。</p>
+<pre class="mermaid">flowchart TB
+    Q1{"开发前就知道<br/>下一步去哪里?"}
+    Q1 -->|是| C["Chain（Runnable + LCEL）<br/>文本清洗、检索增强问答、分类后解析<br/>结构直接、调用统一、容易追踪"]
+    Q1 -->|否，要模型决定| Q2{"需要精确控制循环、分支<br/>状态持久化、失败恢复、人工介入?"}
+    Q2 -->|否| A["create_agent<br/>标准 Agent 循环<br/>（本身运行在 LangGraph 之上）"]
+    Q2 -->|是| G["LangGraph 底层图编排<br/>处理长时、有状态工作流"]
+
+    style C fill:#e6f4ea
+    style A fill:#e8f0fe
+    style G fill:#fff3cd
+</pre>
+
+<p>开发前就知道下一步去哪时，优先 Chain；运行时要由模型决定下一步时，考虑 Agent；流程需要显式状态图和恢复能力时，考虑 LangGraph。</p>
+<p>LangGraph 不是为了取代每一条简单 Chain，而是处理 Chain 难以清楚表达的长时、有状态工作流。</p>
+<h2 id="29">2.9 常见错误</h2>
+<h3 id="291-chain-llm">2.9.1 把 Chain 缩小成「一次 LLM 调用」</h3>
+<p><strong>一次模型调用只能算流程中的一个节点。</strong></p>
+<h3 id="292-chain-llmchain">2.9.2 把 Chain 等同于 <code>LLMChain</code> 这个具体类</h3>
+<p>旧类只是早期实现。今天谈 Chain 重点应放在<strong>如何用 Runnable 组织完整数据流</strong>。</p>
+<h3 id="293-chain">2.9.3 认为 Chain 只能线性执行</h3>
+<p>它描述的是一张<strong>事先确定好的数据流图</strong>，可以有并行分支和条件分支。</p>
+<h3 id="294">2.9.4 把 <code>|</code> 当成能自动修好一切的魔法</h3>
+<p><strong>LCEL 负责组合，不会猜测业务语义。</strong> 上下步类型不匹配时仍要用 <code>RunnableLambda</code>、<code>RunnablePassthrough</code>、<code>itemgetter</code> 或显式转换函数整理数据。</p>
+<h3 id="295">2.9.5 认为统一接口意味着组件天然具备相同能力</h3>
+<p><strong>某一步不支持流式转换，整条链的首个输出就会被推迟；模型没有服务端批处理能力，调用 <code>batch</code> 也不会凭空获得最优性能。</strong></p>
+<h3 id="296-chain-agent">2.9.6 把 Chain 和 Agent 混为一谈</h3>
+<p><strong>Chain 的连接关系由代码预先确定，Agent 的动作路径由模型在运行中选择。</strong> 二者可以组合，但不能因为都调用了模型就混同。</p>
+<h3 id="297">2.9.7 没有版本意识</h3>
+<p><code>LLMChain</code>、<code>SequentialChain</code> 已是 legacy，被移入 <code>langchain-classic</code>。<strong>新项目不要照抄旧教程。</strong></p>
+<h3 id="298">2.9.8 只写字典简写不知道背后生成了什么</h3>
+<p>字典在组合上下文里会被转成 <code>RunnableParallel</code>，<strong>要能说出显式类名</strong>。</p>
+<h2 id="210">2.10 本章总结</h2>
+<ol>
+<li><strong>Chain 解决的是胶水逻辑爆炸</strong>：类型不匹配、同步异步各写一套、横切能力要逐步改造；</li>
+<li><strong>它是确定性的数据流编排</strong>——事先确定好的数据流图，节点处理数据、连接决定走向；</li>
+<li><strong>Chain 与 Agent 的分界是「谁决定下一步」</strong>：开发者 vs 模型；</li>
+<li><strong>Runnable 提供统一调用协议</strong>，收拢了 invoke / batch / stream 及其异步版本；</li>
+<li><strong>组合后的结果仍是 Runnable</strong>，所以小链能继续嵌进大链；</li>
+<li><strong>但类型必须接得上</strong>，Runnable 不是魔法；</li>
+<li><strong>LCEL 的 <code>|</code> 声明的是组合关系</strong>，生成 <code>RunnableSequence</code>，<code>chain</code> 是流程不是结果；</li>
+<li><strong>流式能力会尽量传播，但被不支持流式的中间组件卡住</strong>；</li>
+<li><strong><code>RunnableParallel</code> 解决同一输入分发到多个分支</strong>，与 Sequence 组合可表达大量固定流程；</li>
+<li><strong>统一协议的价值链条</strong>：可组合 → 执行方式统一 → 声明式数据流 → 横切能力复用 → 可观测；</li>
+<li><strong>旧式 Chain 被移入 <code>langchain-classic</code></strong>，方向是从「专用类」转向「少量统一原语自由组合」；</li>
+<li><strong>三层选型</strong>：固定数据流用 Chain，动态工具决策用 <code>create_agent</code>，有状态长流程用 LangGraph。</li>
+</ol>
+<p>可以把 Chain 理解为一套统一调用协议：它让固定数据流能够被声明、组合和统一执行，并附着重试、流式和追踪等横切能力。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langchain/overview">LangChain 官方文档</a></li>
+<li><a href="https://python.langchain.com/docs/concepts/lcel/">LangChain Expression Language（LCEL）</a></li>
+<li><a href="https://python.langchain.com/docs/concepts/runnables/">Runnable 接口概念文档</a></li>
+<li><a href="https://reference.langchain.com/python/langchain-core/runnables/">langchain-core Runnables API 参考</a></li>
+<li><a href="https://docs.langchain.com/oss/python/migrate/langchain-v1">LangChain v1 迁移指南</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

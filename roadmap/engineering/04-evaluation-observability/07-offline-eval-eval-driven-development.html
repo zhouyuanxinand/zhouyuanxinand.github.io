@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>离线评测与 EDD · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="离线评测与 EDD — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>评测与可观测性</span> / <span>离线评测与 EDD</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="eval-driven-development">第七章：离线评测与 Eval-Driven Development</h1>
+<h2 id="71-eval-driven-development">7.1 Eval-Driven Development:把评测放在改动之前而不是之后</h2>
+<p>传统软件工程里"测试驱动开发"要求先写测试再写实现。LLM 应用的对应实践是 <strong>Eval-Driven Development(EDD)</strong>:任何一次 Prompt、路由或模型的变更,在合入之前必须先在一套固定的评测集上跑出可比较的分数,而不是凭感觉判断"看起来是不是变好了"。</p>
+<pre class="mermaid">flowchart LR
+    A["提出改动<br/>(改 Prompt / 换模型 / 调路由)"] --> B["在黄金测试集上跑评测"]
+    B --> C{"分数是否达标<br/>且无关键用例回归?"}
+    C -->|是| D["合入,进入灰度发布"]
+    C -->|否| E["回到改动,继续迭代"]
+    E --> A
+
+    style C fill:#fff3cd
+    style D fill:#e6f4ea
+</pre>
+
+<p>这套流程和<a href="../05-release-pipeline/10-llm-cicd-canary-ab.html">第 10 章</a>的发布流水线是同一件事的两个视角:EDD 讲的是"改动怎么被验证",发布流水线讲的是"验证通过之后怎么安全上线"。</p>
+<h2 id="72">7.2 黄金测试集:业务侧评测的核心资产</h2>
+<p><a href="../../llm/05-evaluation-selection/">LLM · 评测与选型</a>详细讲过 MMLU、HumanEval 这类学术 Benchmark 存在数据污染、脱离业务场景的系统性缺陷。业务侧的做法是建一套小而精的<strong>黄金测试集(golden dataset)</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>人工设计的典型与边界案例</td>
+<td>建立最小质量基线,覆盖格式、越权、拒绝等场景</td>
+</tr>
+<tr>
+<td>脱敏后的真实生产失败案例</td>
+<td>每一次线上事故复盘后,把复现用例回收进测试集,防止同类问题再犯</td>
+</tr>
+<tr>
+<td>用户反馈标注的案例</td>
+<td>来自<a href="../06-performance-operations/13-feedback-loop-data-flywheel.html">第 13 章</a>的反馈闭环</td>
+</tr>
+</tbody>
+</table>
+<p>黄金测试集通常从 50–200 条起步,按业务子场景切片管理(如 <code>订单查询</code>、<code>退款流程</code>、<code>越权拦截</code>),而不是当作一个笼统的整体分数。<strong>切片管理的价值在于:一次改动可能让整体平均分上升,但某个高风险切片(如越权拦截)出现回归——只看总分会完全错过这个信号。</strong></p>
+<h2 id="73-llm-as-judge">7.3 评分方式:自动规则、人工评审、LLM-as-Judge</h2>
+<table>
+<thead>
+<tr>
+<th>评分方式</th>
+<th>适合场景</th>
+<th>局限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>确定性规则</strong></td>
+<td>Schema 是否合法、是否包含禁止内容、引用是否存在</td>
+<td>无法评估自然语言表达质量</td>
+</tr>
+<tr>
+<td><strong>人工评审</strong></td>
+<td>高风险场景、需要校准其他评分方式</td>
+<td>慢、贵,无法覆盖大规模测试集</td>
+</tr>
+<tr>
+<td><strong>LLM-as-Judge</strong></td>
+<td>大规模的相关性、完整性、语气比较</td>
+<td>存在偏差,需要 rubric 设计和防提示注入</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python">JUDGE_PROMPT = &quot;&quot;&quot;你是评审员。给定用户问题、参考答案和候选回答,
+按以下维度各打 1-5 分:事实准确性、完整性、语气恰当性。
+只输出 JSON: {{&quot;accuracy&quot;: int, &quot;completeness&quot;: int, &quot;tone&quot;: int, &quot;reason&quot;: str}}
+
+问题: {question}
+参考答案: {reference}
+候选回答: {candidate}
+&quot;&quot;&quot;
+</code></pre>
+<p><strong>LLM-as-Judge 必须做人工校准</strong>:抽查 10–20% 的打分样本,人工复核 Judge 的判断是否可信。不校准,就无法判断"分数变好了"到底是候选回答真的变好,还是裁判本身在乱打分。这一实践与<a href="../../frameworks/01-langchain/05-production/13-langsmith-production-loop.html">LangSmith 生产质量闭环</a>里的做法一致——Judge 校准不是某个工具特有的功能,而是所有 LLM-as-Judge 场景下的通用要求。</p>
+<h2 id="74">7.4 发布门禁:不是看平均分,是看关键用例</h2>
+<pre><code class="language-python">def release_gate(eval_result: EvalResult, baseline: EvalResult) -&gt; GateDecision:
+    if eval_result.critical_failures &gt; 0:
+        return GateDecision.BLOCK(&quot;关键安全/越权用例未通过&quot;)
+    for slice_name, score in eval_result.slice_scores.items():
+        if score &lt; baseline.slice_scores[slice_name] - REGRESSION_THRESHOLD:
+            return GateDecision.BLOCK(f&quot;切片 {slice_name} 相对基线显著回归&quot;)
+    if eval_result.overall_score &lt; MIN_OVERALL_SCORE:
+        return GateDecision.BLOCK(&quot;总分未达标&quot;)
+    return GateDecision.PASS
+</code></pre>
+<p><strong>平均分提升不能抵消一次越权、泄密或安全拦截失效。</strong> 高风险用例应该用确定性规则设置"零容忍"门槛,而不是被平均分稀释掉。这一原则和<a href="../05-release-pipeline/10-llm-cicd-canary-ab.html">第 10 章</a>里 CI/CD 流水线的门禁设计是同一套逻辑在发布环节的落地。</p>
+<h2 id="75">7.5 离线评测不能替代线上监测</h2>
+<p>离线评测在固定测试集上运行,能发现的是"这个改动是否比基线更好",但测试集永远无法覆盖生产环境的全部输入分布。<strong>离线评测负责"改动前把关",线上可观测性(<a href="08-online-observability-tracing.html">第 8 章</a>)负责"上线后持续验证真实流量表现"</strong>,两者缺一不可。</p>
+<h2 id="76">7.6 与相邻章节的分工</h2>
+<p>这里先看评测的通用骨架——怎么建测试集、怎么评分、怎么设门禁。Agent 和 RAG 的专门方法放到各自主题里展开:</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>详见</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Agent 多轮工具调用、任务完成率评估</td>
+<td><a href="../../agent/05-production/14-agent-evaluation.html">Agent · 评估与安全</a></td>
+</tr>
+<tr>
+<td>RAG 检索召回率、引用准确性评估</td>
+<td><a href="../../rag/05-generation-evaluation/">RAG · 生成与评估</a></td>
+</tr>
+<tr>
+<td>模型通用能力的学术 Benchmark</td>
+<td><a href="../../llm/05-evaluation-selection/">LLM · 评测与选型</a></td>
+</tr>
+</tbody>
+</table>
+<h2 id="77">7.7 常见错误</h2>
+<h3 id="771">7.7.1 凭感觉判断"这次改动看起来更好"</h3>
+<p>没有固定测试集和可比较的分数,任何"感觉变好了"的判断都无法在下一次改动时复现或证伪。</p>
+<h3 id="772">7.7.2 只维护一个笼统的测试集,不做业务切片</h3>
+<p>总分掩盖了具体切片的回归,尤其是高风险的安全类切片,一旦被平均分稀释就很难被发现。</p>
+<h3 id="773-llm-as-judge">7.7.3 使用 LLM-as-Judge 却不做人工校准</h3>
+<p>必须抽查一部分样本人工复核,否则无法判断评分本身是否可信,评测结果形同虚设。</p>
+<h3 id="774">7.7.4 把线上评测当作发布前的验证手段</h3>
+<p>线上评测只能告诉你"生产里发生了什么",无法替代发布前在固定数据集上的可复现实验。</p>
+<h3 id="775">7.7.5 线上事故修复后不把失败案例回收进测试集</h3>
+<p>同类问题很可能再次出现,每一次事故复盘都应该产出至少一条新的回归测试用例。</p>
+<h2 id="78">7.8 本章总结</h2>
+<ol>
+<li><strong>Eval-Driven Development 要求改动先经过评测再合入</strong>,而不是凭感觉判断;</li>
+<li><strong>黄金测试集是业务侧评测的核心资产</strong>,应按子场景切片管理,而不是只看整体分数;</li>
+<li><strong>评分方式分三层</strong>:确定性规则、人工评审、LLM-as-Judge,后者必须人工校准;</li>
+<li><strong>发布门禁要看关键用例是否回归</strong>,平均分提升不能抵消高风险用例的失败;</li>
+<li><strong>离线评测和线上监测互补而非互相替代</strong>,前者把关改动,后者验证真实流量表现;</li>
+<li><strong>Agent、RAG 场景有各自更专门的评测方法</strong>,这里先保留通用骨架。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://github.com/openai/evals">OpenAI Evals</a></li>
+<li><a href="https://www.anthropic.com/engineering/writing-evals-for-claude">Anthropic: Building evals for AI applications</a></li>
+<li><a href="https://developers.google.com/machine-learning/guides/rules-of-ml">Google: Rules of Machine Learning - Rule #4: Keep the first model simple and get the infrastructure right</a></li>
+<li><a href="https://www.braintrust.dev/docs/guides/evals">Braintrust: What is an eval?</a></li>
+<li><a href="https://docs.langchain.com/langsmith/evaluation-concepts">LangSmith: Evaluation concepts</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>位置编码 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="位置编码 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>基础原理</span> / <span>位置编码</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第四章：位置编码</h1>
+<h2 id="41-attention">4.1 为什么 Attention 必须有位置编码</h2>
+<p><a href="02-transformer-architecture.html">第二章</a> 提过 Self-Attention 有一个致命特点：<strong>它对位置不敏感</strong>，俗称「位置盲」。</p>
+<h3 id="411">4.1.1 一个直观例子</h3>
+<p>输入「我打你」，每个字被转成 embedding。Attention 计算时「我」去看「打」和「你」，「打」去看「我」和「你」……模型只知道<strong>这三个字之间互相算了注意力，完全不知道谁在前谁在后</strong>。</p>
+<p>换成「你打我」，三个 embedding 一模一样（只是顺序变了），Attention 算出来的结果几乎相同——<strong>但这两句话语义是反的</strong>。</p>
+<p>分不清位置，就分不清主语和宾语，根本没法理解语言。</p>
+<h3 id="412-1-2-3">4.1.2 为什么不能直接用序号 1, 2, 3</h3>
+<p>两个问题：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>数值量级不匹配</strong></td>
+<td>embedding 通常在 $[-1, 1]$ 之间，第 1000 位加个「1000」会把原始信息整个拉爆</td>
+</tr>
+<tr>
+<td><strong>无法泛化</strong></td>
+<td>训练见过 1–2048，推理来了 4096，这个数字模型从没见过，效果必崩</td>
+</tr>
+</tbody>
+</table>
+<p>所以位置编码必须满足三个要求：</p>
+<ol>
+<li><strong>数值范围合理</strong>，不能把 token embedding 覆盖掉；</li>
+<li><strong>能区分不同位置</strong>，每个位置有独特的「指纹」；</li>
+<li><strong>能泛化到长序列</strong>，最好支持外推到训练时没见过的长度。</li>
+</ol>
+<p>后面比较三种方案时，就看它们能否同时满足这三条。</p>
+<h2 id="42-sincos">4.2 sin/cos 绝对位置编码</h2>
+<p>2017 年原始 Transformer 用的方案，简称 Sinusoidal PE。</p>
+<h3 id="421">4.2.1 思路：不同频率的振子叠加</h3>
+<p>用一组不同频率的 sin/cos 函数给每个位置生成独特的指纹向量。</p>
+<p>$$
+PE_{(pos, 2i)} = \sin!\left(\frac{pos}{10000^{2i/d}}\right), \quad
+PE_{(pos, 2i+1)} = \cos!\left(\frac{pos}{10000^{2i/d}}\right)
+$$</p>
+<p>直觉上：把 $d$ 维分成 $d/2$ 对，每对用一组 sin/cos。</p>
+<table>
+<thead>
+<tr>
+<th>维度对</th>
+<th>频率</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>第 1 对</td>
+<td>最快（高频）</td>
+<td>相邻位置区别明显，区分<strong>精细位置</strong></td>
+</tr>
+<tr>
+<td>第 $d/2$ 对</td>
+<td>最慢（低频）</td>
+<td>相邻位置几乎一样，跨越很远才能区分，记录<strong>粗略位置</strong></td>
+</tr>
+</tbody>
+</table>
+<p>就像几个不同频率的振子叠加，每个位置在 $d$ 维空间里有一个独特的组合——它的「身份证」。</p>
+<h3 id="422">4.2.2 为什么是「加」不是「拼接」</h3>
+<p>最终输入 = token embedding + position embedding。</p>
+<p>加法<strong>不增加维度</strong>，结构上更省事。而且神经网络有足够能力从相加的结果里把两部分信息自动解开。</p>
+<h3 id="423">4.2.3 优点与致命问题</h3>
+<p><strong>优点</strong>：零参数（纯数学公式算出来，不占模型容量）。</p>
+<p><strong>致命问题：长上下文外推能力差。</strong></p>
+<p>虽然理论上 sin/cos 可以算到任意位置，但实际效果<strong>在训练见过的最长位置之外会迅速恶化</strong>。只在 2K 上训练过，推理给 4K，表现会断崖下跌。</p>
+<p>根本原因是：<strong>模型训练时只学过 2K 以内的相对位置关系</strong>，超出的相对距离它从没见过，注意力权重分布会乱掉。</p>
+<p>在小模型时代还行，到了要支持几十 K 甚至上百 K 长上下文的大模型时代就明显不够用了。</p>
+<h2 id="43-vs">4.3 绝对位置 vs 相对位置：模型真正想要什么</h2>
+<p>先想一个生活化的问题：你跟别人介绍你坐在哪儿，是说「我坐在前排第 3 个座位」，还是说「我坐在 XX 旁边」？</p>
+<p>大部分时候选第二种，因为<strong>相对位置比绝对位置更有信息量</strong>。</p>
+<h3 id="431">4.3.1 语言里也是如此</h3>
+<p>「主语-动词-宾语」这种句法关系，关键不是「主语在第 3 位、动词在第 5 位」，而是<strong>「主语和动词之间隔了 2 个词」</strong>。</p>
+<p>同样的「我吃饭」，不管前面加「今天」「中午」「饿了所以」，主谓宾的相对距离都没变。</p>
+<h3 id="432">4.3.2 绝对位置编码的问题就在这里</h3>
+<p>它给每个位置发一个独立身份证，然后<strong>要让模型自己从「位置 3 的身份证」和「位置 5 的身份证」推断出「相对距离是 2」</strong>。</p>
+<p>这个推断完全靠模型在训练中慢慢碰运气学到，<strong>没有显式的归纳偏置</strong>。</p>
+<p>相对位置编码的思路是：让两个 token 的位置编码<strong>只取决于它们的差值 $m - n$</strong>，跟各自的绝对值无关。这是 RoPE 和 ALiBi 共同的出发点——目标一致，实现路线不同。</p>
+<h2 id="44-rope">4.4 RoPE：用旋转把相对位置编进点积</h2>
+<p>RoPE（Rotary Position Embedding）由苏剑林在 2021 年提出，已成为许多主流大模型采用的位置编码基线。</p>
+<h3 id="441">4.4.1 核心思路</h3>
+<p><strong>不把位置信息加到 embedding 上，而是旋转 Q 和 K 向量。</strong></p>
+<p>每个 token 的 Q/K 向量根据它的位置 $m$ 被旋转一个角度 $m\theta$：位置 0 不旋转，位置 1 转 $\theta$，位置 2 转 $2\theta$……</p>
+<pre class="mermaid">flowchart LR
+    subgraph POS["把 Q/K 想成钟表指针"]
+        P0["位置 0<br/>不旋转"] --> P1["位置 1<br/>转 θ"]
+        P1 --> P2["位置 2<br/>转 2θ"]
+        P2 --> P3["位置 m<br/>转 mθ"]
+    end
+</pre>
+
+<h3 id="442">4.4.2 为什么旋转能表达位置</h3>
+<p>关键的数学性质：<strong>两个旋转后的向量做点积，结果只依赖于它们的旋转角度差。</strong></p>
+<p>$$
+\langle R_m q,\ R_n k \rangle = \langle q,\ R_{n-m} k \rangle
+$$</p>
+<p>位置 $m$ 的 Q 和位置 $n$ 的 K 做点积，结果<strong>只跟 $(m-n)$ 这个相对距离有关</strong>，跟 $m$、$n$ 各自的绝对值无关。</p>
+<p>这就把相对位置信息<strong>天然编进了 Attention 计算里</strong>，模型不用自己学。</p>
+<h3 id="443-rope">4.4.3 RoPE 成为常用基线，主要靠这四点</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>天然的相对位置编码</strong></td>
+<td>直接编进点积，不用模型自己学相对关系——这是区别于 sin/cos 的核心</td>
+</tr>
+<tr>
+<td><strong>零参数</strong></td>
+<td>纯数学旋转，不引入可学习参数</td>
+</tr>
+<tr>
+<td><strong>保留向量长度</strong></td>
+<td>旋转只改方向不改模长，不破坏 embedding 的数值范围，训练更稳</td>
+</tr>
+<tr>
+<td><strong>兼容现代推理优化</strong></td>
+<td>在 Q/K 上做旋转，和 KV Cache、Flash Attention、MQA/GQA 都能无缝叠加</td>
+</tr>
+</tbody>
+</table>
+<p>第三、四点常被忽略，但很实际——尤其第四点，<a href="03-attention-variants.html">第三章</a> 讲的所有优化都能和 RoPE 共存。</p>
+<h3 id="444">4.4.4 长上下文外推</h3>
+<p>RoPE 的外推能力远好于 sin/cos。原因是<strong>旋转是连续的角度变化，本身没有「训练截止」这个概念</strong>。训练只见过 2K，推理来了 4K，多出来的位置只是更大的旋转角度而已，模型不会彻底懵，效果衰减比 sin/cos 平缓很多。</p>
+<p>再配合后来的扩展技巧，可以把 2K 推到 32K、100K 甚至更长：</p>
+<table>
+<thead>
+<tr>
+<th>技巧</th>
+<th>思路</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Position Interpolation (PI)</strong></td>
+<td>把超出的位置线性压缩回训练范围内</td>
+</tr>
+<tr>
+<td><strong>NTK-aware Scaling</strong></td>
+<td>按频率分层调整 base，高频少改低频多改</td>
+</tr>
+<tr>
+<td><strong>YaRN</strong></td>
+<td>NTK 的改进版，配合注意力温度调整</td>
+</tr>
+</tbody>
+</table>
+<p><strong>但别说成「几乎无损」的银弹。</strong> 外推效果取决于模型、任务、长度倍率和是否做过继续训练。推得越远，越需要专门评测长文检索、多跳推理这类位置敏感任务。</p>
+<h3 id="445">4.4.5 谁在用</h3>
+<p>2023 年之后基本所有主流开源模型：Llama 1/2/3 全系、Qwen 全系、DeepSeek 全系、Mistral / Mixtral、GLM 系列。</p>
+<h2 id="45-alibi">4.5 ALiBi：直接给注意力加距离惩罚</h2>
+<p>2022 年提出，思路比 RoPE 更暴力：<strong>根本不动 Q、K、V，直接在注意力分数里加一个距离惩罚项。</strong></p>
+<h3 id="451">4.5.1 做法</h3>
+<p>在 softmax 之前，给每对 token 的注意力分数加上偏置：</p>
+<p>$$
+\mathrm{score}_{ij} = \frac{q_i \cdot k_j}{\sqrt{d_k}} - m \cdot |i - j|
+$$</p>
+<p>$|i-j|$ 是两个 token 的距离，$m$ 是固定斜率（<strong>每个 head 不同</strong>）。</p>
+<p>直观理解：<strong>离得越远，注意力分数被扣得越多，模型越倾向关注近邻</strong>。每个 head 用不同斜率，等于让不同 head 关注不同范围的距离——有的管近邻，有的管远处。</p>
+<h3 id="452">4.5.2 优点与短板</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>短板</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>零参数</td>
+<td><strong>表达力弱</strong>：所有位置信息靠「距离惩罚」这一个机制传递，对精细语序关系建模不如 RoPE</td>
+</tr>
+<tr>
+<td>实现极简（就是加个偏置矩阵，比 RoPE 还简单）</td>
+<td><strong>局部偏置过强</strong>：线性惩罚让模型过度关注近邻，对需要长距离依赖的任务不利</td>
+</tr>
+<tr>
+<td>天然支持长外推（线性惩罚没有训练截止）</td>
+<td>没能在大厂主力模型上推广开</td>
+</tr>
+</tbody>
+</table>
+<p>用过它的：MosaicML 的 MPT 系列、BLOOM 的某些版本——<strong>都不是主流大模型</strong>。</p>
+<h2 id="46-rope">4.6 三种方案对比与 RoPE 为什么赢</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>sin/cos</th>
+<th>ALiBi</th>
+<th>RoPE</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>编码类型</strong></td>
+<td>绝对位置</td>
+<td>相对位置（距离惩罚）</td>
+<td>相对位置（旋转）</td>
+</tr>
+<tr>
+<td><strong>可学习参数</strong></td>
+<td>否</td>
+<td>否</td>
+<td>否</td>
+</tr>
+<tr>
+<td><strong>注入方式</strong></td>
+<td>加到 token embedding</td>
+<td>加到注意力分数</td>
+<td>旋转 Q/K 向量</td>
+</tr>
+<tr>
+<td><strong>长上下文外推</strong></td>
+<td>差（容易断崖）</td>
+<td>好（线性外推）</td>
+<td>很强（配合 NTK/YaRN，常需校准或继续训练）</td>
+</tr>
+<tr>
+<td><strong>表达力</strong></td>
+<td>中等</td>
+<td>弱（局部偏置过强）</td>
+<td>强</td>
+</tr>
+<tr>
+<td><strong>主流采用</strong></td>
+<td>原始 Transformer</td>
+<td>MPT、BLOOM</td>
+<td><strong>Llama / Qwen / DeepSeek 全系</strong></td>
+</tr>
+</tbody>
+</table>
+<p>RoPE 赢的三个理由：</p>
+<pre class="mermaid">flowchart TB
+    R1["理由一 · 长上下文外推<br/>2023 年后最重要的需求<br/>配合 NTK/YaRN 生态成熟"]
+    R2["理由二 · 表达力最强<br/>相对位置直接编进点积<br/>不牺牲精细语序建模"]
+    R3["理由三 · 生态兼容<br/>与 KV Cache / Flash Attention<br/>/ GQA 无缝叠加"]
+
+    R1 --> WIN["RoPE 成为常用基线"]
+    R2 --> WIN
+    R3 --> WIN
+
+    style WIN fill:#e6f4ea
+</pre>
+
+<p>ALiBi 的外推也不错，但<strong>它是靠「强制关注近邻」换来的</strong>——这个代价在需要真正长距离依赖的任务上太大。RoPE 是在不牺牲表达力的前提下拿到了外推能力。</p>
+<h2 id="47">4.7 常见错误</h2>
+<h3 id="471-rope">4.7.1 只说「RoPE 是旋转」说不出为什么</h3>
+<p>关键是那个数学性质：<strong>旋转后的点积只依赖角度差</strong>，所以相对位置被天然编进了注意力计算。说不出这一点等于没答。</p>
+<h3 id="472">4.7.2 说不清绝对与相对的区别</h3>
+<p>绝对位置编码要让模型<strong>自己从两个身份证推断距离</strong>，没有显式归纳偏置；相对位置编码把距离<strong>直接编进计算</strong>。这是理解 RoPE 和 ALiBi 的前提。</p>
+<h3 id="473-sincos">4.7.3 认为 sin/cos「理论上能算任意长度所以能外推」</h3>
+<p>理论上能算，实际效果在训练最长长度之外断崖下跌——因为模型没学过那些相对距离。</p>
+<h3 id="474-rope">4.7.4 把 RoPE 外推说成无损银弹</h3>
+<p>NTK/YaRN 能大幅扩展，但效果取决于模型、任务、倍率和是否继续训练。要说「需要长文任务专项评测」，别说「一改参数就无损支持 100K」。</p>
+<h3 id="475-alibi">4.7.5 说 ALiBi「效果差不多所以随便选」</h3>
+<p>ALiBi 的外推靠强制局部偏置换来，表达力有实质损失。这也是它没成主流的原因。</p>
+<h3 id="476-rope">4.7.6 忽略 RoPE 与推理优化的兼容性</h3>
+<p>这是很实际但常被忽略的选型理由：RoPE 作用在 Q/K 上，和 KV Cache、Flash Attention、GQA 都不冲突。</p>
+<h3 id="477">4.7.7 说不出位置编码的三个基本要求</h3>
+<p>数值范围合理、能区分位置、能泛化到长序列。有了这三条，三种方案的优劣对比就有了统一的评判框架。</p>
+<h2 id="48">4.8 本章总结</h2>
+<ol>
+<li><strong>Attention 天然位置盲</strong>，「我打你」和「你打我」算出来几乎一样，必须显式注入位置信息；</li>
+<li><strong>不能直接用序号</strong>：量级会拉爆 embedding，且对没见过的长度无法泛化；</li>
+<li><strong>三个基本要求</strong>：数值范围合理、位置可区分、能泛化到长序列；</li>
+<li><strong>sin/cos 用多频率振子给每个位置发身份证</strong>，零参数，但外推能力差、超出训练长度断崖下跌；</li>
+<li><strong>模型真正关心的是相对位置</strong>，绝对编码要模型自己推断距离，缺乏归纳偏置；</li>
+<li><strong>RoPE 的核心是旋转后点积只依赖角度差</strong>，把相对位置天然编进注意力；</li>
+<li><strong>RoPE 的四个优点</strong>：相对编码、零参数、保留模长、兼容全部现代推理优化；</li>
+<li><strong>NTK/YaRN 能扩展外推，但不是无损银弹</strong>，需要长文任务专项评测；</li>
+<li><strong>ALiBi 更简单、外推也好，但靠强制局部偏置换来</strong>，表达力弱，未成主流；</li>
+<li><strong>RoPE 赢在三个维度均衡</strong>：外推能力、表达力、生态兼容性。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1706.03762">Attention Is All You Need</a></li>
+<li><a href="https://arxiv.org/abs/2104.09864">RoFormer: Enhanced Transformer with Rotary Position Embedding</a></li>
+<li><a href="https://arxiv.org/abs/2108.12409">Train Short, Test Long: Attention with Linear Biases Enables Input Length Extrapolation（ALiBi）</a></li>
+<li><a href="https://arxiv.org/abs/2306.15595">Extending Context Window of Large Language Models via Positional Interpolation</a></li>
+<li><a href="https://arxiv.org/abs/2309.00071">YaRN: Efficient Context Window Extension of Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/1803.02155">Self-Attention with Relative Position Representations</a></li>
+<li><a href="https://arxiv.org/abs/2407.21783">The Llama 3 Herd of Models</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

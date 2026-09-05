@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多路召回、RRF 与 Rerank · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="多路召回、RRF 与 Rerank — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>在线检索</span> / <span>多路召回、RRF 与 Rerank</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rrf-rerank">第十三章：多路召回、RRF 融合与 Rerank</h1>
+<h2 id="131">13.1 为什么必须多路召回</h2>
+<p>第十一章已经展开过理论依据，这里先压缩成一句话：</p>
+<blockquote>
+<p><strong>稠密检索和稀疏检索的失败模式是互补的，任何单路都存在无法通过调参消除的系统性盲区。</strong></p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>单路方案</th>
+<th>系统性盲区</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>只用向量</td>
+<td>型号、错误码、人名、专有名词、否定语义、数值条件</td>
+</tr>
+<tr>
+<td>只用 BM25</td>
+<td>同义表述、概念性问题、跨语言</td>
+</tr>
+</tbody>
+</table>
+<p>这里说的「系统性」不是「偶尔漏几条」，而是<strong>某一整类 Query 永远召不回来</strong>。加大 Top-K、调高 <code>ef_search</code> 都无济于事。</p>
+<h2 id="132">13.2 分数没法直接比较</h2>
+<p>多路召回的第一个技术问题是<strong>融合</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>召回路</th>
+<th>分数形式</th>
+<th>典型范围</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>向量检索</td>
+<td>余弦相似度</td>
+<td>0 到 1（且分布集中在高位）</td>
+</tr>
+<tr>
+<td>BM25</td>
+<td>累加的 IDF 加权分数</td>
+<td>0 到几十，<strong>无上界</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>这两组分数根本不在同一个量纲上。</strong> 简单加权融合需要先归一化，而归一化本身又有问题：</p>
+<ul>
+<li><strong>min-max 归一化依赖当前批次的极值</strong>，同一个文档在不同 Query 下的归一化分数会剧烈波动；</li>
+<li><strong>分数分布形状不同</strong>：向量相似度往往挤在 0.7–0.9 的窄区间，BM25 则分布很散，归一化后仍不可比；</li>
+<li><strong>权重需要针对每个数据集调</strong>，换语料就要重调。</li>
+</ul>
+<h2 id="133-rrf">13.3 RRF：用排名代替分数</h2>
+<p><strong>倒数排名融合（Reciprocal Rank Fusion）的思路极其简单：只用排名，完全不用原始分数。</strong></p>
+<p>$$
+\mathrm{RRF}(d) = \sum_{r \in R} \frac{1}{k + \mathrm{rank}_r(d)}
+$$</p>
+<p>其中 $R$ 是所有召回路，$\mathrm{rank}_r(d)$ 是文档 $d$ 在第 $r$ 路结果中的排名，$k$ 是平滑常数，<strong>常用值为 60</strong>。</p>
+<h3 id="1331">13.3.1 为什么它管用</h3>
+<p>排名本身没有量纲，第 1 名就是第 1 名，不管原始分数是 0.92 还是 34.7，这让 RRF 能直接绕开不同分数体系不可比的问题。</p>
+<p>$k$ 则起到削峰作用。当 $k = 60$ 时：</p>
+<table>
+<thead>
+<tr>
+<th>排名</th>
+<th>贡献值</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>1/61 ≈ 0.0164</td>
+</tr>
+<tr>
+<td>2</td>
+<td>1/62 ≈ 0.0161</td>
+</tr>
+<tr>
+<td>10</td>
+<td>1/70 ≈ 0.0143</td>
+</tr>
+</tbody>
+</table>
+<p>第 1 名和第 2 名的差距很小。<strong>这意味着：某一路把某文档排第 1，不足以让它压过“在两路里都排前十”的文档。</strong></p>
+<blockquote>
+<p><strong>RRF 天然偏好「多路共识」而非「单路极端自信」。</strong> 因为单路的高分可能来自该路特有的偏见，而多路都认可的结果通常更可靠。</p>
+</blockquote>
+<p>$k=60$ 这个默认值在各种数据集上都表现稳健，因此 RRF 基本不需要额外训练或复杂调参。</p>
+<h3 id="1332">13.3.2 它的局限</h3>
+<ul>
+<li><strong>丢弃了分数的绝对信息</strong>：一个相似度 0.95 和一个 0.5 的结果，只要排名相同，贡献就相同；</li>
+<li><strong>无法表达"这一路整体都不靠谱"</strong>：即使某路的所有结果都很差，它的第 1 名仍然贡献满额；</li>
+<li><strong>不同路的可信度无法直接表达</strong>（可通过给每路加权部分缓解）。</li>
+</ul>
+<p>RRF 是混合检索中广泛采用、值得先建立的<strong>强基线</strong>，因为它鲁棒且少调参；它不是所有语料的“事实标准”。若有带标签的业务数据，应将 RRF 与归一化加权、学习排序或单路检索一起比较，再按效果、延迟和可维护性选择。</p>
+<h2 id="134-rerank">13.4 Rerank：整条链路性价比最高的一步</h2>
+<h3 id="1341">13.4.1 为什么需要它</h3>
+<p>粗排用的是双塔模型，Query 和文档<strong>从未见面</strong>，只能比较两个独立编码的向量。这决定了它在细粒度上一定不够准（第六章 6.3.3）。</p>
+<p>Rerank 用 cross-encoder：<strong>把 Query 和候选文档拼在一起</strong>送进模型，让注意力机制在两者之间充分交互，输出一个相关性分数。</p>
+<pre class="mermaid">flowchart LR
+    subgraph 粗排
+        Q1[Query] --> E1[编码]
+        D1[文档] --> E2[编码<br/>离线完成]
+        E1 --> S1[向量距离]
+        E2 --> S1
+    end
+    subgraph 精排
+        Q2[Query] --> CAT[拼接]
+        D2[候选文档] --> CAT
+        CAT --> M[交互式模型] --> S2[相关性分数]
+    end
+</pre>
+
+<p><strong>效果提升通常很明显</strong>，也是单点投入产出比很高的优化，因此往往会早于更复杂的改造进入链路。</p>
+<h3 id="1342-reranker">13.4.2 三类 Reranker</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>代表</th>
+<th>延迟（top-100）</th>
+<th>相对成本</th>
+<th>评价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>轻量 cross-encoder</td>
+<td>MiniLM 系</td>
+<td>几十毫秒</td>
+<td>极低</td>
+<td>资源受限时的选择</td>
+</tr>
+<tr>
+<td>标准 cross-encoder</td>
+<td>bge-reranker、jina-reranker、Cohere Rerank</td>
+<td>100–400 ms</td>
+<td>低</td>
+<td><strong>性价比甜点，推荐默认</strong></td>
+</tr>
+<tr>
+<td>LLM listwise</td>
+<td>用大模型对候选列表整体排序</td>
+<td>秒级</td>
+<td><strong>高 5–20 倍</strong></td>
+<td>效果最好但多数场景不划算</td>
+</tr>
+</tbody>
+</table>
+<p><strong>LLM listwise 的额外价值</strong>在于它一次看到所有候选，能做<strong>相对比较</strong>和去冗余（识别出「这两条说的是同一件事」），而 cross-encoder 是<strong>逐条独立打分</strong>的，看不到候选之间的关系。</p>
+<p><strong>但 5–20 倍的成本差距意味着：除非有明确证据表明标准 cross-encoder 不够用，否则不要上。</strong></p>
+<h3 id="1343">13.4.3 工程要点</h3>
+<p>候选数是延迟的主要驱动因素。Rerank 的耗时与候选数近似线性。从 100 降到 50，延迟几乎减半。<strong>建议实测不同候选数下的效果曲线，找到收益开始平缓的拐点。</strong></p>
+<p>同时要有经校准的拒答策略。</p>
+<blockquote>
+<p><strong>Rerank 之后不得无条件取 Top-K；但也不能把一个固定绝对分数当作所有 Query 的通用阈值。</strong></p>
+</blockquote>
+<p>不同 Query、语言、候选集和模型版本的分数分布不同。应在带“有依据/无依据”标注的业务评测集上校准置信度或拒答规则，例如结合首位分数、首二名间隔、候选一致性、来源质量和 Query 类型，并分别报告覆盖率与错误接受率。低置信度时返回空、请求澄清或走人工/外部检索路径，而不是硬凑不相关上下文。</p>
+<p>更换 reranker、语料、语言分布或召回策略都会使校准失效。将拒答规则版本化，在评测集和线上抽样上重校准；不要把来自一个 Query 的裸分数直接同另一个 Query 比较。</p>
+<p>Rerank 也要有降级路径。超时或服务不可用时，直接用粗排的 Top-K。效果会下降，但系统仍可用，这比整体失败好。</p>
+<h2 id="135-">13.5 完整的召回-排序链路</h2>
+<pre class="mermaid">flowchart TB
+    Q[Query] --> RW[Query 改写]
+    RW --> P1[BM25 召回 top-50]
+    RW --> P2[向量召回 top-50]
+    RW --> P3[可选: 其他路]
+    P1 --> RRF[RRF 融合]
+    P2 --> RRF
+    P3 --> RRF
+    RRF --> DEDUP[去重与合并]
+    DEDUP --> RR[Rerank top-50 到 top-5]
+    RR --> TH{校准后置信度足够?}
+    TH -->|是| CTX[组装上下文]
+    TH -->|否| REJ[拒答、澄清或降级]
+</pre>
+
+<p><strong>各阶段的数量收缩参考</strong>：每路召回 50–100 → 融合去重后 50–150 → Rerank 输入 50 → 最终 3–10。</p>
+<p>最后一档不是越大越好（第二章 2.6 节），必须实测。</p>
+<h2 id="136">13.6 去重也很重要</h2>
+<p>融合之后必须去重，否则会浪费 Prompt 预算：</p>
+<table>
+<thead>
+<tr>
+<th>重复来源</th>
+<th>处理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>多路召回同一 chunk</td>
+<td>按 chunk ID 合并</td>
+</tr>
+<tr>
+<td>多个子块命中同一父块</td>
+<td>合并为一个父块（第五章 5.3.2）</td>
+</tr>
+<tr>
+<td>内容高度相似的不同 chunk</td>
+<td>按相似度阈值去冗余</td>
+</tr>
+<tr>
+<td>同一文档的新旧版本</td>
+<td><strong>保留最新版本</strong>，并在上下文中标注时间</td>
+</tr>
+</tbody>
+</table>
+<p>最后一行尤其容易漏掉：新旧版本同时进入上下文，会让模型面对矛盾信息，产出错误或含糊的答案。</p>
+<h2 id="137">13.7 常见错误</h2>
+<h3 id="1371">13.7.1 直接加权融合不同量纲的分数</h3>
+<p>需要归一化，而归一化本身不稳定。RRF 是更好的默认选择。</p>
+<h3 id="1372-rrf">13.7.2 不知道 RRF 为什么用排名</h3>
+<p>如果只知道 RRF 这个名词，却说不出「规避量纲问题」和「偏好多路共识」，通常也很难判断它是否适合当前链路。</p>
+<h3 id="1373-k60">13.7.3 不知道 $k=60$ 的作用</h3>
+<p>它起削峰作用，让排名靠前的差距变小，从而更看重多路共识。</p>
+<h3 id="1374-rerank-top-k">13.7.4 Rerank 后无条件取 Top-K</h3>
+<p>这会放弃拒答能力；低置信度候选应触发拒答、澄清或降级路径。</p>
+<h3 id="1375-query">13.7.5 用固定裸分阈值跨 Query 比较</h3>
+<p>分数分布因 Query、模型和语料而异。应在业务评测集上校准可回归的置信度/拒答策略，并在变更后重校准。</p>
+<h3 id="1376-llm-listwise-rerank">13.7.6 默认上 LLM listwise rerank</h3>
+<p>成本高 5–20 倍，多数场景不划算。</p>
+<h3 id="1377">13.7.7 忘记去重，尤其是新旧版本</h3>
+<p>矛盾的上下文会直接导致错误答案。</p>
+<h3 id="1378-rerank">13.7.8 没有 Rerank 的降级路径</h3>
+<p>超时应回退到粗排结果，而不是整体失败。</p>
+<h2 id="138">13.8 本章总结</h2>
+<ol>
+<li><strong>单路召回存在无法通过调参消除的系统性盲区</strong>，这是多路召回的根本理由；</li>
+<li><strong>不同召回路的分数量纲不同</strong>，直接加权需要归一化，而归一化本身不稳定；</li>
+<li><strong>RRF 只用排名不用分数</strong>，规避量纲问题、零调参，且 $k=60$ 的削峰效应让它<strong>天然偏好多路共识</strong>；</li>
+<li><strong>RRF 的局限</strong>：丢弃分数绝对信息、无法表达“某路整体不靠谱”；它是常用强基线，不能替代业务实测；</li>
+<li><strong>Rerank 是整条链路性价比最高的单点优化</strong>，因为 cross-encoder 让 Query 和文档充分交互；</li>
+<li><strong>标准 cross-encoder 是甜点</strong>（100–400ms），LLM listwise 效果最好但贵 5–20 倍；</li>
+<li><strong>必须采用经评测集校准的置信度/拒答策略并允许返回空</strong>，不能用固定裸分一刀切；</li>
+<li><strong>去重要覆盖多路重复、父块重复、内容冗余和新旧版本</strong>，其中新旧版本冲突后果最严重。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://cormack.uwaterloo.ca/cormacksigir09-rrf.pdf">Reciprocal Rank Fusion outperforms Condorcet and individual Rank Learning Methods (SIGIR 2009)</a></li>
+<li><a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic: Introducing Contextual Retrieval</a></li>
+<li><a href="https://arxiv.org/abs/2112.01488">ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

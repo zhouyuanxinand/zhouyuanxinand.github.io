@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据与索引抽象 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="数据与索引抽象 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LlamaIndex</span> / <span>数据与索引抽象</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="llamaindex">第十四章：LlamaIndex 的数据与索引抽象</h1>
+<h2 id="141">14.1 先看问题定义：不是「工具怎么调度」，而是「数据怎么变上下文」</h2>
+<p><a href="../01-langchain/">LangChain 生态</a> 的主要抽象是 Model / Message / Tool 的统一接口，重点放在模型如何稳定地调用工具。LlamaIndex 把问题放在更上游：模型默认并不了解私有数据，而这些数据也不是天然可检索的，因此更关注如何把 PDF、数据库、工单系统里的内容加工成模型可用的高质量上下文。</p>
+<blockquote>
+<p>LlamaIndex 和 LangChain 更像分工互补：前者把「数据 → 索引 → 检索」这条链路拆得更细，后者把「模型 → 工具 → Agent」这条链路拆得更细。这也是为什么 LangChain 模块第 7 章会专门比较两者的分工。</p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    subgraph LC["LangChain 的第一性问题"]
+        L1["模型和工具太多<br/>怎么统一接口、可靠调度"]
+    end
+    subgraph LI["LlamaIndex 的第一性问题"]
+        I1["私有数据零散、格式各异<br/>怎么变成高质量上下文"]
+    end
+    L1 -.互补.-> I1
+</pre>
+
+<h2 id="142-documentnode-ingestionpipeline">14.2 数据接入层：<code>Document</code>、<code>Node</code> 与 <code>IngestionPipeline</code></h2>
+<p>LlamaIndex 把「原始数据」和「可检索单元」严格分成两层：</p>
+<ul>
+<li><strong><code>Document</code></strong>：一份原始数据的容器，通常对应一个文件、一条数据库记录或一次 API 响应，携带 <code>text</code> 与任意 <code>metadata</code>；</li>
+<li><strong><code>Node</code></strong>：<code>Document</code> 被切分（chunking）后的最小可检索单元，除了文本本身，还持有指回 <code>Document</code>、指向相邻 <code>Node</code> 的关系（<code>relationships</code>），用于后续做上下文回填；</li>
+<li><strong><code>IngestionPipeline</code></strong>：把「加载 → 切分 → 抽取元数据 → 生成 Embedding」串成一条可缓存、可增量执行的流水线，<code>transformations</code> 列表里的每个组件都遵循同一个 <code>Node → Node</code> 契约。</li>
+</ul>
+<pre><code class="language-python">from llama_index.core import Document
+from llama_index.core.ingestion import IngestionPipeline
+from llama_index.core.node_parser import SentenceSplitter
+from llama_index.embeddings.openai import OpenAIEmbedding
+
+pipeline = IngestionPipeline(
+    transformations=[
+        SentenceSplitter(chunk_size=512, chunk_overlap=64),
+        OpenAIEmbedding(),
+    ],
+)
+nodes = pipeline.run(documents=[Document(text=raw_text, metadata={&quot;source&quot;: &quot;handbook.pdf&quot;})])
+</code></pre>
+<p><code>IngestionPipeline</code> 的作用不只是切分文本，更重要的是把切分策略、元数据抽取和 Embedding 生成固化成可复用、可缓存的组件序列。同一份原始数据如果要更换切分策略，通常只需要替换 <code>transformations</code> 里的一步，不必重写整个摄取脚本。</p>
+<p>对照 <a href="../01-langchain/">LangChain 生态</a> 的对应抽象：LangChain 的 <code>Document Loader</code> 也产出 <code>Document</code> 对象，但通常直接喂给 <code>RecursiveCharacterTextSplitter</code> 后就交给向量库，不强制维护 Node 之间的关系图；LlamaIndex 会显式保留「相邻块」「父子块」这些结构关系，这也是后面 14.3 节多种索引类型能够存在的基础。</p>
+<h2 id="143">14.3 索引抽象：从向量索引到属性图索引</h2>
+<p><code>Node</code> 生成之后，LlamaIndex 用不同的 <strong>Index</strong> 类型组织它们，每种 Index 对应一种检索假设：</p>
+<table>
+<thead>
+<tr>
+<th>Index 类型</th>
+<th>组织方式</th>
+<th>适合的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>VectorStoreIndex</code></td>
+<td>把每个 Node 的 Embedding 存进向量库</td>
+<td>语义相似度检索，最常用的默认选择</td>
+</tr>
+<tr>
+<td><code>SummaryIndex</code></td>
+<td>保留 Node 的顺序列表，不做向量检索</td>
+<td>需要遍历全部内容才能回答的问题（如「总结全文」）</td>
+</tr>
+<tr>
+<td><code>TreeIndex</code></td>
+<td>自底向上构建摘要树</td>
+<td>大文档的层级摘要与逐层收敛问答</td>
+</tr>
+<tr>
+<td><code>KeywordTableIndex</code></td>
+<td>关键词到 Node 的倒排表</td>
+<td>关键词精确匹配、无 Embedding 场景</td>
+</tr>
+<tr>
+<td><code>PropertyGraphIndex</code></td>
+<td>把 Node 抽取成图谱中的实体与关系</td>
+<td>多跳推理、关系型问题（对应 <code>docs/rag</code> 中的 GraphRAG 章节）</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid">flowchart TB
+    N["Node 集合"] --> V["VectorStoreIndex<br/>语义检索"]
+    N --> S["SummaryIndex<br/>全量遍历"]
+    N --> T["TreeIndex<br/>层级摘要"]
+    N --> P["PropertyGraphIndex<br/>实体关系图"]
+    V --> Q["统一的 Query Engine 接口"]
+    S --> Q
+    T --> Q
+    P --> Q
+</pre>
+
+<p>索引类型对应的是不同的检索假设，而不只是更换数据库后端。把「总结全文」这类问题交给 <code>VectorStoreIndex</code>，通常只会召回少量语义相似片段，无法得到覆盖全局的摘要；这正是 14.5 节的常见错误之一。</p>
+<h2 id="144-storagecontext">14.4 索引背后的存储解耦：<code>StorageContext</code> 与向量库无关性</h2>
+<p>LlamaIndex 用 <code>StorageContext</code> 把「索引结构」和「底层存储」解耦成三个可独立替换的组件：</p>
+<ul>
+<li><strong><code>docstore</code></strong>：存 <code>Node</code> 的原始内容；</li>
+<li><strong><code>index_store</code></strong>：存索引的元结构（比如 <code>TreeIndex</code> 的树形关系）；</li>
+<li><strong><code>vector_store</code></strong>：存 Embedding 向量，可以换成 Pinecone、Weaviate、pgvector 等任意后端（见 <code>docs/rag</code> 向量数据库章节的选型标准）。</li>
+</ul>
+<pre><code class="language-python">from llama_index.core import StorageContext, VectorStoreIndex
+from llama_index.vector_stores.postgres import PGVectorStore
+
+vector_store = PGVectorStore.from_params(database=&quot;ragdb&quot;, table_name=&quot;handbook&quot;)
+storage_context = StorageContext.from_defaults(vector_store=vector_store)
+index = VectorStoreIndex(nodes, storage_context=storage_context)
+</code></pre>
+<p>这层解耦意味着 LlamaIndex 不会把上层代码直接绑定在某个向量库上。更换后端时，通常只需要替换 <code>vector_store</code> 实现，<code>Node</code>、<code>IngestionPipeline</code> 和上层 Query Engine 代码都可以保持不变。这是 14.6 节讨论「数据层 lock-in」时的关键判断依据，也会在 <a href="../06-selection-portability/">框架选型与可移植架构</a> 中作为可移植性的正面案例出现。</p>
+<h2 id="145">14.5 常见错误</h2>
+<h3 id="1451-summaryindex-vectorstoreindex">14.5.1 把 <code>SummaryIndex</code> 当成 <code>VectorStoreIndex</code> 的替代品</h3>
+<p><code>SummaryIndex</code> 不做语义检索，查询时会遍历（或部分遍历）全部 Node——数据量大时成本很高，只适合「必须看到全貌」的问题。</p>
+<h3 id="1452">14.5.2 用向量检索回答「全局摘要」类问题</h3>
+<p>如果让系统「总结这份 200 页的报告」，得到的答案只覆盖了随机几段，通常是因为向量检索擅长「找相似」而不是「找全部」，<code>VectorStoreIndex</code> 无法保证覆盖率。此时应改用 <code>SummaryIndex</code>，或先做层级摘要（<code>TreeIndex</code>）。</p>
+<h3 id="1453-node">14.5.3 忽视 <code>Node</code> 之间的关系，只存文本</h3>
+<p>如果切分时不保留 <code>relationships</code>（前后节点、父子节点），后续想做「命中一个块后回填上下文窗口」就没有依据可用，只能重新解析原始文档。</p>
+<h3 id="1454">14.5.4 认为索引选型是一次性决定</h3>
+<p>同一份数据经常需要<strong>同时</strong>建 <code>VectorStoreIndex</code>（做检索）和 <code>PropertyGraphIndex</code>（做多跳关系推理），二者可以共享同一个 <code>IngestionPipeline</code> 产出的 <code>Node</code> 集合，不必二选一。</p>
+<h3 id="1455-storagecontext">14.5.5 把 <code>StorageContext</code> 的向量库无关性当作理所当然</h3>
+<p>不同向量库对元数据过滤、混合检索的支持程度不同，切换后端仍然需要重新验证过滤语法和检索质量，不是纯粹的配置项替换。</p>
+<h2 id="146">14.6 本章总结</h2>
+<ol>
+<li><strong>LlamaIndex 先解决的是「数据怎么变成高质量上下文」</strong>，与 LangChain「模型和工具怎么统一调度」形成互补，而非替代；</li>
+<li><strong><code>Document</code> 是原始数据容器，<code>Node</code> 是可检索最小单元</strong>，<code>IngestionPipeline</code> 把加载、切分、抽取、Embedding 固化成可复用流水线；</li>
+<li><strong>不同 Index 类型对应不同的检索假设</strong>：<code>VectorStoreIndex</code> 做语义相似度，<code>SummaryIndex</code> 做全量遍历，<code>TreeIndex</code> 做层级摘要，<code>PropertyGraphIndex</code> 做关系推理，选错类型会直接导致答不对问题；</li>
+<li><strong><code>StorageContext</code> 把存储后端与索引结构解耦</strong>，是 LlamaIndex 数据层可移植性的关键设计，换向量库不需要重写摄取和查询代码；</li>
+<li><strong>同一份数据可以并存多种索引</strong>，索引选型不是一次性、互斥的决定。</li>
+</ol>
+<p>可以把 LlamaIndex 理解为一组围绕数据接入和检索构建的抽象：<code>Document</code>、<code>Node</code>、<code>Index</code> 与 <code>StorageContext</code> 分别承担原始数据、可检索单元、检索组织方式和存储解耦职责，组合后形成可替换的数据加工流水线。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://developers.llamaindex.ai/python/framework/">LlamaIndex 官方文档</a></li>
+<li><a href="https://developers.llamaindex.ai/python/framework/module_guides/loading/ingestion_pipeline/">LlamaIndex: Loading Data (Ingestion Pipeline)</a></li>
+<li><a href="https://developers.llamaindex.ai/python/framework/module_guides/indexing/">LlamaIndex: Indexing 概念</a></li>
+<li><a href="https://developers.llamaindex.ai/python/framework/module_guides/indexing/lpg_index_guide/">LlamaIndex: Property Graph Index</a></li>
+<li><a href="https://developers.llamaindex.ai/python/framework/module_guides/storing/">LlamaIndex: Storage 概念</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

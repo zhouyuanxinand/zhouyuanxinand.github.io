@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模型网关、路由与回退 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模型网关、路由与回退 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>请求路径可靠性</span> / <span>模型网关、路由与回退</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第三章：模型网关、路由与回退</h1>
+<h2 id="31">3.1 路由决策：网关之上的一层策略</h2>
+<p><a href="../../tools/05-transport-gateway/14-llm-gateway.html">Tools · LLM 网关</a>讲过网关<strong>这个组件本身</strong>要具备统一接口、负载均衡、限流配额等能力。更麻烦的是请求到了网关以后:<strong>应该按什么策略决定打给哪个模型、什么时候放弃当前模型换下一个</strong>。这是一层建立在网关基础设施之上的<strong>路由策略</strong>,也是 LLMOps 团队日常调整最频繁的配置之一。</p>
+<pre class="mermaid">flowchart TB
+    REQ["请求进入网关"] --> POLICY{"路由策略"}
+    POLICY -->|按成本| CHEAP["优先低成本模型"]
+    POLICY -->|按能力| CAPABLE["需要强推理→路由到旗舰模型"]
+    POLICY -->|按延迟| FAST["延迟敏感→路由到最快供应商"]
+    POLICY -->|按灰度| CANARY["按比例分流到新版本"]
+    CHEAP --> CALL["发起调用"]
+    CAPABLE --> CALL
+    FAST --> CALL
+    CANARY --> CALL
+    CALL -->|失败| FALLBACK["按回退链路尝试下一个候选"]
+    FALLBACK --> CALL
+    CALL -->|成功| DONE["返回"]
+</pre>
+
+<h2 id="32">3.2 三种常见路由策略</h2>
+<h3 id="321">3.2.1 成本优先路由</h3>
+<p>把任务按复杂度分级,简单任务(分类、格式转换、短摘要)路由到小模型,只有复杂推理任务才打旗舰模型。</p>
+<pre><code class="language-python">def route_by_complexity(task_type: str) -&gt; str:
+    cheap_tasks = {&quot;classification&quot;, &quot;extraction&quot;, &quot;short_summary&quot;}
+    if task_type in cheap_tasks:
+        return &quot;small-model&quot;   # 逻辑名,由网关映射到具体供应商
+    return &quot;flagship-model&quot;
+</code></pre>
+<p>这个策略的收益直接体现在第 11 章的成本优化上,但前提是<strong>先用离线评测确认小模型在这些简单任务上的质量不低于旗舰模型</strong>——盲目降级路由到小模型,质量退化可能几周后才被用户投诉暴露出来。</p>
+<h3 id="322">3.2.2 能力优先路由</h3>
+<p>某些任务(代码生成、多步推理)只有少数模型能稳定完成,路由策略需要维护一张「模型-能力」映射表,而不是简单的成本阈值判断。这张表本身要跟随<a href="../04-evaluation-observability/07-offline-eval-eval-driven-development.html">第 7 章</a>的评测结果持续更新——模型能力会随供应商升级而变化。</p>
+<h3 id="323">3.2.3 灰度路由</h3>
+<p>发布新 Prompt 或切换模型版本时,按用户 ID 哈希或请求比例分流一部分流量到新版本,这是<a href="../05-release-pipeline/10-llm-cicd-canary-ab.html">第 10 章</a>灰度发布的路由层实现基础。</p>
+<h2 id="33">3.3 回退链路的设计</h2>
+<h3 id="331-a-b">3.3.1 回退链路是有序候选列表,不是简单的「A 不行就 B」</h3>
+<pre><code class="language-yaml">fallback_chain:
+  - provider: openai
+    model: gpt-4o
+  - provider: azure          # 同一模型的另一部署,优先作为第一层回退
+    model: gpt-4o
+  - provider: anthropic      # 跨厂商兜底,作为最后一层
+    model: claude-sonnet-4
+</code></pre>
+<p>回退顺序遵循「先同模型跨部署,再跨厂商」的原则——同一模型在不同基础设施上的输出分布几乎一致,跨厂商切换才可能带来风格和能力上的差异,这一点与 <a href="../../tools/05-transport-gateway/14-llm-gateway.html">LLM 网关的负载均衡设计</a>一致。</p>
+<h3 id="332">3.3.2 什么条件触发回退</h3>
+<table>
+<thead>
+<tr>
+<th>触发条件</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>HTTP 5xx / 超时</td>
+<td>最直接的失败信号</td>
+</tr>
+<tr>
+<td>429 限流</td>
+<td>供应商配额耗尽,不代表模型本身有问题</td>
+</tr>
+<tr>
+<td>输出未通过契约校验</td>
+<td>见<a href="../03-output-safety/05-structured-output-contracts.html">第 5 章</a>,连续多次解析失败也应触发回退</td>
+</tr>
+<tr>
+<td>内容安全拦截</td>
+<td>某些供应商对特定内容的安全策略更严格,换一个供应商可能规避误伤</td>
+</tr>
+</tbody>
+</table>
+<h3 id="333">3.3.3 回退要防止「雪崩式重试」</h3>
+<p>如果主模型是因为过载才失败,而不是偶发故障,所有请求同时回退到备用模型会把备用模型也压垮。回退触发前应结合<a href="04-retry-timeout-idempotency-circuit-breaker.html">第 4 章</a>的熔断机制判断:<strong>熔断器已经跳闸时不该再对同一路径发起新的探测请求,而应直接走回退链路</strong>。</p>
+<h2 id="34">3.4 路由与回退的可观测性要求</h2>
+<p>路由决策必须记录清楚,否则出问题时无法定位:</p>
+<table>
+<thead>
+<tr>
+<th>需要记录的字段</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>实际路由到的供应商与模型版本</td>
+<td>排查「为什么这次输出风格不一样」</td>
+</tr>
+<tr>
+<td>触发路由的策略名称</td>
+<td>区分是成本路由、能力路由还是灰度路由</td>
+</tr>
+<tr>
+<td>是否发生了回退,回退了几层</td>
+<td>判断某个供应商是否持续不稳定</td>
+</tr>
+<tr>
+<td>端到端延迟(含回退耗时)</td>
+<td>回退会显著拉长尾延迟,需要单独监控</td>
+</tr>
+</tbody>
+</table>
+<p>这些字段是<a href="../04-evaluation-observability/08-online-observability-tracing.html">第 8 章</a> Trace 数据模型的一部分。</p>
+<h2 id="35">3.5 常见错误</h2>
+<h3 id="351">3.5.1 把路由策略和网关基础设施混为一谈</h3>
+<p>网关(统一接口、Key 管理、限流)是基础设施,路由策略(什么任务用什么模型)是运营决策,后者需要频繁调整,不应该和网关代码耦合在一起,而应做成可独立更新的配置。</p>
+<h3 id="352">3.5.2 成本路由没有评测背书</h3>
+<p>把任务降级到便宜模型前不做离线评测验证质量,等同于用生产流量做未经验证的实验。</p>
+<h3 id="353">3.5.3 回退链路只考虑「换模型」,没考虑「跨部署」</h3>
+<p>同一模型的多部署(如 OpenAI 直连 + Azure OpenAI)故障相关性低,应该优先作为第一层回退,跨厂商回退放在链路末尾。</p>
+<h3 id="354">3.5.4 过载时无脑重试导致雪崩</h3>
+<p>主模型过载引发的失败,应结合熔断器判断是否应该跳过重试直接回退,而不是对一个已经过载的服务继续发起探测流量。</p>
+<h3 id="355">3.5.5 路由决策不落日志</h3>
+<p>出现「同样的请求这次和上次结果不一样」时,如果没有记录实际路由到的模型版本,几乎无法排查根因。</p>
+<h2 id="36">3.6 本章总结</h2>
+<ol>
+<li><strong>路由策略建立在网关基础设施之上</strong>,前者是运营决策,后者是基础设施,两者应解耦;</li>
+<li><strong>三类常见路由策略</strong>:成本优先、能力优先、灰度路由,各自服务不同目标;</li>
+<li><strong>成本路由必须有评测背书</strong>,否则质量退化会悄悄发生;</li>
+<li><strong>回退链路应遵循「先同模型跨部署,再跨厂商」的顺序</strong>,降低回退引入的输出差异;</li>
+<li><strong>回退要结合熔断机制</strong>,避免在供应商过载时继续加压导致雪崩;</li>
+<li><strong>路由决策必须可观测</strong>:记录实际路由目标、策略名称、回退次数和延迟。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://docs.litellm.ai/docs/routing">LiteLLM: Routing</a></li>
+<li><a href="https://docs.aws.amazon.com/bedrock/latest/userguide/intelligent-prompt-routing.html">Amazon Bedrock: Model routing (intelligent prompt routing)</a></li>
+<li><a href="https://martinfowler.com/bliki/CanaryRelease.html">Martin Fowler: CanaryRelease</a></li>
+<li><a href="https://netflixtechblog.com/fault-tolerance-in-a-high-volume-distributed-system-91ab4faae74a">Netflix Tech Blog: Fault Tolerance in a High Volume, Distributed System</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

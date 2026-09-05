@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多模态模型 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="多模态模型 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>多模态</span> / <span>多模态模型</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第二十三章：多模态模型</h1>
+<h2 id="231-prompt">23.1 多模态不是“把图片塞进 Prompt”</h2>
+<p>多模态模型将图像、音频或视频编码成可与文本模型交互的表示，再生成文本、结构化结果或其他模态。难点在于：不同采样率、长度和结构的信号，如何映射到共同的语义空间，同时保留任务所需细节。</p>
+<table>
+<thead>
+<tr>
+<th>模态</th>
+<th>常见原始表示</th>
+<th>主要难点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>图像</td>
+<td>像素切块（patch）或视觉特征</td>
+<td>分辨率、文字/小物体、空间关系</td>
+</tr>
+<tr>
+<td>音频</td>
+<td>波形、频谱或声学 token</td>
+<td>采样率、说话人、时序与噪声</td>
+</tr>
+<tr>
+<td>视频</td>
+<td>帧序列 + 音轨</td>
+<td>长时序、运动、跨帧一致性与计算量</td>
+</tr>
+</tbody>
+</table>
+<h2 id="232-connector">23.2 编码器、connector 与语言模型</h2>
+<p>常见架构可写成：</p>
+<p>$$
+z_m=E_m(x_m),\qquad h=C(z_m),\qquad
+p(y\mid x_m,x_t)=\mathrm{LLM}(h,x_t)
+$$</p>
+<p>其中 $E_m$ 是模态编码器，$C$ 是 connector/projector，$x_t$ 是文本 token。实现方式不同，信息瓶颈也不同。</p>
+<table>
+<thead>
+<tr>
+<th>连接方式</th>
+<th>做法</th>
+<th>取舍</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>投影/拼接</strong></td>
+<td>将视觉或音频 token 线性投影到 LLM 隐藏维度后，与文本 token 拼接</td>
+<td>简单、常见；长序列会占上下文</td>
+</tr>
+<tr>
+<td><strong>Cross-attention</strong></td>
+<td>语言 token 通过交叉注意力查询模态特征</td>
+<td>可按需读取细节；架构与训练更复杂</td>
+</tr>
+<tr>
+<td><strong>Resampler / token 压缩</strong></td>
+<td>先把大量模态 token 压缩为少量 latent</td>
+<td>降低成本；细粒度信息可能丢失</td>
+</tr>
+</tbody>
+</table>
+<p>CLIP 式对比学习擅长对齐图文全局语义；Flamingo 使用 gated cross-attention 将视觉特征接入语言模型；LLaVA 路线常使用视觉 encoder 加 projector 与指令数据。它们是不同设计点，不应将某一实现当作多模态模型的唯一结构。</p>
+<h2 id="233">23.3 三种模态的表示</h2>
+<h3 id="2331">23.3.1 视觉</h3>
+<p>Vision Transformer 通常把图像切为 patch 并编码为序列。高分辨率输入常采用切图、多尺度或动态分辨率策略；OCR、图表和小目标任务需要评测这些策略是否保留细节，而不仅看通用视觉问答分数。</p>
+<h3 id="2332">23.3.2 音频</h3>
+<p>语音任务可从 log-Mel 频谱、预训练语音 encoder（如 Whisper）或离散 codec token 开始。ASR 关注词错误率与时间戳；音频理解还须考虑说话人、环境声、音乐和重叠语音。生成语音时，韵律、时延和说话人相似度同样重要。</p>
+<h3 id="2333">23.3.3 视频</h3>
+<p>视频不是独立图片的集合。模型需要同时表示帧内内容、跨帧运动和长程事件。均匀抽帧成本低但可能漏掉关键瞬间；密集采样更完整但 token 与显存成本快速增长。应报告帧率、采样策略、最大时长和是否使用音轨。</p>
+<h2 id="234">23.4 训练：对齐之后还要会用</h2>
+<p>典型训练分三类：</p>
+<ol>
+<li><strong>预训练/对比对齐</strong>：用图文、音文或视频文本对齐表示；</li>
+<li><strong>生成式预训练</strong>：预测文本、离散模态 token 或跨模态目标；</li>
+<li><strong>多模态指令微调与偏好对齐</strong>：学习遵循问题、引用证据、拒绝不安全请求和工具使用边界。</li>
+</ol>
+<p>数据质量比模态数量更关键。训练集应记录来源、许可、语言、采样方式和标注过程；图文错配、ASR 噪声、视频时间错位与合成数据偏差都会让模型学到错误关联。</p>
+<h2 id="235">23.5 推理与部署</h2>
+<p>推理成本分为 <strong>encode/prefill</strong> 与 <strong>decode</strong>。长视频或高分辨率图像往往首先卡在 encoder、数据预处理和视觉 token 数，而非逐 token 文本解码。</p>
+<ul>
+<li>复用静态图像/音频的 encoder 特征或前缀 KV 时，必须使缓存键包含模型版本、预处理参数、分辨率、采样率和裁剪策略；</li>
+<li>设定输入大小、帧数、时长、MIME 类型、解码时间和响应大小上限，避免资源耗尽；</li>
+<li>将媒体下载、解码和模型推理隔离，远程 URL 输入还要遵循 <a href="../../tools/02-mcp/15-tool-protocol-security.html">Tool Protocol 安全</a> 的 SSRF 防护；</li>
+<li>输出中区分“看见/听见的证据”和推断，避免把不确定观察写成事实。</li>
+</ul>
+<h2 id="236">23.6 评测与安全</h2>
+<p>单一总分不足以说明能力。至少按任务和风险拆分：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>感知</td>
+<td>OCR、物体/事件识别、ASR WER、时间定位</td>
+</tr>
+<tr>
+<td>推理</td>
+<td>图表、空间、跨帧因果、多模态问答</td>
+</tr>
+<tr>
+<td>鲁棒性</td>
+<td>模糊、压缩、噪声、口音、对抗贴纸、分布外输入</td>
+</tr>
+<tr>
+<td>可靠性</td>
+<td>幻觉率、校准、拒答与证据引用</td>
+</tr>
+<tr>
+<td>安全与公平</td>
+<td>隐私/人脸、敏感属性推断、刻板印象、版权与有害内容</td>
+</tr>
+</tbody>
+</table>
+<p>图像或音频中的文字也可能构成间接提示注入。多模态 Agent 应将其当作不可信内容，不能让其覆盖系统指令、审批或工具权限。涉及人脸、声纹、医疗、未成年人或位置数据时，应先明确合法性、同意、保留期限和人工复核要求。</p>
+<h2 id="237">23.7 常见错误</h2>
+<h3 id="2371">23.7.1 把支持图片输入等同于可靠视觉理解</h3>
+<p>接口能接收媒体只说明输入格式兼容。OCR、小目标、空间关系、长视频和跨模态证据仍要分别评测。</p>
+<h3 id="2372">23.7.2 只比较模型总分，不固定媒体处理参数</h3>
+<p>分辨率、抽帧、音频采样、压缩和 token 预算都会改变结果。模型对比必须固定预处理与成本口径。</p>
+<h3 id="2373">23.7.3 把媒体内容当成可信指令</h3>
+<p>图片文字、字幕和音频都可能携带间接提示注入。安全边界应由权限、数据流和工具策略建立，而不是只靠 Prompt。</p>
+<h2 id="238">23.8 本章总结</h2>
+<ol>
+<li>多模态模型通过 encoder、connector 与语言模型连接不同信号；</li>
+<li>投影拼接、cross-attention 和 token 压缩具有不同的信息与成本取舍；</li>
+<li>图像、音频和视频必须分别处理空间、时序、采样与噪声问题；</li>
+<li>部署时要限制媒体大小、隔离解码并正确设计缓存键；</li>
+<li>评测应拆分感知、推理、可靠性、鲁棒性和安全。</li>
+</ol>
+<blockquote>
+<p>多模态落地要同时回答三件事：证据怎么保留下来、序列成本怎么控住、感知和行动边界怎么分别验证。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2103.00020">CLIP: Learning Transferable Visual Models From Natural Language Supervision</a></li>
+<li><a href="https://arxiv.org/abs/2204.14198">Flamingo: a Visual Language Model for Few-Shot Learning</a></li>
+<li><a href="https://arxiv.org/abs/2304.08485">LLaVA: Visual Instruction Tuning</a></li>
+<li><a href="https://arxiv.org/abs/2212.04356">Whisper: Robust Speech Recognition via Large-Scale Weak Supervision</a></li>
+<li><a href="https://arxiv.org/abs/2306.02858">Video-LLaMA: An Instruction-tuned Audio-Visual Language Model</a></li>
+<li><a href="https://www.nist.gov/itl/ai-risk-management-framework">NIST AI Risk Management Framework</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  
+</body>
+</html>

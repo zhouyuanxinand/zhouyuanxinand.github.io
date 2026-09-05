@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Kernel、Plugin 与 Planner · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Kernel、Plugin 与 Planner — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>Semantic Kernel</span> / <span>Kernel、Plugin 与 Planner</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="semantic-kernel-kernelplugin-planner">第十八章：Semantic Kernel 的核心抽象：Kernel、Plugin 与 Planner</h1>
+<h2 id="181">18.1 定位：企业中间件，而不是研究框架</h2>
+<p>前三个模块的框架（LangChain、LlamaIndex、DSPy）都诞生于 Python 生态，服务对象偏向快速迭代的应用团队。Semantic Kernel 从命名（"Kernel"）到设计目标都更接近<strong>企业中间件</strong>：它优先解决的是「怎么把 AI 模型接入已有的 C#/Java/Python 代码库、权限体系和可观测性基础设施」，而不是「怎么最快搭出一个原型」。</p>
+<blockquote>
+<p><strong>微软官方把它定义为「轻量级、开源的开发套件，帮助你把最新的 AI 模型集成进 C#、Python 或 Java 代码库，充当高效的中间件」</strong>——「中间件」这个词准确概括了它和 LangChain 的定位差异：LangChain 更像一套完整的应用开发框架，Semantic Kernel 更像一层接入已有企业系统的适配层。</p>
+</blockquote>
+<h2 id="182-kernel">18.2 <code>Kernel</code>：依赖注入容器，不是执行引擎</h2>
+<p><code>Kernel</code> 对象本身并不执行任何 AI 逻辑，它是一个<strong>依赖注入容器</strong>，负责注册和管理模型服务、Plugin、过滤器（filter）等组件：</p>
+<pre><code class="language-csharp">var builder = Kernel.CreateBuilder();
+builder.AddAzureOpenAIChatCompletion(deploymentName, endpoint, apiKey);
+builder.Plugins.AddFromType&lt;OrderPlugin&gt;();
+Kernel kernel = builder.Build();
+</code></pre>
+<p><strong>这种「容器 + 注册」的模式是 .NET 企业开发里的标准范式</strong>（类似 ASP.NET Core 的依赖注入），对已经在用 .NET 技术栈的团队来说几乎零学习成本；对习惯了 LangChain 那种「直接实例化对象、函数式组合」风格的团队，则需要适应一层额外的容器抽象。</p>
+<h2 id="183-pluginsemantic-function-native-function">18.3 Plugin：Semantic Function 与 Native Function 的统一契约</h2>
+<p>Semantic Kernel 用 <strong>Plugin</strong> 统一了「用自然语言描述的函数」和「用代码写的函数」：</p>
+<ul>
+<li><strong>Semantic Function</strong>：本质是一个 Prompt 模板，声明输入变量和期望输出，交给模型执行；</li>
+<li><strong>Native Function</strong>：普通的 C#/Python/Java 方法，用 <code>[KernelFunction]</code>（C#）或 <code>@kernel_function</code>（Python）装饰后即可被模型发现和调用。</li>
+</ul>
+<pre><code class="language-python">class OrderPlugin:
+    @kernel_function(description=&quot;查询订单的物流状态&quot;)
+    def get_shipping_status(self, order_id: str) -&gt; str:
+        return shipping_service.query(order_id)
+</code></pre>
+<p>两者对模型来说是<strong>同一种调用契约</strong>——模型只看到函数名、描述和参数 Schema，不关心背后是一次 Prompt 补全还是一次数据库查询。这与 <a href="../../tools/">Tools 主题</a> 中 Function Calling 的协议本质是一致的：<strong>Semantic Kernel 没有发明新协议，而是把 Function Calling 包装成了一套面向企业代码库的注册与发现机制</strong>。</p>
+<h2 id="184-planner">18.4 Planner：从「手写编排」到「模型自动规划」</h2>
+<p>早期 Semantic Kernel 提供显式的 Planner（如 Stepwise Planner），让模型根据已注册的 Plugin 自动生成一个函数调用序列去完成目标。<strong>随着底层模型的 Function Calling 能力增强，这一层规划逻辑已经越来越多地下沉为模型原生能力</strong>（模型自己决定调用哪个函数、按什么顺序调用），Planner 更多变成了「自动规划」与「手写显式流程」之间的一个可选项，而不是唯一路径。</p>
+<pre class="mermaid">flowchart TB
+    G["业务目标"] --> D{"流程复杂度"}
+    D -->|"简单、一两步"| M["直接用模型的 Function Calling 自动选择 Plugin"]
+    D -->|"复杂、需要人工审核关键步骤"| PF["显式编写 Process Framework 流程（见第十九章）"]
+</pre>
+
+<p>这条分岔路径和 <a href="../01-langchain/04-langgraph/09-langchain-vs-langgraph.html">LangChain 生态 · 第九章</a> 讨论的「什么时候从 <code>create_agent</code> 下沉到 LangGraph」属于同一类工程判断：简单场景交给模型自动规划；复杂到需要精细控制分支、审批和恢复时，再显式建模流程。Semantic Kernel 只是把这条「显式流程」路径独立命名为 Process Framework（见第十九章）。</p>
+<h2 id="185-filter-hook">18.5 企业治理层：Filter 与 Hook</h2>
+<p>Semantic Kernel 把「内容安全、审计日志、成本控制」这类横切关注点抽象成 <strong>Filter</strong>（也称 Hook），可以在函数调用前后、Prompt 渲染前后插入统一的检查逻辑：</p>
+<pre><code class="language-python">class AuditFilter(FunctionInvocationFilter):
+    async def on_function_invocation(self, context, next):
+        log_audit_trail(context.function.name, context.arguments)
+        await next(context)
+        redact_sensitive_output(context.result)
+</code></pre>
+<p>这一层设计目标与 <a href="../01-langchain/02-agent-building/05-tool-registration.html">LangChain 生态 · 第五章</a> 中的 Middleware 概念高度相似——<strong>都是在工具调用的生命周期里插入统一的横切逻辑</strong>，区别在于 Semantic Kernel 的 Filter 从设计之初就把「合规审计」列为一等场景，文档和示例也更偏向企业安全团队会关心的问题（数据分类、内容安全策略、遥测标准）。</p>
+<h2 id="186">18.6 常见错误</h2>
+<h3 id="1861-kernel">18.6.1 把 <code>Kernel</code> 当作一次性执行对象</h3>
+<p><code>Kernel</code> 是长生命周期的依赖注入容器，通常在应用启动时构建一次，而不是每次请求都重新 <code>CreateBuilder()</code>——重复构建会丢失服务注册和 Filter 链的复用价值。</p>
+<h3 id="1862-semantic-function-native-function">18.6.2 忽视 Semantic Function 和 Native Function 的边界含糊问题</h3>
+<p>同一个功能既可以写成 Semantic Function（靠 Prompt 生成结果）也可以写成 Native Function（靠代码计算结果），选择应该基于「这个逻辑是否需要语言理解能力」，而不是团队更熟悉哪种写法——把本该用代码精确计算的逻辑交给 Semantic Function，会引入不必要的不确定性。</p>
+<h3 id="1863-planner">18.6.3 认为 Planner 是唯一的编排方式</h3>
+<p>模型原生的 Function Calling 已经能覆盖大量简单编排场景，不是所有项目都需要显式 Planner；反过来，复杂流程也不应该指望 Planner 自动规划出可靠的多步骤业务逻辑，应该走 Process Framework。</p>
+<h3 id="1864-filter">18.6.4 把 Filter 只当作日志埋点</h3>
+<p>Filter 的价值不只是记录日志，还包括在函数调用前做权限校验、在调用后做敏感信息脱敏——只用来打日志会浪费这层横切能力。</p>
+<h2 id="187">18.7 本章总结</h2>
+<ol>
+<li><strong>Semantic Kernel 的定位是企业中间件</strong>，核心问题是「怎么把 AI 模型接入已有的多语言代码库和治理体系」，而不是「怎么最快搭原型」；</li>
+<li><strong><code>Kernel</code> 是依赖注入容器</strong>，管理模型服务、Plugin 和 Filter 的注册，通常在应用启动时构建一次；</li>
+<li><strong>Plugin 统一了 Semantic Function（Prompt 驱动）和 Native Function（代码驱动）</strong>，对模型暴露相同的调用契约，本质仍是 Function Calling；</li>
+<li><strong>Planner 的角色正在从「唯一编排方式」演变为「简单场景的自动规划选项」</strong>，复杂流程应该显式建模（见第十九章 Process Framework）；</li>
+<li><strong>Filter/Hook 把内容安全、审计、成本控制这些企业级横切关注点变成一等公民</strong>，是它区别于其他框架 Middleware 概念的重点。</li>
+</ol>
+<p>可以把 Semantic Kernel 看作一层企业接入中间件：它不把重点放在 Agent 玩法的丰富度上，而是放在 AI 能力如何进入既有代码库、依赖注入体系和合规审计流程。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/overview/">Semantic Kernel 官方文档：Introduction</a></li>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/concepts/kernel">Semantic Kernel: Kernel 概念</a></li>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/concepts/plugins/">Semantic Kernel: Plugins 概念</a></li>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/concepts/planning">Semantic Kernel: Planning 概念</a></li>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/concepts/filters">Semantic Kernel: Filters 概念</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

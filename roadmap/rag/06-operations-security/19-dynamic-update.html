@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>动态更新与增量索引 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="动态更新与增量索引 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>运维与安全</span> / <span>动态更新与增量索引</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十九章：知识库的动态更新与增量索引</h1>
+<h2 id="191">19.1 为什么动态更新不能按记录增量处理</h2>
+<p>Demo 阶段的知识库往往一次性建好，但生产系统里的文档会持续变化。</p>
+<p>RAG 更新和普通数据库更新的差异在于：<strong>文档哪怕只改一个字，也可能让 chunk 边界整体偏移，后续 chunk 的内容随之改变。</strong></p>
+<p>这意味着<strong>很多场景都不能按数据库记录那样"局部改一条"</strong>，而要按文档或版本重建。</p>
+<h2 id="192">19.2 完整的更新链路</h2>
+<pre class="mermaid">flowchart TB
+    S[数据源变化] --> D[1. 变更检测]
+    D --> C[2. 判断变更类型]
+    C -->|新增| ADD[解析 切分 向量化 写入]
+    C -->|修改| MOD[构建新版本 chunk 与索引]
+    C -->|删除| DEL[发布不含该文档的新版本]
+    ADD --> V[3. 一致性与权限校验]
+    MOD --> V
+    DEL --> V
+    V --> A[4. 原子切换 active alias]
+    A --> G[5. 灰度生效]
+    G --> M[6. 效果监控]
+</pre>
+
+<h2 id="193">19.3 第一步：变更检测</h2>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>做法</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>轮询 + 内容哈希</strong></td>
+<td>定期扫描，对比文档内容的哈希值</td>
+<td>实现简单、不依赖数据源改造</td>
+<td>有延迟、大规模时扫描开销大</td>
+</tr>
+<tr>
+<td><strong>事件驱动</strong></td>
+<td>数据源变化时发消息（Webhook / 消息队列）</td>
+<td><strong>实时、无扫描开销</strong></td>
+<td>需要数据源支持、需维护中间件</td>
+</tr>
+<tr>
+<td>混合</td>
+<td>事件驱动为主，定期全量对账兜底</td>
+<td><strong>可靠</strong></td>
+<td>复杂度最高</td>
+</tr>
+</tbody>
+</table>
+<p><strong>为什么用内容哈希而不是修改时间</strong>：很多系统的"修改时间"会因为元数据变动、重新保存、格式转换而更新，<strong>内容其实没变</strong>。用内容哈希能避免大量无谓的重建。</p>
+<p><strong>混合方案的必要性</strong>：事件驱动会丢消息（服务重启、网络故障、数据源没发出事件）。<strong>定期全量对账是唯一能发现"漏了什么"的手段</strong>——建议至少每天跑一次哈希对账。</p>
+<h2 id="194-copy-on-write-alias">19.4 第二步：版本化 Copy-on-Write + 原子 Alias</h2>
+<p>发布流程的关键约束在这里。文档开头插入一段话后，后续 chunk 的边界可能整体偏移，因而不应尝试在正在服务的索引中逐条“修补”。但“先删后增”会制造读空窗口：写入失败或索引尚未就绪时，用户既看不到旧版，也看不到新版。</p>
+<p>正确做法是把一次文档变更作为不可变版本进行 <strong>copy-on-write</strong>：在候选版本中完整解析、切分、向量化和建索引；校验通过后，才把查询使用的 <code>active</code> alias（或路由指针）<strong>原子地</strong>切到新版本。旧版本保留到回滚窗口结束，再异步回收。</p>
+<pre class="mermaid">flowchart TB
+    A[doc_id: v17 active] --> B[构建隔离的 v18<br/>解析、切分、向量化、索引]
+    B --> C[校验内容、ACL、召回与索引就绪]
+    C -->|通过| D[原子更新 active alias<br/>v17 → v18]
+    C -->|失败| E[丢弃 v18，继续服务 v17]
+    D --> F[观察、可回滚]
+    F --> G[回收 v17]
+</pre>
+
+<p>这同时避免了边界偏移造成的残留旧 chunk 和删后写入的不可用窗口。查询必须在一次请求内绑定同一个已发布版本；不得让同一上下文混入两个版本的片段。合规删除另有物理擦除要求，不能只依赖延迟回收。</p>
+<h3 id="1941-id-alias">19.4.1 ID、版本与 Alias 设计</h3>
+<p><code>doc_id</code> 用于定位文档；<code>version_id</code> 标识不可变构建产物；<code>active</code> alias 只指向一个经过验证的可查询版本。批量删除是旧版本回收和合规流程的一项能力，而不是用户查询路径上的发布机制。</p>
+<p>推荐的元数据设计：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>doc_id</code></td>
+<td>文档的稳定唯一标识</td>
+</tr>
+<tr>
+<td><code>version_id</code></td>
+<td><strong>不可变构建版本；查询与回滚的单位</strong></td>
+</tr>
+<tr>
+<td><code>chunk_id</code></td>
+<td>chunk 唯一标识，通常是 <code>doc_id + version_id + 序号</code></td>
+</tr>
+<tr>
+<td><code>content_hash</code></td>
+<td>变更检测与构建可复现性</td>
+</tr>
+<tr>
+<td><code>active_alias</code> / <code>published_at</code></td>
+<td>原子发布、时效判断与灰度控制</td>
+</tr>
+<tr>
+<td><code>source_path</code> / <code>page</code></td>
+<td>引用溯源</td>
+</tr>
+<tr>
+<td><code>acl_tags</code> / <code>tenant_id</code></td>
+<td>权限过滤</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>doc_id</code>、<code>version_id</code> 和 alias 解析路径都必须有索引或常数时间查找</strong>，否则回收、核验或切换会退化成全表扫描。</p>
+<p><strong>这个设计必须在建库时就做好</strong>——第三章 3.6.1 强调的「元数据事后补等于全量重建」，在这里体现得最直接。</p>
+<h2 id="195">19.5 第三步：删除的两个技术陷阱</h2>
+<h3 id="1951-hnsw">19.5.1 HNSW 没有真正的删除</h3>
+<p>如第八章 8.2.1 所述，HNSW 图结构被破坏后难以修复，工程上普遍采用<strong>软删除 + 定期重建</strong>。</p>
+<p>这会带来两个直接后果：</p>
+<p><strong>（1）软删除会累积。</strong> 被标记删除的向量仍占内存、仍参与图遍历、仍消耗 <code>ef</code> 预算，但会在结果中被过滤掉。<strong>累积到一定比例后，实际召回率会显著下降</strong>（第九章 9.6.4 的排查项之一）。</p>
+<p><strong>应对</strong>：<strong>监控软删除比例</strong>，超过阈值（比如 20%）触发重建。</p>
+<p><strong>（2）重建期间的可用性。</strong> 全量重建可能耗时数小时。始终采用<strong>构建新版本 → 校验 → 原子切换 alias</strong>，并保留旧版本供在途查询和回滚；代价是切换期间需要双份内存（第九章 9.3.3）。</p>
+<h3 id="1952">19.5.2 合规删除的特殊要求</h3>
+<p>用户要求删除个人数据、或文档因合规原因必须移除时，<strong>软删除不够——数据仍然物理存在</strong>。</p>
+<p>需要额外的流程：</p>
+<ul>
+<li>记录删除请求，<strong>确保在下次重建后数据真正消失</strong>；</li>
+<li>或使用支持真删除的索引结构（如 DiskANN 系）；</li>
+<li><strong>检查关联位置</strong>：原文存储、缓存、日志、备份里的副本。只删向量而保留这些副本，合规审计仍然不通过。</li>
+</ul>
+<h2 id="196">19.6 第四步：一致性校验</h2>
+<p>更新完成后必须验证：</p>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>方法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>chunk 数量是否合理</td>
+<td>与文档长度的比值是否在正常范围</td>
+</tr>
+<tr>
+<td>发布版本是否完整</td>
+<td><code>version_id</code> 的 chunk、ACL 与内容哈希均齐全</td>
+</tr>
+<tr>
+<td>Alias 是否一致</td>
+<td>同一请求只解析到一个已发布版本，可原子回退</td>
+</tr>
+<tr>
+<td>向量是否写入成功</td>
+<td>抽样查询候选版本能否命中新内容</td>
+</tr>
+<tr>
+<td>索引是否已就绪</td>
+<td>候选版本进入 ANN 索引后才允许切换 alias</td>
+</tr>
+</tbody>
+</table>
+<p>很多向量库的新写入数据会先进入一个未建索引的缓冲区，<strong>要等到达到阈值或手动触发才合并进主索引</strong>。这段时间内，新数据可能检索不到，或者走的是低效路径。</p>
+<p><strong>这是第九章 9.6.4「召回率突然下降」排查清单里的第 2 条。</strong></p>
+<h2 id="197">19.7 第五步：灰度与回滚</h2>
+<p>大批量更新（换 Embedding 模型、改切分策略、导入新语料）<strong>必须灰度</strong>。</p>
+<pre class="mermaid">flowchart LR
+    OLD[(旧索引)] --> R[流量路由]
+    NEW[(新索引)] --> R
+    R --> U[用户]
+    R -.->|对比指标| M[监控]
+    M -.->|异常| RB[回滚到旧索引]
+</pre>
+
+<p><strong>做法</strong>：新旧索引并存，先切小比例流量，对比检索指标和线上反馈，确认无退化后再全量切换，<strong>并保留旧索引一段时间以便回滚</strong>。</p>
+<p>代价是切换期需要双份存储，用来换取可回滚和对比窗口。</p>
+<p><strong>必须监控的对比指标</strong>：固定评测集的 Hit@K、线上点踩率、拒答率、P95 延迟。</p>
+<h2 id="198">19.8 权限隔离与多租户</h2>
+<p>这一块在企业场景里通常绕不开。</p>
+<h3 id="1981">19.8.1 三种实现方式</h3>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>做法</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>元数据过滤</strong></td>
+<td>每个 chunk 带权限标签，检索时按标签过滤</td>
+<td>实现简单、单索引</td>
+<td><strong>踩第八章 8.4 的过滤陷阱</strong></td>
+</tr>
+<tr>
+<td><strong>分区/分索引</strong></td>
+<td>每个租户或权限域独立索引</td>
+<td><strong>彻底隔离、无过滤陷阱</strong></td>
+<td>索引数量多、管理成本高</td>
+</tr>
+<tr>
+<td>后过滤</td>
+<td>检索后再按权限过滤</td>
+<td>实现最简单</td>
+<td><strong>高选择性时结果可能为空</strong>；且有信息泄漏风险</td>
+</tr>
+</tbody>
+</table>
+<p>常见做法是：<strong>租户级隔离用分索引，租户内的细粒度权限用元数据过滤。</strong></p>
+<h3 id="1982">19.8.2 三个必须注意的点</h3>
+<p><strong>（1）后过滤有信息泄漏风险。</strong> 如果先检索再过滤，被过滤掉的结果虽然没返回，但<strong>"有结果被过滤"这个事实本身可能泄漏信息</strong>（比如返回结果数、延迟差异）。高敏感场景应使用预过滤或分索引。</p>
+<p><strong>（2）权限变更要能即时生效。</strong> 用户被移出某个部门后，应立即无法检索到该部门的文档。<strong>如果权限标签是写死在 chunk 元数据里的，权限变更就需要更新大量 chunk</strong>——更好的做法是<strong>存资源标识，在查询时映射到当前的权限</strong>。</p>
+<p><strong>（3）缓存必须带权限维度。</strong> 检索结果缓存如果不区分用户权限，<strong>会导致 A 用户的缓存被 B 用户命中</strong>——这是严重的越权漏洞。</p>
+<h2 id="199">19.9 时效性处理</h2>
+<p>同一份文档的新旧版本共存，或者知识本身有时效性时：</p>
+<ul>
+<li><strong>在元数据里记录生效时间和失效时间</strong>，检索时过滤掉已失效的；</li>
+<li><strong>同等相关性时按时间加权</strong>，优先返回新的；</li>
+<li><strong>在上下文中标注每个片段的日期</strong>，让模型知道时效（第十章 10.3.7）；</li>
+<li><strong>定期清理过期内容</strong>——这属于知识库治理，是幻觉治理的最上游（第十七章 17.8）。</li>
+</ul>
+<h2 id="1910">19.10 常见错误</h2>
+<h3 id="19101">19.10.1 在活动索引中局部更新或先删后增</h3>
+<p>chunk 边界会偏移，逐条修补会残留旧内容；先删后增又会产生读空窗口。<strong>应构建不可变新版本、验证后原子切换 alias。</strong></p>
+<h3 id="19102-doc_id-doc_id">19.10.2 没有 doc_id 或 doc_id 未建索引</h3>
+<p>无法批量删除，或删除操作退化成全表扫描。</p>
+<h3 id="19103">19.10.3 用修改时间而非内容哈希检测变更</h3>
+<p>会触发大量无谓的重建。</p>
+<h3 id="19104">19.10.4 只用事件驱动不做对账</h3>
+<p>事件会丢，必须有定期全量哈希对账兜底。</p>
+<h3 id="19105">19.10.5 忽略软删除的累积</h3>
+<p>累积过多会导致召回率静默下降。</p>
+<h3 id="19106">19.10.6 认为软删除满足合规要求</h3>
+<p>数据仍物理存在，且缓存、日志、备份里还有副本。</p>
+<h3 id="19107">19.10.7 不检查索引是否已生效</h3>
+<p>新写入数据可能还在未建索引的缓冲区里。</p>
+<h3 id="19108">19.10.8 大批量更新不灰度</h3>
+<p>发现退化时已经无法回滚。</p>
+<h3 id="19109">19.10.9 权限缓存不带用户维度</h3>
+<p>会造成越权访问，是严重的安全漏洞。</p>
+<h3 id="191010-chunk">19.10.10 权限标签写死在 chunk 里</h3>
+<p>权限变更需要更新大量 chunk，无法即时生效。</p>
+<h2 id="1911">19.11 本章总结</h2>
+<ol>
+<li><strong>RAG 更新的特殊约束</strong>：文档改动会导致 chunk 边界整体偏移，<strong>无法局部更新</strong>；</li>
+<li><strong>完整链路</strong>：变更检测 → 分类处理 → 一致性校验 → 灰度生效 → 效果监控；</li>
+<li><strong>变更检测用内容哈希而非修改时间</strong>；事件驱动为主 + <strong>定期全量对账兜底</strong>；</li>
+<li><strong>修改采用版本化 copy-on-write</strong>：先构建并验证完整新版本，再原子切换 alias；旧版本保留用于在途请求和回滚，随后回收；</li>
+<li><strong>ID 与元数据设计要在建库时做好</strong>：<code>doc_id</code>、<code>version_id</code>、<code>chunk_id</code>、<code>content_hash</code>、<code>active_alias</code>、<code>acl_tags</code>；</li>
+<li><strong>删除语义取决于向量库实现</strong>：常见实现用 tombstone、segment compaction 或后台物理回收；需监控软删比例、验证召回，并确认合规删除最终覆盖索引、缓存与备份；</li>
+<li><strong>必须检查索引是否已生效</strong>，新数据可能还在未建索引的缓冲区；</li>
+<li><strong>大批量更新必须灰度</strong>，新旧索引并存、小流量对比、保留回滚能力；</li>
+<li><strong>权限隔离</strong>：租户级用分索引，细粒度用元数据过滤；<strong>注意后过滤的泄漏风险、权限变更的即时性、缓存必须带权限维度</strong>。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2105.09613">FreshDiskANN: A Fast and Accurate Graph-Based ANN Index for Streaming Similarity Search</a></li>
+<li><a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a></li>
+<li><a href="https://arxiv.org/abs/2403.04871">ACORN: Performant and Predicate-Agnostic Search Over Vector Embeddings and Structured Data</a></li>
+<li><a href="https://arxiv.org/abs/2410.05779">LightRAG: Simple and Fast Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 优化五层框架 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="RAG 优化五层框架 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>在线检索</span> / <span>RAG 优化五层框架</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rag">第十四章：RAG 优化的五层框架</h1>
+<h2 id="141">14.1 为什么需要一个框架</h2>
+<p>「RAG 效果不好怎么优化」通常牵涉多个环节。</p>
+<p>常见问题不是缺少可选手段，而是把「调 chunk 大小、换模型、加 rerank、做 query 改写」混在一起讨论。单纯罗列选项信息量很低，因为它没有回答问题究竟出在哪一层。</p>
+<p>分层框架的作用，就是把优化手段按所处环节归类，再据此定位问题发生的位置。</p>
+<pre class="mermaid">flowchart TB
+    L1[第一层 索引层<br/>存的东西对不对] --> L2[第二层 查询层<br/>问的方式对不对]
+    L2 --> L3[第三层 召回层<br/>找的路径全不全]
+    L3 --> L4[第四层 重排与上下文层<br/>排得准、装得好吗]
+    L4 --> L5[第五层 生成与 Grounding 层<br/>答案被证据支持吗]
+
+    L1 -.-> P1[矛盾: 粒度大小]
+    L2 -.-> P2[鸿沟: 表述差异]
+    L3 -.-> P3[盲区: 单路系统性缺失]
+    L4 -.-> P4[精度: 排序与上下文污染]
+    L5 -.-> P5[可信: 引用、冲突与拒答]
+</pre>
+
+<p><strong>每一层解决一个独立的问题，且顺序不能颠倒</strong>——索引层的数据如果就有问题，后面四层做得再好也没用。安全、观测和评估不是第六层，而是贯穿五层的横切能力。</p>
+<h2 id="142">14.2 第一层：索引层</h2>
+<p><strong>要解决的核心矛盾</strong>：粒度太小语义碎片化，粒度太大语义被稀释（第四章 4.2）。</p>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>说明</th>
+<th>详见</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>调整 chunk size 与 overlap</td>
+<td><strong>投入产出比最高的第一步</strong></td>
+<td>4.5</td>
+</tr>
+<tr>
+<td>结构化切分</td>
+<td>按标题层级切，成本近乎为零</td>
+<td>4.4</td>
+</tr>
+<tr>
+<td>父子切分</td>
+<td>检索用小的，生成用大的</td>
+<td>5.3.2</td>
+</tr>
+<tr>
+<td>上下文增强</td>
+<td>给每个 chunk 加背景说明</td>
+<td>5.3.4</td>
+</tr>
+<tr>
+<td>文档解析质量</td>
+<td><strong>上限就在这里定死</strong></td>
+<td>第三章</td>
+</tr>
+<tr>
+<td>元数据完整性</td>
+<td>支撑过滤、溯源、时效</td>
+<td>3.6.1</td>
+</tr>
+</tbody>
+</table>
+<p>这一层经常被跳过，但它是所有效果的地基。很多团队花几周调 Rerank，最后才发现知识库里的表格全是乱码。</p>
+<h2 id="143">14.3 第二层：查询层</h2>
+<p><strong>要解决的核心问题</strong>：用户的表达方式和文档的表达方式之间的鸿沟（第十二章 12.1）。</p>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>治哪种鸿沟</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>指代消解</td>
+<td>多轮对话的省略</td>
+</tr>
+<tr>
+<td>直接改写</td>
+<td>口语与书面、术语差异</td>
+</tr>
+<tr>
+<td>多 Query 扩展</td>
+<td>表述采样的随机性</td>
+</tr>
+<tr>
+<td>HyDE</td>
+<td>问题与文档的形式差异</td>
+</tr>
+<tr>
+<td>Step-back</td>
+<td>抽象层级不匹配</td>
+</tr>
+<tr>
+<td>查询分解</td>
+<td>复合问题的粒度不匹配</td>
+</tr>
+<tr>
+<td>路由</td>
+<td>不同问题需要不同策略</td>
+</tr>
+</tbody>
+</table>
+<p>这一层的成本特征是「每个手段通常都多一次 LLM 调用」，所以一般按问题类型选一种，而不是层层叠加。</p>
+<h2 id="144">14.4 第三层：召回层</h2>
+<p><strong>要解决的核心问题</strong>：单路召回的系统性盲区（第十三章 13.1）。</p>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>BM25 + 向量混合召回</td>
+<td><strong>必选项，不是可选项</strong></td>
+</tr>
+<tr>
+<td>RRF 融合</td>
+<td>规避量纲问题，零调参</td>
+</tr>
+<tr>
+<td>元数据过滤</td>
+<td>按时间、部门、权限缩小范围</td>
+</tr>
+<tr>
+<td>多知识库路由</td>
+<td>按问题类型选库</td>
+</tr>
+<tr>
+<td>调整各路 Top-K</td>
+<td>平衡召回与后续成本</td>
+</tr>
+<tr>
+<td>后期交互作为第三路</td>
+<td>前两路调到位后仍不够时再考虑</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这一层的关键指标是召回率</strong>——如果正确答案根本没被召回，后面所有环节都无能为力。</p>
+<blockquote>
+<p><strong>召回层是效果的下限</strong>。它没找回来的东西，重排层变不出来。</p>
+</blockquote>
+<h2 id="145">14.5 第四层：重排与上下文层</h2>
+<p><strong>要解决的核心问题</strong>：双塔粗排的精度局限（第十三章 13.4.1）。</p>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cross-encoder 重排</td>
+<td><strong>单点性价比最高的优化</strong></td>
+</tr>
+<tr>
+<td>分数阈值过滤</td>
+<td>拒答能力的基础</td>
+</tr>
+<tr>
+<td>上下文裁剪与排序</td>
+<td>控总量、把最相关的放首尾</td>
+</tr>
+<tr>
+<td>去重与去冗余</td>
+<td>尤其是新旧版本冲突</td>
+</tr>
+<tr>
+<td>时效性加权</td>
+<td>同等相关时优先新文档</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这一层的关键指标是精度和排序质量</strong>（MRR、NDCG）。</p>
+<h2 id="146-grounding">14.6 第五层：生成与 Grounding 层</h2>
+<p><strong>要解决的核心问题</strong>：检索结果相关，不代表最终回答正确。模型仍可能忽略证据、混淆冲突版本、错配引用，或在证据不足时强行回答。</p>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>解决什么问题</th>
+<th>详见</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>证据化回答与 claim-citation 对齐</td>
+<td>每个关键结论能回指支持证据</td>
+<td>第十七、十八章</td>
+</tr>
+<tr>
+<td>冲突与时效规则</td>
+<td>避免把旧版本或冲突材料拼成结论</td>
+<td>第十七章</td>
+</tr>
+<tr>
+<td>组合式拒答</td>
+<td>证据覆盖不足时停止，而非只看单一分数</td>
+<td>第十三、十七章</td>
+</tr>
+<tr>
+<td>结构化上下文与来源标签</td>
+<td>降低上下文污染和引用错配</td>
+<td>第十七章</td>
+</tr>
+<tr>
+<td>输出验证与安全策略</td>
+<td>检查事实支持、ACL 泄漏和注入影响</td>
+<td>第十八、二十章</td>
+</tr>
+</tbody>
+</table>
+<h2 id="147">14.7 怎么定位问题在哪一层</h2>
+<p>框架本身只负责分类，真正能指导优化的是定位能力。</p>
+<pre class="mermaid">flowchart TB
+    BAD[答案质量差] --> C1{正确 chunk<br/>在 Top-50 里吗?}
+    C1 -->|不在| C2{知识库里<br/>有这个信息吗?}
+    C2 -->|没有| FIX1[索引层: 解析或切分问题<br/>或语料本身缺失]
+    C2 -->|有| C3{换个说法问<br/>能召回吗?}
+    C3 -->|能| FIX2[查询层: 表述鸿沟]
+    C3 -->|不能| FIX3[召回层: 换/加召回路]
+    C1 -->|在| C4{Top-5 里有吗?}
+    C4 -->|没有| FIX4[重排层: 加或换 Rerank]
+    C4 -->|有| FIX5[生成层: Prompt 约束不足<br/>见第十七章]
+</pre>
+
+<p>这个决策树的价值在于：它把一个模糊的「效果不好」，变成了一系列可以用数据回答的是非题。</p>
+<p>具体操作方法：</p>
+<ol>
+<li><strong>取一批效果差的真实 Query</strong>（不要用凭空构造的）；</li>
+<li><strong>人工标注每个 Query 的正确答案在哪个 chunk</strong>；</li>
+<li><strong>检查这个 chunk 出现在检索结果的第几位</strong>：
+   - <strong>根本不在候选里</strong> → 索引层或召回层；
+   - <strong>在候选里但排名靠后</strong> → 重排层；
+   - <strong>排在前列但答案还是错</strong> → 生成层。</li>
+</ol>
+<p><strong>统计一批 Query 的分布</strong>，就能看出该优先投入哪一层。很多情况下，诊断本身比盲目加新组件更重要。</p>
+<h2 id="148">14.8 优化顺序建议</h2>
+<p>按<strong>投入产出比</strong>排序：</p>
+<table>
+<thead>
+<tr>
+<th>顺序</th>
+<th>动作</th>
+<th>成本</th>
+<th>预期收益</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>建立评测集</strong></td>
+<td>中（人力）</td>
+<td><strong>无收益，但没它什么都测不了</strong></td>
+</tr>
+<tr>
+<td>2</td>
+<td>检查文档解析质量</td>
+<td>低</td>
+<td>可能极高</td>
+</tr>
+<tr>
+<td>3</td>
+<td>调 chunk size 与 overlap</td>
+<td>低</td>
+<td>中到高</td>
+</tr>
+<tr>
+<td>4</td>
+<td>加 BM25 混合召回 + RRF</td>
+<td>低</td>
+<td><strong>高</strong></td>
+</tr>
+<tr>
+<td>5</td>
+<td>加 Rerank</td>
+<td>低</td>
+<td><strong>高</strong></td>
+</tr>
+<tr>
+<td>6</td>
+<td>父子切分</td>
+<td>低</td>
+<td>中到高</td>
+</tr>
+<tr>
+<td>7</td>
+<td>Query 改写/指代消解</td>
+<td>中</td>
+<td>中（多轮场景为高）</td>
+</tr>
+<tr>
+<td>8</td>
+<td>上下文增强</td>
+<td>中</td>
+<td>中到高</td>
+</tr>
+<tr>
+<td>9</td>
+<td>Prompt 约束与拒答</td>
+<td>低</td>
+<td>中（但对可信度是高）</td>
+</tr>
+<tr>
+<td>10</td>
+<td>微调 Embedding / 高级范式</td>
+<td><strong>高</strong></td>
+<td>视场景</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第 1 步本身不产生效果提升，但没有它，后面九步就很难判断改动是否真的有效。</strong></p>
+<h2 id="149">14.9 一个典型的组合方案</h2>
+<p>多数中等规模的企业 RAG 系统，最终会收敛到类似的配置：</p>
+<pre class="mermaid">flowchart LR
+    subgraph 离线
+        A[分层解析 + 质量校验] --> B[结构化切分 + 父子块]
+        B --> C[上下文增强]
+        C --> D[稠密 + 稀疏双索引]
+    end
+    subgraph 在线
+        E[指代消解 + 轻量路由] --> F[BM25 + 向量并行召回]
+        F --> G[RRF 融合去重]
+        G --> H[Cross-encoder 重排 + 校准拒答策略]
+        H --> I[受约束生成 + 引用校验]
+    end
+    D -.-> F
+</pre>
+
+<p><strong>这套方案没有依赖实验性组件</strong>，但覆盖了五层里的主要手段。每个组件是否适合，仍需由业务评测集、延迟与成本预算验证。</p>
+<blockquote>
+<p><strong>RAG 优化通常先把基础环节做对，再考虑高级范式。</strong> 第十五、十六章提到的方案，更适合在这一基础上解决额外的结构性问题。</p>
+</blockquote>
+<h2 id="1410">14.10 常见错误</h2>
+<h3 id="14101">14.10.1 罗列手段但不分层</h3>
+<p>这种写法无法体现问题定位和取舍判断。</p>
+<h3 id="14102">14.10.2 不会定位问题在哪一层</h3>
+<p>有框架但不会归因，优化动作通常会失焦。</p>
+<h3 id="14103">14.10.3 跳过评测集直接优化</h3>
+<p>无法判断改动是好是坏，只能凭感觉。这是最常见也最致命的错误。</p>
+<h3 id="14104">14.10.4 从最复杂的手段开始</h3>
+<p>上 GraphRAG 之前，先确认解析、切分、混合召回、Rerank 都做对了。</p>
+<h3 id="14105">14.10.5 忽略索引层</h3>
+<p>后面四层再优化，也救不回解析错误的文档。</p>
+<h3 id="14106">14.10.6 只优化检索不优化生成</h3>
+<p>检索完美时模型仍可能过度发挥（第十七章）。</p>
+<h3 id="14107">14.10.7 一次改多个变量</h3>
+<p>无法归因是哪个改动起了作用，也无法回退。</p>
+<h2 id="1411">14.11 本章总结</h2>
+<ol>
+<li><strong>五层框架</strong>：索引层、查询层、召回层、重排与上下文层、生成与 Grounding 层；</li>
+<li><strong>每层解决一个独立问题</strong>：数据质量、表述鸿沟、召回盲区、排序与装配、证据支持与拒答；</li>
+<li><strong>召回层是效果的下限</strong>——没召回的内容，重排变不出来；</li>
+<li><strong>定位方法</strong>：标注正确 chunk 的排名位置，按「不在候选 / 在候选但靠后 / 在前列但答案错」三分法归因到具体层；</li>
+<li><strong>优化顺序按投入产出比</strong>：评测集 → 解析质量 → 切分参数 → 混合召回 → Rerank → 父子块 → Query 改写 → 上下文增强 → 生成约束 → 高级方案；</li>
+<li><strong>建立评测集本身不带来效果提升，但没有它后面全是盲目试错</strong>；</li>
+<li><strong>把基础做对的收益，远大于引入前沿技术</strong>。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+<li><a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic: Introducing Contextual Retrieval</a></li>
+<li><a href="https://arxiv.org/abs/2405.07437">Evaluation of Retrieval-Augmented Generation: A Survey</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

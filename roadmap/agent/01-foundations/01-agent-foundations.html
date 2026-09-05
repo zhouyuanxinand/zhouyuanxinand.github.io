@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>从大模型到 AI Agent · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="从大模型到 AI Agent — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>基础与架构</span> / <span>从大模型到 AI Agent</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="ai-agent">第一章：从大模型到 AI Agent</h1>
+<h2 id="11">1.1 普通大模型的三类局限</h2>
+<p>大语言模型擅长理解和生成文本，但单独使用时仍存在三个重要局限。</p>
+<h3 id="111">1.1.1 知识冻结</h3>
+<p>模型的参数知识主要来自训练数据，无法天然感知训练结束后发生的新事件。若要获得实时信息，必须接入搜索引擎、数据库或 RAG 系统。</p>
+<h3 id="112">1.1.2 缺少持续状态</h3>
+<p>大模型本身是无状态的。一次普通调用可以表示为：</p>
+<p>$$
+y_t \sim P_{\theta}(y\mid x_t)
+$$</p>
+<p>模型只根据本次输入 $x_t$ 生成输出 $y_t$。如果应用程序不重新传入历史记录，模型就不知道此前发生过什么。</p>
+<h3 id="113">1.1.3 无法直接行动</h3>
+<p>大模型默认只能生成文本，不能独立完成以下操作：</p>
+<ul>
+<li>查询实时数据；</li>
+<li>执行代码；</li>
+<li>访问数据库；</li>
+<li>调用业务 API；</li>
+<li>发送邮件或修改文件。</li>
+</ul>
+<p>因此，普通大模型主要解决的是：</p>
+<blockquote>
+<p><strong>输入 → 内容生成</strong></p>
+</blockquote>
+<p>而不是：</p>
+<blockquote>
+<p><strong>目标 → 现实世界中的任务完成</strong></p>
+</blockquote>
+<h2 id="12-agent">1.2 什么是 Agent</h2>
+<p>AI Agent 是一种以大模型为推理核心，能够围绕目标持续感知环境、制定计划、调用工具，并根据反馈调整行动的智能系统。</p>
+<p>它的核心并不是某一次回答，而是一个持续运行的闭环：</p>
+<blockquote>
+<p><strong>感知 → 规划 → 行动 → 再感知</strong></p>
+</blockquote>
+<p>设 Agent 在时刻 $t$ 的状态为：</p>
+<p>$$
+S_t=(G,O_t,M_t,H_t)
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$G$：任务目标；</li>
+<li>$O_t$：当前环境观察；</li>
+<li>$M_t$：可用记忆；</li>
+<li>$H_t$：此前的执行历史。</li>
+</ul>
+<p>Agent 根据当前状态制定计划并选择动作：</p>
+<p>$$
+P_t=\mathrm{Plan}(S_t)
+$$</p>
+<p>$$
+A_t=\mathrm{Act}(S_t,P_t)
+$$</p>
+<p>动作改变外部环境，产生新的观察：</p>
+<p>$$
+O_{t+1}=\mathrm{Environment}(A_t)
+$$</p>
+<p>随后，Agent 更新自身状态并进入下一轮循环：</p>
+<p>$$
+S_{t+1}=\mathrm{Update}(S_t,O_{t+1})
+$$</p>
+<p>直到目标完成、达到资源限制，或者需要人工介入。</p>
+<h2 id="13-agent">1.3 Agent 的三大核心能力</h2>
+<h3 id="131-tool-use">1.3.1 工具调用（Tool Use）</h3>
+<p>工具调用是 Agent 从“会说话”走向“能做事”的关键。</p>
+<p>Agent 可以使用的工具包括：</p>
+<ul>
+<li>搜索引擎；</li>
+<li>代码执行器；</li>
+<li>文件系统；</li>
+<li>数据库；</li>
+<li>浏览器；</li>
+<li>外部 API；</li>
+<li>邮件和企业业务系统。</li>
+</ul>
+<blockquote>
+<p><strong>LLM + Tools → 可执行能力</strong></p>
+</blockquote>
+<p>大模型负责理解目标、选择工具和生成参数，工具负责真正改变外部世界。</p>
+<h3 id="132-memory">1.3.2 记忆机制（Memory）</h3>
+<p>模型本身不会永久保存对话。Agent 的记忆能力来自模型之外的系统设计。</p>
+<h4 id="_1">短期记忆</h4>
+<p>短期记忆保存当前任务中的状态，例如：</p>
+<ul>
+<li>当前目标；</li>
+<li>已完成的步骤；</li>
+<li>工具调用结果；</li>
+<li>中间计算结果；</li>
+<li>尚未解决的问题。</li>
+</ul>
+<p>它通常存放在上下文窗口、任务状态或临时存储中。</p>
+<h4 id="_2">长期记忆</h4>
+<p>长期记忆保存跨任务信息，例如：</p>
+<ul>
+<li>用户偏好；</li>
+<li>历史操作；</li>
+<li>领域知识；</li>
+<li>过去任务的经验。</li>
+</ul>
+<p>长期记忆可以存储在关系数据库、文档数据库或向量数据库中，并通过关键词、条件查询或语义检索取回。</p>
+<blockquote>
+<p><strong>Agent Memory = Short-term Memory + Long-term Memory</strong></p>
+</blockquote>
+<h3 id="133">1.3.3 多步推理与自我纠错</h3>
+<p>Agent 能够把复杂目标拆解为多个步骤，并根据执行反馈调整策略：</p>
+<blockquote>
+<p><strong>执行 → 反馈 → 分析 → 调整 → 重试</strong></p>
+</blockquote>
+<p>例如：</p>
+<ul>
+<li>搜索关键词无效时，重新生成查询词；</li>
+<li>API 返回错误时，根据错误信息修改参数；</li>
+<li>代码执行失败时，分析异常并修正代码；</li>
+<li>当前方案不可行时，重新规划任务路径。</li>
+</ul>
+<p>这也是 Agent 与固定自动化脚本的重要区别：</p>
+<ul>
+<li><strong>自动化脚本 = 预设流程</strong></li>
+<li><strong>Agent = 目标驱动 + 动态决策 + 反馈调整</strong></li>
+</ul>
+<p>不过，自我纠错并不意味着 Agent 一定能解决问题。实际系统仍需设置最大重试次数、权限边界、资源预算和人工确认机制。</p>
+<h2 id="14-agent-agent">1.4 从单 Agent 到 Agent 生态</h2>
+<p>随着 Agent 和工具数量增加，两个新的问题随之出现：</p>
+<ol>
+<li>Agent 如何统一连接大量外部工具？</li>
+<li>不同厂商、不同框架开发的 Agent 如何相互协作？</li>
+</ol>
+<p>这两个问题分别推动了 MCP 和 A2A 协议的发展。</p>
+<h2 id="15-mcp-agent">1.5 MCP：连接 Agent 与外部工具</h2>
+<blockquote>
+<p>这里从 Agent 的使用视角切入；MCP 的生命周期、传输和安全规范详见<a href="../../tools/02-mcp/04-what-is-mcp.html">Tools：MCP</a>，跨 Agent 协作协议详见<a href="../../tools/04-agent-communication/11-a2a-protocol.html">Tools：A2A</a>。</p>
+</blockquote>
+<p>Anthropic 在 2024 年 11 月提出了 MCP。2025 年 12 月，Anthropic 将 MCP 捐赠给 Linux 基金会旗下的 Agentic AI Foundation（AAIF）；MCP 由社区维护者负责技术治理，AAIF 提供厂商中立的组织与基础设施支持。</p>
+<p><strong>MCP = Model Context Protocol（模型上下文协议）</strong></p>
+<p>MCP 为 AI 应用连接外部工具和数据源提供了标准接口，可以将它类比为 AI 工具生态中的“USB-C 接口”。</p>
+<pre class="mermaid">flowchart LR
+    A[AI 应用或 Agent] --> B[MCP Client]
+    B --> C[MCP Server]
+    C --> D[工具]
+    C --> E[数据库]
+    C --> F[文件与资源]
+    C --> G[外部 API]
+</pre>
+
+<p>MCP 主要包含三个角色：</p>
+<ul>
+<li><strong>Host</strong>：运行模型或 Agent 的 AI 应用；</li>
+<li><strong>Client</strong>：维护与 MCP Server 的连接；</li>
+<li><strong>Server</strong>：向 AI 应用暴露工具、资源和提示模板。</li>
+</ul>
+<p>其核心价值是降低工具集成成本。原本 $N$ 个 Agent 与 $M$ 个工具之间可能需要：</p>
+<p>$$
+N \times M
+$$</p>
+<p>组定制集成，而标准化之后可以分别实现为：</p>
+<p><strong>$N$ 个 MCP Client + $M$ 个 MCP Server</strong></p>
+<h2 id="16-a2a-agent-agent">1.6 A2A：连接 Agent 与 Agent</h2>
+<p>Google 在 2025 年 4 月推出了 A2A。2025 年 6 月，A2A 项目进入 Linux 基金会，以厂商中立的方式继续治理和发展：</p>
+<p><strong>A2A = Agent2Agent Protocol（Agent 间通信协议）</strong></p>
+<p>如果说 MCP 解决的是“Agent 如何调用外部工具”，那么 A2A 解决的就是“Agent 如何发现并与另一个 Agent 协作”。</p>
+<p>A2A 中的重要概念包括：</p>
+<ul>
+<li><strong>Agent Card</strong>：描述 Agent 的身份、能力、技能、服务地址和认证要求；</li>
+<li><strong>Task</strong>：需要协作完成的任务及其生命周期；</li>
+<li><strong>Message</strong>：Agent 之间交换的消息；</li>
+<li><strong>Artifact</strong>：Agent 执行任务后产生的结构化结果。</li>
+</ul>
+<blockquote>
+<p>Agent Card 更像一份“能力名片”，而“正在做什么”和执行进度主要由 Task 等对象表达。</p>
+</blockquote>
+<pre class="mermaid">sequenceDiagram
+    participant A as 调度 Agent
+    participant B as 专业 Agent
+
+    A->>B: 读取 Agent Card
+    B-->>A: 返回能力与协作方式
+    A->>B: 创建并委派 Task
+    B-->>A: 返回状态或中间结果
+    B-->>A: 返回最终 Artifact
+</pre>
+
+<h2 id="17-mcp-a2a">1.7 MCP 与 A2A 的关系</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MCP</th>
+<th>A2A</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>连接对象</td>
+<td>Agent 与工具</td>
+<td>Agent 与 Agent</td>
+</tr>
+<tr>
+<td>核心问题</td>
+<td>如何使用外部能力</td>
+<td>如何发现、委派和协作</td>
+</tr>
+<tr>
+<td>主要抽象</td>
+<td>Tools、Resources、Prompts</td>
+<td>Agent Card、Task、Message、Artifact</td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>查询数据库、执行代码</td>
+<td>多 Agent 分工与结果传递</td>
+</tr>
+<tr>
+<td>类比</td>
+<td>使用工具</td>
+<td>与同事协作</td>
+</tr>
+</tbody>
+</table>
+<p>二者并不是竞争关系，而是位于不同层次的互补协议：</p>
+<blockquote>
+<p><strong>Agent 生态 = MCP 工具连接层 + A2A Agent 协作层</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    U[用户目标] --> O[调度 Agent]
+
+    O <-->|A2A| R[研究 Agent]
+    O <-->|A2A| C[编程 Agent]
+    O <-->|A2A| W[写作 Agent]
+
+    O -->|MCP| T1[业务工具]
+    R -->|MCP| T2[搜索与知识库]
+    C -->|MCP| T3[代码执行器]
+    W -->|MCP| T4[文档系统]
+</pre>
+
+<p>MCP 让每个 Agent 能够方便地“伸手拿工具”，A2A 则让多个 Agent 能够“相互沟通与分工”。二者共同构成多 Agent 系统走向标准化和互操作的重要基础。</p>
+<h2 id="_3">参考资料</h2>
+<ul>
+<li><a href="https://www.anthropic.com/news/model-context-protocol">Anthropic: Introducing the Model Context Protocol</a></li>
+<li><a href="https://blog.modelcontextprotocol.io/posts/2025-12-09-mcp-joins-agentic-ai-foundation/">MCP joins the Agentic AI Foundation</a></li>
+<li><a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation: Agent2Agent Protocol Project</a></li>
+<li><a href="https://a2a-protocol.org/latest/specification/">A2A Protocol Specification</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

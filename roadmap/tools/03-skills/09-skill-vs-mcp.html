@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Skill 与 MCP · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Skill 与 MCP — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Skills</span> / <span>Skill 与 MCP</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="skill-mcp">第九章：Skill 与 MCP 的区别</h1>
+<h2 id="91">9.1 它们不是同类概念</h2>
+<p>最常见的误解是把 MCP 和 Skill 当成两种「给 Agent 加能力」的竞争方案，觉得选一个就够了。</p>
+<p>实际上：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>MCP</th>
+<th>Skill</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>解决的问题</td>
+<td>Agent <strong>怎么获得</strong>外部能力</td>
+<td>Agent 拿到能力后<strong>怎么用</strong></td>
+</tr>
+<tr>
+<td>提供的东西</td>
+<td>能力（工具、数据访问）</td>
+<td>知识与流程</td>
+</tr>
+<tr>
+<td>形态</td>
+<td>独立运行的服务进程</td>
+<td>一个文件夹 + Markdown</td>
+</tr>
+<tr>
+<td>类比</td>
+<td>公司配的电脑、软件、数据库权限</td>
+<td>操作手册与 SOP</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>可以这样记：MCP 是给 Agent 配电脑，Skill 是给 Agent 发操作手册。一个解决能力接入，一个解决能力使用。</strong></p>
+</blockquote>
+<h2 id="92">9.2 从一个具体任务看两者的分工</h2>
+<p>任务：<strong>审查这个 PR</strong>。</p>
+<pre class="mermaid">flowchart TB
+    TASK["用户：帮我审查这个 PR"] --> AGENT[Agent]
+
+    AGENT -->|"自动发现并加载"| SKILL["code-review Skill<br/>知道：先看什么、按哪四个维度查、<br/>用什么格式输出"]
+
+    SKILL -->|"流程第一步：拿到 diff"| M1["GitHub MCP Server<br/>get_pull_request_diff"]
+    SKILL -->|"流程第二步：跑静态扫描"| SC["Skill 自带脚本<br/>scripts/check_security.py"]
+    SKILL -->|"流程第三步：查历史缺陷"| M2["内部知识库 MCP Server<br/>search_past_incidents"]
+    SKILL -->|"流程第四步：按模板输出"| TPL["Skill 自带模板<br/>assets/report_template.md"]
+
+    TPL --> OUT[结构化审查报告]
+
+    style SKILL fill:#e6f4ea
+    style M1 fill:#e8f0fe
+    style M2 fill:#e8f0fe
+</pre>
+
+<p>拆开看：</p>
+<ul>
+<li><strong>没有 MCP</strong>：Agent 知道该怎么审查，但拿不到 PR 的 diff，也查不了内部知识库。有方法没能力；</li>
+<li><strong>没有 Skill</strong>：Agent 能调 GitHub 拿到 diff，但不知道该按什么标准审、查哪几个维度、输出成什么样。每次审查的结果都不一样。有能力没方法。</li>
+</ul>
+<p>两者缺一不可，而且<strong>是 Skill 在编排 MCP</strong>，不是反过来。</p>
+<h2 id="93">9.3 六个维度的对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>MCP</th>
+<th>Skill</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>本质</strong></td>
+<td>通信协议</td>
+<td>内容规范</td>
+</tr>
+<tr>
+<td><strong>运行形态</strong></td>
+<td>独立进程 / 远程服务</td>
+<td>静态文件，无运行时</td>
+</tr>
+<tr>
+<td><strong>加载方式</strong></td>
+<td>启动时连接，<code>tools/list</code> 全量拉取</td>
+<td><strong>渐进式</strong>：元数据 → 指令 → 资源</td>
+</tr>
+<tr>
+<td><strong>谁来触发</strong></td>
+<td>模型判断调用某个工具</td>
+<td>Agent 判断任务匹配某个 Skill</td>
+</tr>
+<tr>
+<td><strong>变更成本</strong></td>
+<td>改 Server 代码，可能要重新部署</td>
+<td>改一个 Markdown 文件</td>
+</tr>
+<tr>
+<td><strong>跨平台</strong></td>
+<td>需要客户端实现 MCP 协议</td>
+<td>需要平台支持 Skill 规范</td>
+</tr>
+</tbody>
+</table>
+<h3 id="931">9.3.1 最实质的差异：有没有运行时</h3>
+<p>这是两者最根本的区别。</p>
+<p><strong>MCP Server 是活的</strong>——它是一个进程，要启动、要维护连接、要处理认证、可能会挂。接一个 MCP Server 意味着引入一个新的运行时依赖。</p>
+<p><strong>Skill 是死的</strong>——它就是几个文件。没有进程，不会挂，不需要认证，复制到另一个项目里直接就能用。</p>
+<p>这个差异决定了两者的分发方式：MCP Server 通过包管理器安装并配置启动命令，Skill 直接拷贝目录或用 git 管理。</p>
+<h3 id="932">9.3.2 另一个经常被忽略的差异：加载方式</h3>
+<p>MCP 的工具定义是<strong>全量加载</strong>的：连上 Server 就把所有工具的 Schema 拉进上下文，而且每轮都传。接五个 Server 可能就是上万 token 的固定开销。</p>
+<p>Skill 是<strong>渐进式加载</strong>的：启动时只有几十 token 的元数据，匹配上才加载正文。</p>
+<pre class="mermaid">flowchart LR
+    subgraph MCP_L["MCP 的加载"]
+        M1[连接 Server] --> M2[tools/list 全量拉取]
+        M2 --> M3["所有工具 Schema<br/>常驻上下文，每轮重传"]
+    end
+
+    subgraph SKILL_L["Skill 的加载"]
+        S1[扫描 Skill 目录] --> S2["只读 name + description"]
+        S2 --> S3{任务匹配?}
+        S3 -->|是| S4[加载正文]
+        S3 -->|否| S5[不占用上下文]
+    end
+
+    style M3 fill:#fce8e6
+    style S5 fill:#e6f4ea
+</pre>
+
+<p>这不是说 MCP 设计得差——工具必须让模型随时可见才能被选中，这是它的功能要求。但它确实意味着<strong>MCP 的上下文成本随接入数量线性增长，而 Skill 基本不增长</strong>。</p>
+<p>实践推论：接很多 MCP Server 时要做 <a href="../01-function-calling/03-tool-schema-design.html">动态工具筛选</a>；而 Skill 可以放心地准备几十个。</p>
+<h2 id="94">9.4 什么时候用哪个</h2>
+<p>可以按这个标准判断：</p>
+<pre class="mermaid">flowchart TB
+    Q{"你要给 Agent 加的<br/>是什么?"}
+    Q -->|"访问外部系统的能力<br/>（数据库、API、文件）"| MCP["实现 / 接入 MCP Server"]
+    Q -->|"完成某类任务的方法<br/>（步骤、标准、格式）"| SKILL["写一个 Skill"]
+    Q -->|"两者都要"| BOTH["Skill 编排 MCP 工具"]
+
+    style BOTH fill:#e6f4ea
+</pre>
+
+<p>具体一点：</p>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>用什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>让 Agent 能查公司订单库</td>
+<td>MCP Server</td>
+</tr>
+<tr>
+<td>让 Agent 按公司规范写周报</td>
+<td>Skill</td>
+</tr>
+<tr>
+<td>让 Agent 能操作 GitHub</td>
+<td>MCP Server（社区已有）</td>
+</tr>
+<tr>
+<td>统一团队的 PR 审查标准</td>
+<td>Skill</td>
+</tr>
+<tr>
+<td>让 Agent 能跑 SQL 并按固定流程做数据分析</td>
+<td>两者：MCP 提供 SQL 能力，Skill 定义分析流程</td>
+</tr>
+</tbody>
+</table>
+<p>一个实用的反向检验：<strong>如果这个东西需要联网、需要认证、需要访问外部系统，那它是 MCP；如果它只是「怎么做」的知识，那它是 Skill。</strong></p>
+<h2 id="95">9.5 两者怎么配合</h2>
+<p>典型的组合形态是<strong>分层</strong>：</p>
+<pre class="mermaid">flowchart TB
+    subgraph LAYER1["流程层 · Skill"]
+        SK["定义步骤、标准、输出格式<br/>决定「先做什么后做什么」"]
+    end
+
+    subgraph LAYER2["能力层 · MCP"]
+        T1[数据库 Server]
+        T2[GitHub Server]
+        T3[文件系统 Server]
+    end
+
+    SK --> T1
+    SK --> T2
+    SK --> T3
+</pre>
+
+<p>在 <code>SKILL.md</code> 里直接引用 MCP 工具是很自然的写法：</p>
+<pre><code class="language-markdown">## 第一步：获取数据
+使用 GitHub MCP 的 `get_pull_request_diff` 拿到本次变更内容。
+如果 diff 超过 2000 行，只处理 src/ 目录下的改动。
+
+## 第二步：查历史
+使用知识库 MCP 的 `search_past_incidents` 检索这几个文件
+过去半年是否引发过线上问题。
+</code></pre>
+<p>像第一步末尾那句「如果超过 2000 行……」，就该写在 Skill 里。MCP 只提供「能拿到 diff」这个能力，<strong>遇到大 diff 该怎么办属于流程知识</strong>。</p>
+<h3 id="951">9.5.1 一个边界问题：逻辑该写在哪</h3>
+<p>有些能力两边都能实现，比如「过滤大 diff」。写在 MCP Server 里还是 Skill 里？</p>
+<p>判断依据是<strong>这个逻辑是不是通用的</strong>：</p>
+<ul>
+<li><strong>所有使用者都需要</strong> → 写进 MCP Server，作为工具的默认行为；</li>
+<li><strong>只有你的团队这么做</strong> → 写进 Skill，保持 Server 的通用性。</li>
+</ul>
+<p>把团队特有的业务规则塞进 MCP Server，会让这个 Server 失去复用价值——而复用正是 MCP 存在的理由。</p>
+<h2 id="96">9.6 常见错误</h2>
+<h3 id="961">9.6.1 认为两者是竞争关系</h3>
+<p>它们解决不同层次的问题。真实系统里通常同时使用，且是 Skill 编排 MCP。</p>
+<h3 id="962-skill-prompt">9.6.2 把 Skill 降格成 Prompt 模板</h3>
+<p>Skill 包含可执行脚本、参考文档、输出模板，而且有渐进式加载机制。它是一个完整的能力包，不只是一段指令文字。</p>
+<h3 id="963-mcp">9.6.3 用 MCP 实现流程知识</h3>
+<p>见过有人把「代码审查流程」做成一个 MCP Server 的工具，返回一段流程说明文字。这纯属绕远路——流程知识是静态内容，用 Skill 一个 Markdown 就够了，包成进程只是增加了部署和运维负担。</p>
+<h3 id="964-skill">9.6.4 用 Skill 实现外部访问</h3>
+<p>反过来也有：在 Skill 里写「请调用 https://api.example.com/xxx」，指望模型自己去访问。模型没有网络能力，这必须由工具来做。</p>
+<h3 id="965">9.6.5 忽略两者上下文成本的差异</h3>
+<p>MCP 工具定义常驻上下文且每轮重传，Skill 基本不占。接 MCP Server 要克制并做筛选，准备 Skill 可以放开。</p>
+<h3 id="966-mcp-server">9.6.6 把团队特有规则写进 MCP Server</h3>
+<p>会让 Server 失去通用性，也就失去了用 MCP 的理由。通用行为进 Server，团队规则进 Skill。</p>
+<h2 id="97">9.7 本章总结</h2>
+<ol>
+<li><strong>不是同类概念</strong>：MCP 管「怎么获得能力」，Skill 管「拿到能力后怎么用」；</li>
+<li><strong>最实质的差异是有没有运行时</strong>：MCP Server 是活的进程，Skill 是静态文件；</li>
+<li><strong>加载方式差异同样关键</strong>：MCP 全量常驻且每轮重传，Skill 渐进式按需加载；</li>
+<li><strong>上下文成本的推论</strong>：MCP 要克制并做动态筛选，Skill 可以放心准备几十个；</li>
+<li><strong>配合方式是分层</strong>：Skill 在流程层编排 MCP 提供的能力；</li>
+<li><strong>判断用哪个</strong>：需要联网、认证、访问外部系统的是 MCP，纯「怎么做」的知识是 Skill；</li>
+<li><strong>逻辑归属看通用性</strong>：所有人都需要的行为进 Server，团队特有规则进 Skill。</li>
+</ol>
+<blockquote>
+<p><strong>可以把它理解成：MCP 让 Agent 有能力伸手拿工具，Skill 决定这双手该按什么顺序做事。</strong></p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://www.anthropic.com/news/skills">Anthropic: Introducing Agent Skills</a></li>
+<li><a href="https://agentskills.io/specification">Agent Skills 规范</a></li>
+<li><a href="https://modelcontextprotocol.io/docs/getting-started/intro">Model Context Protocol 官方文档</a></li>
+<li><a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills">Anthropic: Equipping Agents for the Real World with Agent Skills</a></li>
+<li><a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents">Anthropic: Effective Context Engineering for AI Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

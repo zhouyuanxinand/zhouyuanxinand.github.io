@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>查询引擎与 Workflows · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="查询引擎与 Workflows — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LlamaIndex</span> / <span>查询引擎与 Workflows</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="llamaindex-workflows">第十五章：LlamaIndex 的查询引擎与 Workflows 编排</h1>
+<h2 id="151-query-engine-router">15.1 从索引到答案：Query Engine 与 Router</h2>
+<p>第十四章讨论了「怎么把数据组织成索引」，这里继续看这些索引如何对外回答问题。每种 Index 都能生成一个 <strong>Query Engine</strong>，把「检索 + 组织上下文 + 调用模型生成答案」封装成统一的 <code>query()</code> 接口：</p>
+<pre><code class="language-python">query_engine = index.as_query_engine(similarity_top_k=5)
+response = query_engine.query(&quot;公司差旅报销的额度上限是多少？&quot;)
+</code></pre>
+<p>当系统里同时存在多个索引（比如员工手册的 <code>VectorStoreIndex</code> 和财务制度的 <code>PropertyGraphIndex</code>），<strong><code>RouterQueryEngine</code> 负责在查询到达时先判断该走哪一条</strong>：</p>
+<pre class="mermaid">flowchart TB
+    Q["用户问题"] --> R["RouterQueryEngine<br/>用 LLM 判断问题类型"]
+    R -->|"语义相似度问题"| V["VectorStoreIndex 的 Query Engine"]
+    R -->|"多跳关系问题"| P["PropertyGraphIndex 的 Query Engine"]
+    R -->|"需要全文覆盖"| S["SummaryIndex 的 Query Engine"]
+    V --> A["答案 + 引用来源"]
+    P --> A
+    S --> A
+</pre>
+
+<p>Router 也会引入一次额外的 LLM 调用。它依赖描述各 Query Engine 适用场景的 <code>description</code> 做路由判断，因此描述写得越精确，路由越稳定；这也是 15.5 节常见错误之一的来源。</p>
+<h2 id="152-workflows">15.2 Workflows：事件驱动的编排模型</h2>
+<p>当问题不再是「查一次索引就能回答」，而是「需要多步骤、可能包含反思和重试」时，LlamaIndex 用 <strong>Workflows</strong> 承接这部分复杂度。这里主要涉及两个抽象：</p>
+<ul>
+<li><strong><code>Event</code></strong>：一份携带数据的信号，标志「某个步骤的输出产生了」；</li>
+<li><strong><code>@step</code></strong>：一个被装饰的方法，声明它「消费哪种 Event，产出哪种 Event」，框架根据类型签名自动把步骤串联成一张隐式的执行图。</li>
+</ul>
+<pre><code class="language-python">from llama_index.core.workflow import Workflow, StartEvent, StopEvent, Event, step
+
+class RetrieveEvent(Event):
+    nodes: list
+
+class RAGWorkflow(Workflow):
+    @step
+    async def retrieve(self, ev: StartEvent) -&gt; RetrieveEvent:
+        nodes = await retriever.aretrieve(ev.query)
+        return RetrieveEvent(nodes=nodes)
+
+    @step
+    async def synthesize(self, ev: RetrieveEvent) -&gt; StopEvent:
+        answer = await synthesizer.asynthesize(ev.nodes)
+        return StopEvent(result=answer)
+</code></pre>
+<p><strong>这里没有显式的「图」定义</strong>——步骤之间的连接关系完全由 Event 类型的生产者/消费者关系推导出来。加一个新步骤，只需要新增一个消费某个已有 Event、产出新 Event 的 <code>@step</code> 方法，不需要改动其它步骤的代码。</p>
+<h2 id="153-vs">15.3 编排哲学对比：事件驱动 vs 状态图</h2>
+<p><a href="../01-langchain/04-langgraph/">LangGraph</a> 用<strong>显式状态图</strong>表达复杂流程：开发者先定义一个共享 <code>State</code>，再显式声明节点和边，图结构在运行前就完全确定。LlamaIndex Workflows 走的是相反的路线：<strong>没有中心化的共享状态和显式边，只有「谁消费什么 Event、产出什么 Event」的类型契约</strong>，执行路径是隐式推导出来的。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LangGraph（状态图）</th>
+<th>LlamaIndex Workflows（事件驱动）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>核心抽象</strong></td>
+<td>显式 <code>State</code> + 节点 + 边</td>
+<td><code>Event</code> 类型 + <code>@step</code> 方法</td>
+</tr>
+<tr>
+<td><strong>流程可见性</strong></td>
+<td>图结构在编写时显式声明，一眼看清全貌</td>
+<td>依赖类型签名推导，复杂流程需要额外画图理解</td>
+</tr>
+<tr>
+<td><strong>并行与分支</strong></td>
+<td>通过图的多条出边、<code>Send</code> API 显式表达</td>
+<td>多个 <code>@step</code> 同时监听同一个 Event 类型即为并行</td>
+</tr>
+<tr>
+<td><strong>持久化与恢复</strong></td>
+<td><code>checkpointer</code> 对整个 <code>State</code>做快照，语义明确</td>
+<td>依赖 <code>Context</code> 的持久化，恢复粒度是「事件流」</td>
+</tr>
+<tr>
+<td><strong>心智负担</strong></td>
+<td>前期需要设计好状态 Schema</td>
+<td>前期几乎零设计，步骤增多后才需要梳理事件流</td>
+</tr>
+</tbody>
+</table>
+<p>两种模型对应的是「显式建模成本」和「渐进式扩展成本」之间的取舍：状态图前期投入更高，但流程更容易看清；事件驱动前期几乎不需要设计、上手更快，步骤一多就需要额外维护「谁触发了谁」这类隐性知识。这组权衡会在 <a href="../06-selection-portability/">框架选型与可移植架构</a> 第 22 章的统一状态模型对照表中再次出现。</p>
+<h2 id="154-llamaindex">15.4 互操作：把 LlamaIndex 当工具，还是当运行时</h2>
+<p>LlamaIndex 和 LangChain 的组合边界，<a href="../01-langchain/03-ecosystem/07-langchain-vs-llamaindex.html">LangChain 生态 · 第七章</a> 已经从 LangChain 视角讲过一次（把 Query Engine 包装成 LangChain 的 <code>@tool</code>）。从 LlamaIndex 视角看，常见有两种落法：</p>
+<ol>
+<li><strong>把 LlamaIndex 当「数据工具」</strong>：只暴露 <code>query_engine.query()</code>，编排逻辑（判断何时查询、和其他工具怎么配合）全部交给外部的 Agent 框架。适合「数据侧很重、编排侧很轻」的项目。</li>
+<li><strong>把 LlamaIndex Workflows 当「运行时」</strong>：整个多步骤流程（检索 → 反思 → 重试 → 生成）都用 Workflows 编排，外部框架只在入口处调用一次 <code>workflow.run()</code>。适合「数据和编排都很重，且希望减少跨框架状态同步」的项目。</li>
+</ol>
+<pre class="mermaid">flowchart LR
+    subgraph A["把 LlamaIndex 当工具"]
+        A1["LangChain / AutoGen Agent"] -->|"调用一次"| A2["LlamaIndex Query Engine"]
+    end
+    subgraph B["把 LlamaIndex Workflows 当运行时"]
+        B1["外部系统"] -->|"触发一次"| B2["Workflows 内部多步骤循环"]
+    end
+</pre>
+
+<p>选择的关键在于中间状态由谁持有：如果多步骤的中间状态（检索结果、反思意见、重试次数）需要和外部 Agent 的记忆、审批流程共享，适合选方案一，把控制权交给外部框架；如果这些中间状态只在数据加工内部有意义，外部只关心最终答案，适合选方案二，以减少跨框架序列化成本。这也对应 <a href="../06-selection-portability/">框架选型与可移植架构</a> 中的「状态归属先于工具选择」。</p>
+<h2 id="155">15.5 常见错误</h2>
+<h3 id="1551-routerqueryengine">15.5.1 用一句模糊描述配置 <code>RouterQueryEngine</code></h3>
+<p>Router 的路由准确率完全依赖每个 Query Engine 的 <code>description</code> 是否精确区分适用场景；写得含糊（比如都写「回答通用问题」），路由会退化成随机选择。</p>
+<h3 id="1552-workflows">15.5.2 把 Workflows 当成「不需要设计」的免费午餐</h3>
+<p>步骤少的时候类型驱动确实省心；步骤超过五六个之后，「谁产出了谁需要的 Event」往往需要额外画图或写注释才能维护，不能无限制地堆叠步骤而不补充流程文档。</p>
+<h3 id="1553">15.5.3 混淆「工具」和「运行时」两种互操作方式</h3>
+<p>在同一个项目里一半流程把 LlamaIndex 当工具调用、一半又让 Workflows 反过来调用外部 Agent，会导致状态在两个框架之间来回跳转，排查问题时不知道该看哪一边的 Trace。</p>
+<h3 id="1554-router">15.5.4 忽视 Router 本身的延迟和成本</h3>
+<p><code>RouterQueryEngine</code> 每次查询都要多一次 LLM 调用做路由判断；查询模式相对固定的场景，用规则或元数据过滤路由往往比 LLM 路由更快更省。</p>
+<h2 id="156">15.6 本章总结</h2>
+<ol>
+<li><strong>Query Engine 把「检索 + 组织上下文 + 生成答案」封装成统一接口</strong>，<code>RouterQueryEngine</code> 在多索引场景下负责判断该走哪条路径，路由质量取决于 <code>description</code> 的精确度；</li>
+<li><strong>Workflows 用 <code>Event</code> 类型和 <code>@step</code> 方法表达编排</strong>，执行路径由类型的生产者/消费者关系隐式推导，不需要显式声明图结构；</li>
+<li><strong>Workflows 与 LangGraph 是「隐式事件驱动」与「显式状态图」两种编排哲学</strong>：前者上手快、渐进式扩展，后者前期设计成本高但流程一目了然，选择取决于团队愿意在哪个阶段投入建模成本；</li>
+<li><strong>LlamaIndex 与其他框架的互操作有「当工具」和「当运行时」两种落法</strong>，选择依据是中间状态该由谁持有，不能在同一项目里混用两种模式而不做取舍；</li>
+<li><strong>Router 本身有额外的延迟和成本</strong>，查询模式固定时应优先考虑规则路由，而不是默认使用 LLM 路由。</li>
+</ol>
+<p>LlamaIndex 的编排层延续了它以数据为中心的设计：Query Engine 负责单次查询如何组织答案，Workflows 负责多步骤流程如何串联；两者都不要求开发者预先画出完整状态图，但流程复杂后需要额外维护隐性的事件依赖关系。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://developers.llamaindex.ai/python/framework/module_guides/deploying/query_engine/">LlamaIndex: Query Engine 概念</a></li>
+<li><a href="https://developers.llamaindex.ai/python/framework/module_guides/deploying/query_engine/router_query_engine/">LlamaIndex: Router Query Engine</a></li>
+<li><a href="https://developers.llamaindex.ai/python/llamaagents/workflows/">LlamaIndex: Workflows</a></li>
+<li><a href="https://developers.llamaindex.ai/python/workflows/deployment/">LlamaIndex: Workflows 部署为生产微服务</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

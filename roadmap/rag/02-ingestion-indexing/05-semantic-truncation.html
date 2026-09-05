@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>语义被切断怎么办 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="语义被切断怎么办 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>摄取与索引</span> / <span>语义被切断怎么办</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第五章：语义被切断怎么办</h1>
+<h2 id="51">5.1 问题的两个方向</h2>
+<p>上一章讨论的是粒度权衡。这一章关注它的直接后果：<strong>一段话被切开后，片段丢失了理解它所必需的上下文</strong>。</p>
+<p>常见解法可以分成两个方向：</p>
+<pre class="mermaid">flowchart TB
+    P[语义被切断] --> D1[方向一: 切的时候别切错]
+    P --> D2[方向二: 切完了把上下文补回来]
+
+    D1 --> M1[重叠切分]
+    D1 --> M2[语义边界切分]
+    D1 --> M3[结构化切分]
+
+    D2 --> M4[句子窗口检索]
+    D2 --> M5[父子切分]
+    D2 --> M6[命题化改写]
+    D2 --> M7[上下文增强 Contextual Retrieval]
+    D2 --> M8[Late Chunking]
+</pre>
+
+<ul>
+<li><strong>方向一是预防</strong>：在切分时尽量不破坏语义单元；</li>
+<li><strong>方向二是补救</strong>：承认小片段检索更准，但在<strong>使用时</strong>把它周围的上下文补回来。</li>
+</ul>
+<blockquote>
+<p><strong>方向二才是现代 RAG 的主流思路</strong>，因为它同时拿到了「小片段检索精准」和「大上下文语义完整」这两个好处，而不是在两者之间妥协。</p>
+</blockquote>
+<h2 id="52">5.2 方向一：切的时候别切错</h2>
+<h3 id="521">5.2.1 重叠切分</h3>
+<p>最简单的兜底手段：相邻片段共享一部分内容，让被切开的句子至少在某个片段里完整存在。</p>
+<p><strong>优点</strong>是零成本；<strong>缺点</strong>是它只能保证「不被截断」，无法保证「上下文完整」——一个片段可能语法完整但仍然指代不明。</p>
+<h3 id="522">5.2.2 结构化切分</h3>
+<p>按文档的天然结构（标题层级、条款编号、章节）切分。</p>
+<p><strong>这是性价比最高的方法</strong>：文档作者本来就是按语义单元组织内容的，直接沿用这个结构，比任何算法猜测都准。前提是第三章保留了结构信息。</p>
+<h3 id="523">5.2.3 语义边界切分</h3>
+<p>计算相邻句子的向量相似度，在相似度低谷处切断。</p>
+<p>理论上很优雅，<strong>但如第四章所述，实证对比显示它成本高、收益不稳定</strong>。列出来是为了知道它存在，而不是推荐默认使用。</p>
+<h2 id="53">5.3 方向二：切完了把上下文补回来</h2>
+<h3 id="531">5.3.1 句子窗口检索</h3>
+<p>做法是用<strong>小单元</strong>（句子或短片段）建索引参与检索，命中后返回它<strong>前后若干个单元</strong>一起送给模型。</p>
+<pre class="mermaid">flowchart LR
+    Q[Query] --> IDX[小片段索引]
+    IDX --> HIT[命中片段 N]
+    HIT --> EXP[取 N-2 到 N+2]
+    EXP --> LLM[送给模型]
+</pre>
+
+<p><strong>检索用小的，生成用大的</strong>——这就是方向二的核心范式。</p>
+<p>适合叙述性、上下文连贯的文本。缺点是固定窗口大小不适应变化的语义单元长度。</p>
+<h3 id="532-parent-child">5.3.2 父子切分（Parent-Child）</h3>
+<p>句子窗口的结构化版本。把文档切成两级：</p>
+<ul>
+<li><strong>子片段</strong>（小）：参与向量化和检索；</li>
+<li><strong>父片段</strong>（大，通常是子片段所属的段落或章节）：命中子片段后，实际返回它的父片段。</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>对比</th>
+<th>句子窗口</th>
+<th>父子切分</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>扩展依据</td>
+<td>位置（前后 N 个）</td>
+<td>结构（所属父块）</td>
+</tr>
+<tr>
+<td>边界是否语义完整</td>
+<td>不保证</td>
+<td>保证（父块是完整章节）</td>
+</tr>
+<tr>
+<td>是否依赖文档结构</td>
+<td>否</td>
+<td>是</td>
+</tr>
+</tbody>
+</table>
+<p><strong>父子切分是 2026 年最主流的生产方案之一</strong>，因为它兼顾了检索精度和语义完整性，且实现简单、成本几乎为零。</p>
+<p>一个实用细节：多个子片段命中同一个父片段时要<strong>去重</strong>，否则会重复占用 Prompt 预算。</p>
+<h3 id="533">5.3.3 命题化改写</h3>
+<p><strong>思路</strong>：用 LLM 把段落改写成一组<strong>独立自足</strong>的陈述句，每句话都不依赖上下文即可理解。</p>
+<p>例如把：</p>
+<blockquote>
+<p>「该比例不得超过前款规定的上限。」</p>
+</blockquote>
+<p>改写为：</p>
+<blockquote>
+<p>「差旅住宿费报销比例不得超过员工月基本工资的百分之十五。」</p>
+</blockquote>
+<p><strong>这类方法在实体密集的问答任务上有明确的效果提升</strong>，因为每个命题都是自足的，向量表达非常聚焦。</p>
+<p><strong>代价也很明确</strong>：</p>
+<ul>
+<li>每个片段都要过一次 LLM，<strong>建库成本显著上升</strong>；</li>
+<li>改写过程有<strong>信息失真和幻觉风险</strong>；</li>
+<li>改写后<strong>丢失了原文措辞</strong>，不利于精确匹配和引用溯源。</li>
+</ul>
+<p><strong>所以它适合高价值、语料规模可控的场景，不适合海量语料。</strong></p>
+<h3 id="534-contextual-retrieval">5.3.4 上下文增强（Contextual Retrieval）</h3>
+<p>这是近年常用的方案之一。</p>
+<p><strong>思路</strong>：不改写原文，而是在每个 chunk 前<strong>拼接一段由 LLM 生成的、说明该片段在整篇文档中位置和背景的短说明</strong>，然后再做向量化和关键词索引。</p>
+<pre class="mermaid">flowchart LR
+    DOC[整篇文档] --> LLM[LLM 生成上下文说明]
+    CH[原始 chunk] --> LLM
+    LLM --> NEW[上下文说明 + 原始 chunk]
+    NEW --> EMB[向量化]
+    NEW --> BM[关键词索引]
+</pre>
+
+<p>它与命题化的关键区别是：<strong>原文一字不改，只是在前面加了一段背景说明</strong>。所以既补上了上下文，又保留了原始措辞。</p>
+<p><strong>Anthropic 公布的实验数据</strong>（注意：这是厂商工程博客，非同行评审论文）：</p>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>Top-20 检索失败率</th>
+<th>相对降幅</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>基线（普通嵌入 + BM25）</td>
+<td>5.7%</td>
+<td>—</td>
+</tr>
+<tr>
+<td>+ 上下文增强嵌入</td>
+<td>3.7%</td>
+<td>−35%</td>
+</tr>
+<tr>
+<td>+ 上下文增强 BM25</td>
+<td>2.9%</td>
+<td>−49%</td>
+</tr>
+<tr>
+<td>+ Rerank</td>
+<td>1.9%</td>
+<td>−67%</td>
+</tr>
+</tbody>
+</table>
+<p><strong>成本上的关键点</strong>：给每个 chunk 生成上下文说明需要把整篇文档作为输入，看起来非常贵。但配合 <strong>Prompt Caching</strong>（整篇文档只算一次，后续 chunk 复用缓存），实测成本约为<strong>每百万文档 Token 一美元量级</strong>。</p>
+<blockquote>
+<p><strong>Prompt Caching 是「计算层」的优化，它降低的是重复输入的计算成本；上下文增强是「信息层」的改造，它改变的是被索引的内容。两者是配合关系，不是替代关系。</strong></p>
+</blockquote>
+<h3 id="535-late-chunking">5.3.5 Late Chunking</h3>
+<p><strong>思路更进一步</strong>：不是先切分再各自编码，而是<strong>先把整篇文档送进长上下文 Embedding 模型完整编码</strong>，得到每个 Token 的向量表示（此时每个 Token 都已经"看到"了全文），<strong>然后再按 chunk 边界对 Token 向量做池化</strong>，得到 chunk 向量。</p>
+<pre class="mermaid">flowchart TB
+    subgraph TRAD[传统方式]
+        D1[文档] --> C1[先切分]
+        C1 --> E1[各片段独立编码]
+        E1 --> V1[片段向量<br/>看不到全文]
+    end
+
+    subgraph LATE[Late Chunking]
+        D2[文档] --> E2[整篇长上下文编码]
+        E2 --> C2[按边界池化 Token 向量]
+        C2 --> V2[片段向量<br/>已包含全文语境]
+    end
+</pre>
+
+<p>它的巧妙之处在于：<strong>上下文信息是在编码阶段自然注入的，不需要额外调用 LLM 生成说明。</strong></p>
+<p><strong>局限</strong>：</p>
+<ul>
+<li>必须使用<strong>支持长上下文的 Embedding 模型</strong>；</li>
+<li>文档超过模型上限时仍需分段处理；</li>
+<li><strong>2026 年尚未成为主流生产方案</strong>，工具链支持有限。</li>
+</ul>
+<h2 id="54">5.4 方案对比与选择</h2>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>建库成本</th>
+<th>检索精度</th>
+<th>上下文完整性</th>
+<th>保留原文</th>
+<th>成熟度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>重叠切分</td>
+<td>极低</td>
+<td>低</td>
+<td>低</td>
+<td>是</td>
+<td>成熟</td>
+</tr>
+<tr>
+<td>结构化切分</td>
+<td>极低</td>
+<td>中</td>
+<td>中</td>
+<td>是</td>
+<td>成熟</td>
+</tr>
+<tr>
+<td>语义边界切分</td>
+<td>中</td>
+<td>中</td>
+<td>中</td>
+<td>是</td>
+<td>成熟但收益存疑</td>
+</tr>
+<tr>
+<td>句子窗口</td>
+<td>低</td>
+<td>高</td>
+<td>中</td>
+<td>是</td>
+<td>成熟</td>
+</tr>
+<tr>
+<td>父子切分</td>
+<td>低</td>
+<td>高</td>
+<td><strong>高</strong></td>
+<td>是</td>
+<td><strong>成熟，主流</strong></td>
+</tr>
+<tr>
+<td>命题化改写</td>
+<td><strong>高</strong></td>
+<td><strong>高</strong></td>
+<td>高</td>
+<td><strong>否</strong></td>
+<td>学术为主</td>
+</tr>
+<tr>
+<td>上下文增强</td>
+<td>中</td>
+<td><strong>高</strong></td>
+<td><strong>高</strong></td>
+<td>是</td>
+<td><strong>成熟，推荐</strong></td>
+</tr>
+<tr>
+<td>Late Chunking</td>
+<td>中</td>
+<td>高</td>
+<td>高</td>
+<td>是</td>
+<td>较新</td>
+</tr>
+</tbody>
+</table>
+<p><strong>推荐的实施顺序</strong>（按投入产出比）：</p>
+<ol>
+<li><strong>结构化切分 + 合理的 size/overlap</strong> —— 几乎零成本，先把这个做对；</li>
+<li><strong>父子切分</strong> —— 成本极低，收益明显，应该是默认配置；</li>
+<li><strong>上下文增强</strong> —— 有一定成本，但有公开数据支撑，值得投入；</li>
+<li><strong>命题化 / Late Chunking</strong> —— 视场景和语料规模评估。</li>
+</ol>
+<h2 id="55">5.5 常见错误</h2>
+<h3 id="551">5.5.1 只答重叠切分</h3>
+<p>重叠只解决「不要在边界上截断」的问题，不能保证语义完整。</p>
+<h3 id="552">5.5.2 不区分「预防」和「补救」两个方向</h3>
+<p>把六七种方法平铺罗列，设计和调参时就很难判断自己是在改善切分，还是在补上下文。</p>
+<h3 id="553-prompt-caching">5.5.3 把 Prompt Caching 说成一种压缩或补上下文的方法</h3>
+<p>Prompt Caching 的机制、与 KV Cache/记忆压缩的边界及生命周期限制见<a href="../../agent/03-memory-context/10-agent-memory-compression.html">Agent 记忆与上下文压缩</a>；本节只讨论其在上下文增强索引成本中的作用。</p>
+<p>它是计算层优化，不改变被索引的内容。混淆这一点是典型的概念不清。</p>
+<h3 id="554">5.5.4 把上下文增强和命题化混为一谈</h3>
+<p>前者保留原文只加说明，后者重写原文。在溯源和精确匹配上差别很大。</p>
+<h3 id="555">5.5.5 忽略父子切分的去重</h3>
+<p>多个子片段命中同一父片段时不去重，会浪费大量 Prompt 预算。</p>
+<h3 id="556">5.5.6 认为越复杂的方法越好</h3>
+<p>第四章的实证结论已经说明，基础参数没调好时，上复杂方法收益有限。</p>
+<h2 id="56">5.6 本章总结</h2>
+<ol>
+<li><strong>两个方向</strong>：预防（切的时候别切错）与补救（切完把上下文补回来）；<strong>补救是现代主流思路</strong>；</li>
+<li><strong>核心范式</strong>：<strong>用小片段检索，用大上下文生成</strong>；</li>
+<li><strong>父子切分</strong>成本极低、效果明显，应作为默认配置；</li>
+<li><strong>上下文增强</strong>用 LLM 生成背景说明拼在片段前，保留原文，有公开数据支撑（失败率降低 35%–67%），配合 Prompt Caching 后成本可控；</li>
+<li><strong>Prompt Caching 是计算层优化，与信息层的上下文改造是互补关系</strong>；</li>
+<li><strong>命题化改写</strong>效果好但成本高、会丢原文措辞，适合高价值小语料；</li>
+<li><strong>Late Chunking</strong> 在编码阶段注入全文语境，思路优雅但工具链尚不成熟；</li>
+<li><strong>实施顺序</strong>：结构化切分 → 父子切分 → 上下文增强 → 更前沿方案。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic: Introducing Contextual Retrieval</a></li>
+<li><a href="https://arxiv.org/abs/2409.04701">Late Chunking: Contextual Chunk Embeddings Using Long-Context Embedding Models</a></li>
+<li><a href="https://arxiv.org/abs/2312.06648">Dense X Retrieval: What Retrieval Granularity Should We Use?</a></li>
+<li><a href="https://arxiv.org/abs/2401.18059">RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

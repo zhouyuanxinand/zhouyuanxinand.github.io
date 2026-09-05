@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP 传输层 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="MCP 传输层 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>MCP</span> / <span>MCP 传输层</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="mcp">第十二章：MCP 的传输层</h1>
+<h2 id="121">12.1 传输方式与消息格式是解耦的</h2>
+<p>先把消息格式和传输方式分开看：</p>
+<pre class="mermaid">flowchart TB
+    subgraph MSG["消息层 · 不变"]
+        J["JSON-RPC 2.0<br/>method / params / id / result / error"]
+    end
+
+    subgraph TRANS["传输层 · 可替换"]
+        T1["stdio<br/>本地子进程管道"]
+        T2["Streamable HTTP<br/>远程单端点"]
+        T3["Custom transport<br/>协商的扩展实现"]
+    end
+
+    J --> T1
+    J --> T2
+    J --> T3
+
+    style MSG fill:#e6f4ea
+    style TRANS fill:#e8f0fe
+</pre>
+
+<p>传输方式只决定<strong>「消息怎么传过去」</strong>，不影响消息本身长什么样。换传输方式，上层调用逻辑一行都不用改。</p>
+<p>当前 MCP 标准传输是 stdio 与 Streamable HTTP。<strong>WebSocket 不是标准传输</strong>，但规范允许 Client 与 Server 以可插拔方式实现自定义传输；双方明确协商并正确承载 UTF-8 JSON-RPC 时，可以选择 WebSocket。不能把它误称为标准 MCP transport 或假定所有客户端兼容。</p>
+<h2 id="122-json-rpc-20">12.2 消息格式：JSON-RPC 2.0</h2>
+<h3 id="1221">12.2.1 为什么选它</h3>
+<p>原因很朴素：MCP 需要的就是「Client 调用 Server 的方法，Server 返回结果」这类<strong>远程过程调用（RPC）</strong>。</p>
+<p>JSON-RPC 2.0 是现成的、足够轻量的 RPC 规范：JSON 易读易调试，任何语言都能实现。Server 是 Python 写的还是 TypeScript 写的，消息格式完全一样，不需要额外的序列化工具（对比 gRPC 要编译 protobuf、Thrift 要生成 stub）。</p>
+<h3 id="1222">12.2.2 消息长什么样</h3>
+<pre><code class="language-json">// 请求（Client → Server）
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;method&quot;: &quot;tools/call&quot;,
+  &quot;params&quot;: {
+    &quot;name&quot;: &quot;take_screenshot&quot;,
+    &quot;arguments&quot;: { &quot;url&quot;: &quot;https://example.com&quot; }
+  }
+}
+
+// 响应（Server → Client）
+{
+  &quot;jsonrpc&quot;: &quot;2.0&quot;,
+  &quot;id&quot;: 1,
+  &quot;result&quot;: {
+    &quot;content&quot;: [{ &quot;type&quot;: &quot;image&quot;, &quot;data&quot;: &quot;...base64...&quot; }]
+  }
+}
+</code></pre>
+<p>三个要点：</p>
+<ul>
+<li><strong><code>id</code> 用于匹配请求与响应</strong>，这是支持并发请求的基础——多个请求可以同时在途，靠 <code>id</code> 对上号；</li>
+<li><strong>没有 <code>id</code> 的消息是通知（notification）</strong>，不需要响应；</li>
+<li><strong>错误走 <code>error</code> 字段而不是 <code>result</code></strong>，格式固定为 <code>{code, message, data}</code>。</li>
+</ul>
+<h2 id="123-stdio">12.3 传输方式一：stdio</h2>
+<h3 id="1231">12.3.1 工作原理</h3>
+<p>Client 启动时把 Server <strong>当作子进程拉起来</strong>，通过进程的标准输入（stdin）发请求、从标准输出（stdout）读响应。</p>
+<pre class="mermaid">sequenceDiagram
+    participant C as MCP Client<br/>(如 Claude Desktop)
+    participant OS as 操作系统管道
+    participant S as MCP Server<br/>(子进程)
+
+    C->>S: 以配置的命令启动子进程
+    C->>OS: 写入 stdin: {"jsonrpc":"2.0","id":1,...}
+    OS->>S: 从 stdin 读出
+    S->>S: 执行工具
+    S->>OS: 写入 stdout: {"jsonrpc":"2.0","id":1,"result":...}
+    OS->>C: 从 stdout 读出
+    Note over C,S: Client 退出时子进程一并终止
+</pre>
+
+<p>这里的「管道」可以理解成<strong>操作系统在内存里给两个进程分配的一段先进先出缓冲区</strong>。Client 往里塞一行 JSON，Server 从另一头读出来处理，处理完往另一条管道塞回去。</p>
+<p>整个过程<strong>不经过网卡、不经过 TCP/IP 协议栈</strong>，数据在 RAM 里走了一趟就到了。</p>
+<h3 id="1232-stdio">12.3.2 stdio 的三个优点</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>延迟极低</strong></td>
+<td>进程间通信比走网络快一个数量级，没有序列化成网络字节流的开销</td>
+</tr>
+<tr>
+<td><strong>不开端口</strong></td>
+<td>没有网络攻击面，不用担心被外部访问</td>
+</tr>
+<tr>
+<td><strong>生命周期自动管理</strong></td>
+<td>随 Client 启动、随 Client 关闭，不需要手动管进程</td>
+</tr>
+</tbody>
+</table>
+<p>配置只需要告诉 Client「用什么命令启动 Server」：</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;filesystem&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/tmp&quot;],
+      &quot;env&quot;: {}
+    }
+  }
+}
+</code></pre>
+<h3 id="1233-stdio-stdout">12.3.3 stdio 最大的坑：stdout 是协议专用通道</h3>
+<p><a href="05-mcp-components.html">第五章</a> 提过，这里再强调一次，因为它是自写 Server 时踩得最多的坑：</p>
+<p><strong>stdout 被 JSON-RPC 独占，任何非协议内容写进去都会污染通道，导致 Client 解析失败。</strong></p>
+<pre><code class="language-python"># 致命错误：print 写的是 stdout
+print(f&quot;正在查询数据库: {sql}&quot;)
+
+# 正确：日志走 stderr
+import sys
+print(f&quot;正在查询数据库: {sql}&quot;, file=sys.stderr)
+</code></pre>
+<p>一个 <code>print</code> 调试语句就能让整个 Server 挂掉，而且报错信息通常是「JSON 解析失败」，看不出根因。</p>
+<h2 id="124-streamable-http">12.4 传输方式二：Streamable HTTP</h2>
+<h3 id="1241">12.4.1 核心设计：单端点</h3>
+<p>远程场景下 Server 作为独立 HTTP 服务运行。当前推荐的传输方式是 <strong>Streamable HTTP</strong>。</p>
+<p>核心设计是<strong>用单个 HTTP 端点（通常是 <code>/mcp</code>）同时处理请求和响应</strong>：</p>
+<pre class="mermaid">flowchart TB
+    C[Client] -->|"POST /mcp<br/>JSON-RPC 请求"| S[Server]
+    S --> D{"这个操作<br/>需要流式吗?"}
+    D -->|否| R1["返回普通 JSON 响应<br/>Content-Type: application/json"]
+    D -->|是| R2["返回 SSE 流<br/>Content-Type: text/event-stream"]
+    R1 --> C
+    R2 --> C
+
+    style R1 fill:#e6f4ea
+    style R2 fill:#fef7e0
+</pre>
+
+<p><strong>「按需选择」是关键</strong>：简单同步操作直接返回 JSON，需要流式输出时才返回 SSE 流。不强制建立长连接。</p>
+<h3 id="1242">12.4.2 优缺点</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Server 部署在云端，多 Client 共享同一份</td>
+<td>多了网络开销，延迟高于 stdio</td>
+</tr>
+<tr>
+<td>跨机器访问，团队统一管理工具服务</td>
+<td>需要处理认证、鉴权</td>
+</tr>
+<tr>
+<td>不需要每个人本地跑一份</td>
+<td>需要处理网络中断与重连</td>
+</tr>
+</tbody>
+</table>
+<p>典型场景：团队共用一个部署在服务器上的数据库 MCP Server，所有人连同一个服务，权限和审计集中管理。</p>
+<h2 id="125-sse">12.5 为什么早期的 SSE 双端点方案被弃用</h2>
+<p>一些早期教程还在讲「HTTP + SSE」传输方式。这是 MCP 最初版本（2024-11-05 规范）的远程方案，<strong>在 2025-03-26 规范里被标记为 deprecated</strong>——保留向后兼容，但新项目不应再用。</p>
+<h3 id="1251">12.5.1 问题出在两条通道</h3>
+<pre class="mermaid">flowchart TB
+    subgraph OLD["旧方案 · HTTP + SSE 双端点"]
+        C1[Client] -->|"POST /messages<br/>发请求"| S1[Server]
+        S1 -->|"GET /sse 长连接<br/>推响应"| C1
+    end
+
+    subgraph NEW["新方案 · Streamable HTTP 单端点"]
+        C2[Client] <-->|"POST /mcp<br/>请求与响应同一条"| S2[Server]
+    end
+
+    style OLD fill:#fce8e6
+    style NEW fill:#e6f4ea
+</pre>
+
+<p>同一个对话被拆成了两条通道，具体问题是<strong>状态管理复杂</strong>：</p>
+<p>Client POST 了一条消息后网络突然断了——<strong>那条消息到底被处理了没？SSE 流会不会推回结果？</strong> Client 没有简单办法判断，排查链路很长。</p>
+<p>而且两条通道对负载均衡器很不友好：POST 和 SSE 长连接可能被路由到不同的后端实例。</p>
+<h3 id="1252-sse">12.5.2 SSE 还在，只是端点合并了</h3>
+<p><strong>Streamable HTTP 并没有抛弃 SSE。</strong></p>
+<p>流式推送的部分底层依然是 SSE（<code>Content-Type: text/event-stream</code>），只是把端点从两个合并成了一个。变的是架构，不是底层技术。</p>
+<h2 id="126">12.6 标准传输与自定义传输</h2>
+<p>2026-07-28 规范中，每条消息都是发往同一 MCP endpoint 的 HTTP POST；响应是 JSON 对象或<strong>仅属于该请求的 SSE 流</strong>。协议元数据以消息体为事实来源，并可镜像到 HTTP header 供中间件路由。旧版 GET SSE、连接级会话与 Server→Client request 属于向后兼容路径，不是新实现的默认模型。</p>
+<p>自定义 transport 应满足 MCP 的消息编码和安全要求，并明确规定连接建立、消息边界、认证、关闭与错误处理。WebSocket 可以成为这样的<strong>非标准扩展</strong>，但不会自动获得 stdio/Streamable HTTP 的互操作性。对远程 HTTP 服务，还应校验 <code>Origin</code>、实施认证并避免将本地服务暴露到不受信任网络。</p>
+<h2 id="127">12.7 常见错误</h2>
+<h3 id="1271-websocket-mcp-transport">12.7.1 把 WebSocket 说成标准 MCP transport</h3>
+<p>MCP 的标准 transport 是 stdio 和 Streamable HTTP。WebSocket 可由双方实现为 custom transport，但不是通用互操作保证。</p>
+<h3 id="1272-http">12.7.2 本地场景想成 HTTP</h3>
+<p>「在本机起个服务，通过 localhost 访问」——想复杂了。stdio 直接走进程管道，不需要网络栈，也不用开端口。</p>
+<h3 id="1273">12.7.3 把消息格式和传输方式混为一谈</h3>
+<p>消息格式和传输方式不要混在一起。JSON-RPC 2.0 是消息格式，stdio / Streamable HTTP 是传输方式，两者解耦。切换传输不影响上层逻辑。</p>
+<h3 id="1274-streamable-http-sse">12.7.4 认为 Streamable HTTP 抛弃了 SSE</h3>
+<p>它内部流式推送仍然用 SSE，变的是端点数量（两个合成一个），不是底层技术。</p>
+<h3 id="1275-stdio-stdout">12.7.5 stdio 场景里往 stdout 打日志</h3>
+<p>一个 <code>print</code> 就能让 Server 彻底不可用。日志必须走 stderr。</p>
+<h3 id="1276-serverless">12.7.6 把 Serverless 实现策略当成协议要求</h3>
+<p>当前规范按请求自包含；旧版会话、GET SSE 和 Server→Client request 仅用于兼容。实现时要固定协议版本并按兼容矩阵检测，不能把两代传输语义拼在一起。</p>
+<h2 id="128">12.8 本章总结</h2>
+<ol>
+<li><strong>传输方式与消息格式解耦</strong>，这是理解 MCP 通信的核心；</li>
+<li><strong>消息格式统一是 JSON-RPC 2.0</strong>，选它是因为轻量、跨语言、无需额外序列化工具；</li>
+<li><strong>本地场景用 stdio</strong>：Server 作为子进程，走操作系统管道，延迟低、不开端口、生命周期自动管理；</li>
+<li><strong>stdout 被协议独占</strong>，日志必须走 stderr，这是自写 Server 最容易踩的坑；</li>
+<li><strong>远程场景用 Streamable HTTP</strong>：单端点，Server 按需返回普通 JSON 或 SSE 流；</li>
+<li><strong>早期 HTTP + SSE 双端点已废弃</strong>，原因是两条通道的状态管理复杂、对负载均衡不友好；</li>
+<li><strong>Streamable HTTP 内部仍用 SSE</strong>，变的是架构不是技术；</li>
+<li><strong>标准 transport 之外可使用 custom transport</strong>；例如 WebSocket 需由双方显式支持，不能冒充通用标准。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports">MCP 规范 2026-07-28：Transports</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/versioning">MCP 2026-07-28 版本兼容</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2025-03-26/basic/transports">MCP 规范 2025-03-26（Streamable HTTP 引入版本）</a></li>
+<li><a href="https://www.jsonrpc.org/specification">JSON-RPC 2.0 规范</a></li>
+<li><a href="https://github.com/modelcontextprotocol/servers">MCP 官方 Server 集合</a></li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events">MDN: Server-Sent Events</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>向量数据库与 ANN · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="向量数据库与 ANN — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>摄取与索引</span> / <span>向量数据库与 ANN</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="ann">第八章：向量数据库与 ANN 索引</h1>
+<h2 id="81">8.1 为什么需要专门的数据库</h2>
+<p>一百万条向量，每条 1024 维。用户提问后，要找出最相似的 10 条。</p>
+<p>暴力做法是把 Query 向量与全部一百万条逐一算相似度再排序，这叫<strong>精确最近邻搜索</strong>。它的结果 100% 准确，但在百万级规模上单次查询就要几百毫秒到数秒——<strong>在线服务无法接受</strong>。</p>
+<p>于是有了 <strong>ANN（近似最近邻搜索）</strong>：</p>
+<blockquote>
+<p><strong>用可控的精度损失，换取数量级的速度提升。</strong></p>
+</blockquote>
+<p>理解这个权衡就够了。<strong>向量数据库的大部分配置项，都是在调这个权衡的位置。</strong></p>
+<h2 id="82-ann">8.2 主流 ANN 索引</h2>
+<pre class="mermaid">flowchart TB
+    ANN[ANN 索引] --> HNSW[HNSW<br/>图索引]
+    ANN --> IVF[IVF<br/>倒排聚类]
+    ANN --> DISK[DiskANN<br/>磁盘图索引]
+    ANN --> FLAT[FLAT<br/>暴力精确]
+</pre>
+
+<h3 id="821-hnsw">8.2.1 HNSW</h3>
+<p><strong>思路</strong>：构建一个多层的邻近图。上层节点稀疏、连接跨度大，用于快速跳到目标区域；下层节点稠密，用于精细定位。查询时从最上层开始，逐层贪心地向更接近 Query 的邻居移动。</p>
+<p>类比：<strong>先坐飞机到城市，再打车到街区，最后步行找门牌号。</strong></p>
+<table>
+<thead>
+<tr>
+<th>关键参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>M</code></td>
+<td>每个节点的连接数。越大越准，索引越大</td>
+</tr>
+<tr>
+<td><code>ef_construction</code></td>
+<td>建索引时的候选队列长度。越大索引质量越好，建库越慢</td>
+</tr>
+<tr>
+<td><code>ef_search</code></td>
+<td>查询时的候选队列长度。<strong>唯一可在线调整召回-延迟权衡的旋钮</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>优点</strong>：查询速度快、召回率高，是当前<strong>最主流</strong>的选择。</p>
+<p><strong>两个必须知道的缺点：</strong></p>
+<ol>
+<li><strong>内存占用大</strong>。整个图结构需要常驻内存，向量数量上去后内存成本很高；</li>
+<li><strong>没有真正的删除</strong>。图结构被破坏后难以修复，工程上普遍采用「<strong>软删除 + 定期重建</strong>」——标记删除后在查询结果中过滤掉，累积到一定比例再重建索引。</li>
+</ol>
+<p><strong>第二点在需要合规删除数据的场景里是个大问题</strong>（第十九章展开）。</p>
+<h3 id="822-ivf">8.2.2 IVF</h3>
+<p><strong>思路</strong>：先把所有向量聚类成若干个桶（<code>nlist</code>），查询时只搜索最接近 Query 的几个桶（<code>nprobe</code>）。</p>
+<table>
+<thead>
+<tr>
+<th>关键参数</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>nlist</code></td>
+<td>聚类中心数量。越多每个桶越小，搜索越快但越可能漏</td>
+</tr>
+<tr>
+<td><code>nprobe</code></td>
+<td>查询时搜索的桶数。<strong>在线调节召回-延迟的旋钮</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>优点</strong>：内存占用远低于 HNSW，建索引快，支持增删相对友好。</p>
+<p><strong>缺点</strong>：召回率通常低于 HNSW；且存在<strong>边界问题</strong>——如果目标向量恰好落在未被搜索的桶里，就永远找不到。</p>
+<p><strong>IVF 通常与量化组合使用</strong>（如 IVF-PQ），进一步压缩内存。</p>
+<h3 id="823-diskann">8.2.3 DiskANN</h3>
+<p><strong>思路</strong>：把图索引主体放在 SSD 上，内存里只保留压缩后的向量用于粗筛。</p>
+<p><strong>它解决的正是 HNSW 的两个痛点</strong>：内存受限和更新困难。其流式更新变体支持在线的插入与删除，不需要定期全量重建。</p>
+<p><strong>代价是查询延迟高于纯内存索引</strong>（多了磁盘 IO）。</p>
+<p><strong>适用</strong>：向量规模超过千万级、内存成本成为瓶颈、且数据需要频繁更新的场景。</p>
+<h3 id="824">8.2.4 索引对比</h3>
+<table>
+<thead>
+<tr>
+<th>索引</th>
+<th>召回率</th>
+<th>查询速度</th>
+<th>内存占用</th>
+<th>更新友好度</th>
+<th>适用规模</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FLAT</td>
+<td>100%</td>
+<td>慢</td>
+<td>中</td>
+<td>好</td>
+<td>十万以下</td>
+</tr>
+<tr>
+<td>IVF</td>
+<td>中</td>
+<td>快</td>
+<td><strong>低</strong></td>
+<td>中</td>
+<td>百万到千万</td>
+</tr>
+<tr>
+<td>HNSW</td>
+<td><strong>高</strong></td>
+<td><strong>快</strong></td>
+<td><strong>高</strong></td>
+<td><strong>差</strong></td>
+<td>百万到千万</td>
+</tr>
+<tr>
+<td>DiskANN</td>
+<td>高</td>
+<td>中</td>
+<td>低</td>
+<td><strong>好</strong></td>
+<td>千万以上</td>
+</tr>
+</tbody>
+</table>
+<p><strong>一条实用建议</strong>：<strong>数据量在十万以下时，直接用 FLAT。</strong> 它精确、无参数、无需调优，速度也完全够用。过早引入 ANN 索引是常见的过度设计。</p>
+<h2 id="83">8.3 量化：用精度换空间</h2>
+<p>向量默认用 32 位浮点存储。量化就是用更少的比特表示每一维。</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>压缩比</th>
+<th>召回损失</th>
+<th>评价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Scalar int8</td>
+<td>约 4×</td>
+<td>约 2%–3%</td>
+<td><strong>权衡最佳，推荐默认</strong></td>
+</tr>
+<tr>
+<td>Product Quantization</td>
+<td>8×–64×</td>
+<td>视配置而定</td>
+<td>常与 IVF 组合</td>
+</tr>
+<tr>
+<td>Binary（1 bit）</td>
+<td>约 32×</td>
+<td>约 10%–15%</td>
+<td>损失大，需配重排补救</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Binary 量化的正确用法</strong>是配合<strong>重排补救</strong>：用二值向量做超快速粗筛取出较大的候选集，再用原始精度向量对候选重新打分。这样既省内存又基本不掉召回。</p>
+<blockquote>
+<p><strong>量化的选择应该由内存预算倒推，而不是"能省就省"。</strong> 先算清楚全精度需要多少内存，超预算了再考虑量化。</p>
+</blockquote>
+<h2 id="84">8.4 一个被严重低估的陷阱：带过滤的检索</h2>
+<p>这是生产环境中最容易踩、也最少被讨论的坑。</p>
+<p><strong>场景</strong>：检索时要加条件——只在当前用户有权限的文档里搜、只搜今年的文档、只搜某个部门的资料。</p>
+<p>看起来只是加个 <code>WHERE</code>，但它会和 ANN 索引产生<strong>严重的交互问题</strong>。</p>
+<pre class="mermaid">flowchart TB
+    F[带过滤的向量检索] --> PRE[预过滤]
+    F --> POST[后过滤]
+
+    PRE --> PRE1[遍历图时跳过不满足条件的节点]
+    PRE1 --> PRE2[高选择性时<br/>搜索预算耗尽仍返回 0 条]
+
+    POST --> POST1[先取 Top-K 再过滤]
+    POST1 --> POST2[高选择性时<br/>过滤后所剩无几甚至为空]
+</pre>
+
+<h3 id="841">8.4.1 问题出在哪里</h3>
+<p>假设过滤条件只有 0.1% 的文档满足。</p>
+<ul>
+<li><strong>后过滤</strong>：ANN 先返回 Top-100，过滤后可能一条都不剩；</li>
+<li><strong>预过滤</strong>：图遍历时跳过不合格节点，但<strong>合格节点在图中是稀疏散布的</strong>，贪心搜索很可能在 <code>ef</code> 预算耗尽前都走不到它们，同样返回空。</li>
+</ul>
+<p><strong>关键在于：这个失败是静默的。</strong> 系统不会报错，只是返回空结果或不相关结果，你会误以为是"知识库里没有这个内容"。</p>
+<h3 id="842">8.4.2 应对方案</h3>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>做法</th>
+<th>代价</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>放大 K + 后过滤</td>
+<td>取远大于需要的 K 再过滤</td>
+<td>延迟上升，且仍无法保证</td>
+</tr>
+<tr>
+<td>兜底暴力扫描</td>
+<td>候选不足时对满足条件的子集做精确搜索</td>
+<td>需要额外的实现路径</td>
+</tr>
+<tr>
+<td><strong>按维度分区建索引</strong></td>
+<td>每个租户/部门建独立索引</td>
+<td>索引数量多，管理成本高</td>
+</tr>
+<tr>
+<td>过滤感知的索引</td>
+<td>使用支持谓词无关过滤的索引结构</td>
+<td>依赖数据库支持</td>
+</tr>
+</tbody>
+</table>
+<p><strong>在多租户场景下，「按租户分区建索引」通常是最稳妥的做法</strong>——它把过滤从查询时的约束变成了索引选择，彻底绕开了这个问题。</p>
+<h2 id="85">8.5 选型：怎么挑向量数据库</h2>
+<p>选型时比产品名单更重要的是判断维度。</p>
+<pre class="mermaid">flowchart TB
+    SEL[选型] --> D1[数据规模]
+    SEL --> D2[部署形态]
+    SEL --> D3[功能需求]
+    SEL --> D4[运维能力]
+
+    D1 --> A1[十万以下 / 百万级 / 亿级]
+    D2 --> A2[嵌入式 / 自托管 / 托管服务]
+    D3 --> A3[混合检索 / 元数据过滤 / 多租户]
+    D4 --> A4[团队能否承担独立组件的运维]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>代表</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>嵌入式/轻量</td>
+<td>Chroma、FAISS、LanceDB</td>
+<td>原型验证、十万级以下</td>
+</tr>
+<tr>
+<td>关系库扩展</td>
+<td>pgvector</td>
+<td><strong>已有 PostgreSQL，希望向量与业务数据同库</strong></td>
+</tr>
+<tr>
+<td>独立向量库</td>
+<td>Qdrant、Weaviate、Milvus</td>
+<td>百万到亿级，需要完整的过滤与混合检索能力</td>
+</tr>
+<tr>
+<td>托管服务</td>
+<td>Pinecone 等</td>
+<td>不想运维，接受数据托管</td>
+</tr>
+</tbody>
+</table>
+<h3 id="851-pgvector">8.5.1 pgvector 值得特别说明</h3>
+<p>如果你的业务本来就用 PostgreSQL，<strong>pgvector 往往是最被低估的选择</strong>：</p>
+<ul>
+<li>向量与业务数据<strong>在同一个事务里</strong>，不存在两个系统之间的数据一致性问题；</li>
+<li>元数据过滤可以直接用 SQL，能力远强于多数向量库的简易过滤语法；</li>
+<li><strong>少运维一个组件</strong>，这在小团队里价值极高。</li>
+</ul>
+<p><strong>它的上限在千万级以内</strong>，超过后专用向量库的优势才真正体现出来。</p>
+<blockquote>
+<p><strong>常见问题是「按未来三年的假想规模选今天的方案」。</strong> 先按当前规模选最简单的，把接口抽象好，规模真的上来了再迁移——迁移成本通常低于长期背负一个过重系统的成本。</p>
+</blockquote>
+<h2 id="86">8.6 常见错误</h2>
+<h3 id="861">8.6.1 只会说索引名字</h3>
+<p>说不出 HNSW 和 IVF 的原理差异和参数含义，等于没答。</p>
+<h3 id="862-hnsw">8.6.2 不知道 HNSW 的两个缺点</h3>
+<p>内存占用和删除困难，是选型时的关键约束。</p>
+<h3 id="863-ann">8.6.3 小数据量上强行用 ANN</h3>
+<p>十万以下 FLAT 完全够用，且更准更省事。</p>
+<h3 id="864">8.6.4 忽略带过滤检索的陷阱</h3>
+<p>高选择性过滤会导致静默的召回崩塌，这是生产环境最隐蔽的故障之一。</p>
+<h3 id="865">8.6.5 认为量化是纯收益</h3>
+<p>Binary 量化会掉 10%–15% 召回，必须配重排补救。</p>
+<h3 id="866">8.6.6 按最大可能规模选型</h3>
+<p>过度设计带来的长期运维成本，通常高于未来的迁移成本。</p>
+<h3 id="867">8.6.7 忘记向量库也需要备份和容灾</h3>
+<p>索引重建往往需要数小时甚至数天，没有备份策略等于没有容灾。</p>
+<h2 id="87">8.7 本章总结</h2>
+<ol>
+<li><strong>ANN 的本质是用可控精度损失换数量级速度提升</strong>，所有配置都在调这个权衡；</li>
+<li><strong>HNSW</strong> 多层邻近图，召回高速度快，但<strong>内存占用大、没有真删除</strong>（软删 + 定期重建）；</li>
+<li><strong>IVF</strong> 聚类分桶，内存低更新友好，但召回略低且有边界问题；</li>
+<li><strong>DiskANN</strong> 把图放磁盘，解决内存与更新两个痛点，适合千万级以上；</li>
+<li><strong>十万以下直接用 FLAT</strong>，过早上 ANN 是过度设计；</li>
+<li><strong>量化</strong>中 scalar int8 权衡最佳；binary 压缩最大但需重排补救；</li>
+<li><strong>带过滤的检索是最被低估的陷阱</strong>：高选择性下预过滤和后过滤都可能静默返回空；多租户场景优先按租户分区建索引；</li>
+<li><strong>选型看四个维度</strong>：数据规模、部署形态、功能需求、运维能力；已有 PostgreSQL 时 pgvector 常是最优解；</li>
+<li><strong>按当前规模选型，把接口抽象好</strong>，不要为想象中的规模过度设计。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1603.09320">Efficient and robust approximate nearest neighbor search using Hierarchical Navigable Small World graphs</a></li>
+<li><a href="https://arxiv.org/abs/2105.09613">FreshDiskANN: A Fast and Accurate Graph-Based ANN Index for Streaming Similarity Search</a></li>
+<li><a href="https://arxiv.org/abs/2403.04871">ACORN: Performant and Predicate-Agnostic Search Over Vector Embeddings and Structured Data</a></li>
+<li><a href="https://arxiv.org/abs/1702.08734">Billion-scale similarity search with GPUs</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

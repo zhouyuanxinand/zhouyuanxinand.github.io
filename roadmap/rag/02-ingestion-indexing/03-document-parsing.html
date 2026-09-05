@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>文档解析与预处理 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="文档解析与预处理 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>摄取与索引</span> / <span>文档解析与预处理</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第三章：文档解析与预处理</h1>
+<h2 id="31-rag">3.1 为什么这是 RAG 最被低估的一环</h2>
+<p>大多数人讲 RAG 时会从切分讲起，但真实项目里，<strong>最先卡住的往往是更前面一步：把原始文档变成干净的文本</strong>。</p>
+<p>原因很简单：企业的知识不是以 Markdown 存在的。它是扫描版的合同 PDF、带合并单元格的 Excel、有页眉页脚和分栏的 Word、嵌了流程图的 PPT、以及内网 Wiki 里格式混乱的 HTML。</p>
+<blockquote>
+<p><strong>这一层出错，后面所有环节都是在垃圾数据上做优化。</strong> 切分策略再精妙、Embedding 模型再强、Rerank 再准，也救不回一张被解析成乱码的表格。</p>
+</blockquote>
+<p>这是「RAG 落地三大难」中公认最脏最累的一难。</p>
+<h2 id="32">3.2 解析阶段的四类典型问题</h2>
+<pre class="mermaid">flowchart TB
+    DOC[原始文档] --> P1[版面问题]
+    DOC --> P2[表格问题]
+    DOC --> P3[非文本内容]
+    DOC --> P4[噪音与结构丢失]
+
+    P1 --> A1[分栏被按行读串<br/>阅读顺序错乱]
+    P2 --> A2[合并单元格塌陷<br/>行列关系丢失]
+    P3 --> A3[扫描件 图表 公式<br/>无法直接取文本]
+    P4 --> A4[页眉页脚重复<br/>标题层级丢失]
+</pre>
+
+<h3 id="321">3.2.1 版面与阅读顺序</h3>
+<p>PDF 本质上是<strong>绘图指令的集合</strong>，它记录的是「某个字符画在页面的哪个坐标」，而<strong>不是</strong>「这段文字属于哪个段落」。</p>
+<p>所以双栏排版的论文，用简单的文本抽取工具处理时，很容易把左右两栏按视觉行拼接起来，产出彻底错乱的句子。</p>
+<h3 id="322">3.2.2 表格</h3>
+<p>表格是解析里最难的一类，因为它的信息<strong>同时编码在内容和位置关系里</strong>。</p>
+<p>一个被拉平成纯文本的表格，会丢掉「这个数字属于哪一行哪一列」这个最关键的信息。合并单元格、跨页表格、无边框表格会让情况进一步恶化。</p>
+<h3 id="323">3.2.3 扫描件与图片</h3>
+<p>纯图片 PDF 里没有任何文本层，必须走 OCR。而 OCR 会引入一类特殊的错误：<strong>它产出的文本看起来是正常文字，但字符是错的</strong>（比如把 0 认成 O）。这类错误比「解析失败」更危险，因为它不会报错，会静默污染知识库。</p>
+<h3 id="324">3.2.4 噪音与结构丢失</h3>
+<p>每页重复的页眉页脚、水印、页码，会在切分后混进每一个片段里稀释语义。而标题层级一旦丢失，就无法做后续的结构化切分——<strong>这是最可惜的一类损失，因为原文档里本来是有这个信息的</strong>。</p>
+<h2 id="33">3.3 解析路线的三种选择</h2>
+<table>
+<thead>
+<tr>
+<th>路线</th>
+<th>做法</th>
+<th>优点</th>
+<th>缺点</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>规则/工具库</td>
+<td>用解析库直接抽取文本与布局</td>
+<td>快、便宜、确定性强</td>
+<td>复杂版面和表格上失败率高</td>
+<td>结构规整的电子文档</td>
+</tr>
+<tr>
+<td>版面分析模型</td>
+<td>先用视觉模型识别标题/段落/表格/图片区域，再分类型抽取</td>
+<td>表格和版面显著更好</td>
+<td>需要模型推理，成本上升</td>
+<td>混合格式的企业文档</td>
+</tr>
+<tr>
+<td>多模态大模型</td>
+<td>直接把页面图像交给 VLM，输出结构化文本</td>
+<td>复杂版面和表格最强，能理解图表</td>
+<td>最贵、有幻觉风险、速度慢</td>
+<td>高价值、难解析的文档</td>
+</tr>
+</tbody>
+</table>
+<p><strong>实践建议是分层处理，而不是全用最贵的那条路</strong>：</p>
+<pre class="mermaid">flowchart LR
+    IN[文档] --> T1[规则解析]
+    T1 --> CK{质量检查}
+    CK -->|通过| OK[入库]
+    CK -->|失败| T2[版面模型]
+    T2 --> CK2{质量检查}
+    CK2 -->|通过| OK
+    CK2 -->|失败| T3[多模态模型]
+    T3 --> OK
+</pre>
+
+<p>这样绝大多数简单文档走最便宜的路径，只有难啃的部分才升级到昂贵方案。</p>
+<h3 id="331">3.3.1 用大模型解析的额外风险</h3>
+<p>用 VLM 解析文档是 2025 年之后快速普及的做法，但它有一个<strong>规则方法没有的风险</strong>：<strong>它可能生成并不存在的内容</strong>。</p>
+<p>规则解析失败时会报错或返回空，而 VLM 解析失败时会输出一段看起来很合理的内容。表格数字识别不清时，它可能补出一个「合理」的数字。</p>
+<p>所以用 VLM 解析必须配套：</p>
+<ul>
+<li>让它<strong>只做转录不做总结</strong>，在提示里明确禁止推断和补全；</li>
+<li>对数值密集的表格做<strong>抽样人工校验</strong>；</li>
+<li>保留原始页面图像的引用，便于事后追溯核对。</li>
+</ul>
+<h2 id="34">3.4 表格的特殊处理</h2>
+<p>表格不应该被当作普通文本对待。常见的三种处理方式：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>说明</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>转成 Markdown/HTML 表格</td>
+<td>保留行列结构，模型能读懂</td>
+<td>中小表格</td>
+</tr>
+<tr>
+<td>行级展开成自然语言</td>
+<td>每行变成一句「某产品在某年的销量是某值」</td>
+<td>需要按行精确检索</td>
+</tr>
+<tr>
+<td>表格摘要 + 原表挂载</td>
+<td>用摘要参与检索，命中后把完整表格给模型</td>
+<td>大表格</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第三种在大表格上尤其重要</strong>：一张几百行的表切碎后，任何单个片段都无法回答关于它的问题，而整张表又可能太大。用摘要做检索入口、命中后再取全表，是更稳的做法。</p>
+<p>跨大量表格做聚合统计的问题（「所有合同的平均金额」），RAG 本身并不适合，应该走结构化抽取 + 数据库查询的路线（见第一章 1.7 节的能力边界）。</p>
+<h2 id="35">3.5 一条绕开解析的新路线：视觉文档检索</h2>
+<p>近年出现的一类方法是<strong>直接把文档页面当作图像来做嵌入和检索</strong>，完全跳过 OCR 和版面分析。检索时把 Query 和页面图像在同一空间里比对，命中后把页面图像直接交给多模态模型阅读。</p>
+<p>它的价值在于：<strong>版面复杂、图表密集的文档上，传统「OCR + 文本嵌入」管线丢失的信息（图表、排版关系、视觉强调），在图像里天然保留了。</strong> 公开评测显示这类方法在视觉丰富的文档上优于传统管线。</p>
+<p>它目前的局限包括：</p>
+<ul>
+<li>页面级图像嵌入的<strong>存储开销远大于文本向量</strong>；</li>
+<li>检索和生成都<strong>依赖多模态模型，GPU 成本高</strong>；</li>
+<li>与现有文本检索链路的<strong>混合方案尚未定型</strong>；</li>
+<li>是否进入主链路取决于语料的视觉信息密度、成本、延迟、可引用性和业务评测；不能脱离这些条件判断它是否应取代 OCR 管线。</li>
+</ul>
+<p>完整的视觉、表格、音视频联合索引、跨模态检索、引用和安全链路见 <a href="../04-advanced/21-multimodal-rag.html">多模态 RAG</a>。</p>
+<h2 id="36">3.6 清洗阶段该做什么</h2>
+<p>解析出文本后，还需要一轮清洗：</p>
+<ul>
+<li><strong>去重复元素</strong>：页眉、页脚、水印、页码、导航栏——判断方法是「在多页中重复出现且位置固定」；</li>
+<li><strong>保留结构信号</strong>：把标题层级转成 Markdown 的 <code>#</code> 层级，这是后续结构化切分的依据；</li>
+<li><strong>规范化空白与编码</strong>：全角半角、连续空行、断行连字符；</li>
+<li><strong>保留元数据</strong>：文件名、章节路径、页码、更新时间、权限标签。</li>
+</ul>
+<h3 id="361">3.6.1 元数据是最容易被跳过、后期最难补的</h3>
+<p>元数据在建库时几乎不花成本，但它决定了三件后期很难补救的事：</p>
+<table>
+<thead>
+<tr>
+<th>元数据</th>
+<th>支撑的能力</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文档 ID、页码、章节路径</td>
+<td>引用溯源、答案可验证</td>
+</tr>
+<tr>
+<td>更新时间、版本</td>
+<td>时效过滤、增量更新</td>
+</tr>
+<tr>
+<td>权限标签、租户 ID</td>
+<td>检索时的 ACL 过滤</td>
+</tr>
+<tr>
+<td>文档类型、来源</td>
+<td>检索路由、按类型加权</td>
+</tr>
+</tbody>
+</table>
+<p><strong>权限标签尤其要在建库时就写进去</strong>。等系统上线后再补，意味着全量重建索引——而这在很多组织里就等于「做不了」。</p>
+<h2 id="37">3.7 入库前质量校验</h2>
+<p>预处理完成后，需要在入库前建立几条自动检查：</p>
+<ul>
+<li><strong>空白率</strong>：解析出的文本长度与文件大小的比值异常低，说明可能解析失败；</li>
+<li><strong>乱码率</strong>：非常见字符占比过高，说明编码或 OCR 有问题；</li>
+<li><strong>表格完整性</strong>：识别出的表格行列数是否与原文一致（抽样）；</li>
+<li><strong>重复率</strong>：同一段文本在库中出现次数异常高，说明页眉页脚没清干净；</li>
+<li><strong>人工抽样</strong>：<strong>每类文档抽几份逐页对照</strong>——这一步无法被自动化完全替代。</li>
+</ul>
+<blockquote>
+<p><strong>一条实用经验：与其花两周调 Rerank，不如花两天看看你的知识库里到底存了什么。</strong> 很多「检索效果差」的问题，根源在解析阶段。</p>
+</blockquote>
+<h2 id="38">3.8 常见错误</h2>
+<h3 id="381">3.8.1 直接用最简单的工具处理所有格式</h3>
+<p>不同格式、不同版面复杂度应该走不同路径。一刀切必然在某一类文档上大面积失败。</p>
+<h3 id="382">3.8.2 不做质量校验就入库</h3>
+<p>解析失败往往是静默的。没有校验，你会在几周后从「检索效果差」这个模糊症状反推回来。</p>
+<h3 id="383">3.8.3 把表格当普通文本拉平</h3>
+<p>丢掉行列关系后，表格数据基本失去检索价值。</p>
+<h3 id="384">3.8.4 不保留元数据</h3>
+<p>后期补元数据意味着全量重建。尤其是权限标签。</p>
+<h3 id="385">3.8.5 认为用了大模型解析就万无一失</h3>
+<p>VLM 会静默编造内容，风险模式与规则解析完全不同，需要额外的校验手段。</p>
+<h3 id="386">3.8.6 把预处理当一次性工作</h3>
+<p>文档会更新、会新增格式。预处理链路需要能持续运行和监控，而不是跑一次就完事（详见第十九章）。</p>
+<h2 id="39">3.9 本章总结</h2>
+<ol>
+<li><strong>预处理是 RAG 最脏最累也最容易被低估的一环</strong>，这一层的错误无法被后续任何优化弥补；</li>
+<li><strong>四类典型问题</strong>：版面阅读顺序、表格结构、扫描件与图片、噪音与结构丢失；</li>
+<li><strong>三条解析路线</strong>（规则 / 版面模型 / 多模态模型）应该<strong>分层组合</strong>，按质量检查逐级升级，而不是全用最贵的；</li>
+<li><strong>用 VLM 解析要防它编</strong>：限定只转录不推断，对数值做抽样校验；</li>
+<li><strong>表格要特殊处理</strong>：保留结构、行级展开或摘要挂载；跨表聚合应走结构化路线；</li>
+<li><strong>视觉文档检索</strong>是绕开解析的新路线，在视觉复杂文档上有效，但存储和算力成本高，<strong>尚未成为主流生产方案</strong>；</li>
+<li><strong>元数据必须在建库时写入</strong>，尤其是权限标签，事后补等于全量重建；</li>
+<li><strong>必须做入库前质量校验</strong>，包括自动指标和人工抽样。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2407.01449">ColPali: Efficient Document Retrieval with Vision Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2412.15262">Advanced ingestion process powered by LLM parsing for RAG system</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

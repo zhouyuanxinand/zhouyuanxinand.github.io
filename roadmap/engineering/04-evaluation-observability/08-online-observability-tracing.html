@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>在线可观测性与 Tracing · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="在线可观测性与 Tracing — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>评测与可观测性</span> / <span>在线可观测性与 Tracing</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="tracing">第八章：在线可观测性与 Tracing</h1>
+<h2 id="81-trace">8.1 为什么日志不够,需要 Trace</h2>
+<p>一次 Agent 请求可能包含多次模型调用、多次工具调用、一次检索,任何一步都可能是失败的根因。传统的按行打印日志无法把这些跨步骤、跨服务的调用关联起来,排查一次失败往往要在多个日志系统之间来回跳转。<strong>Tracing 把一次请求从入口到出口的所有子步骤,组织成一棵有父子关系的 Span 树</strong>,这是可观测性区别于普通日志的核心能力。</p>
+<pre class="mermaid">flowchart TB
+    ROOT["Trace: 一次用户请求"]
+    ROOT --> S1["Span: 模型调用#1(路由决策)"]
+    ROOT --> S2["Span: 工具调用(检索订单)"]
+    ROOT --> S3["Span: 模型调用#2(生成回答)"]
+    S3 --> S4["Span: 输出契约校验"]
+
+    style ROOT fill:#e8f0fe
+</pre>
+
+<h2 id="82">8.2 三种可观测性信号的分工</h2>
+<table>
+<thead>
+<tr>
+<th>信号</th>
+<th>回答什么问题</th>
+<th>典型工具</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>日志(Logs)</strong></td>
+<td>某个具体时刻发生了什么细节</td>
+<td>结构化日志系统</td>
+</tr>
+<tr>
+<td><strong>指标(Metrics)</strong></td>
+<td>整体趋势是好是坏(延迟、错误率、token 用量)</td>
+<td>Prometheus / Grafana</td>
+</tr>
+<tr>
+<td><strong>追踪(Traces)</strong></td>
+<td>一次具体请求内部,时间和因果是怎么串起来的</td>
+<td>OpenTelemetry / LangSmith / Arize Phoenix</td>
+</tr>
+</tbody>
+</table>
+<p>三者不能互相替代:指标能告诉你"过去一小时错误率上升了",但要知道"具体是哪一步失败的",必须靠 Trace 下钻到那一次请求的 Span 树。</p>
+<h2 id="83-genai-span">8.3 GenAI 场景下 Span 该记录什么字段</h2>
+<p>OpenTelemetry 在传统的 Span(服务名、耗时、状态码)之上,为生成式 AI 场景定义了<a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">语义约定(GenAI semantic conventions)</a>,核心字段包括:</p>
+<table>
+<thead>
+<tr>
+<th>字段类别</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>请求参数</td>
+<td>模型名、temperature、max_tokens</td>
+</tr>
+<tr>
+<td>Token 用量</td>
+<td>输入 token 数、输出 token 数(直接对应第 11 章的成本核算)</td>
+</tr>
+<tr>
+<td>响应特征</td>
+<td>首字节延迟(TTFT)、总耗时、是否发生了重试/回退(对应第 3、4 章)</td>
+</tr>
+<tr>
+<td>内容(需脱敏)</td>
+<td>Prompt 内容、输出内容的采样或脱敏版本</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这套语义约定的价值在于跨供应商、跨框架统一了字段命名</strong>,不用为每个模型供应商各写一套指标口径。</p>
+<h2 id="84">8.4 数据边界:可观测不等于收集一切</h2>
+<p>Trace 天然会流经用户的原始输入,一旦不加限制地全量采集,Trace 系统本身会变成新的敏感数据面。数据边界应该在<strong>发送 Trace 之前</strong>就确定,而不是指望在后台控制台里再做隐藏:</p>
+<table>
+<thead>
+<tr>
+<th>数据</th>
+<th>默认策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>密钥、令牌、Authorization header</td>
+<td>绝不写入 Trace 或错误堆栈</td>
+</tr>
+<tr>
+<td>PII、订单正文、用户身份标识</td>
+<td>尽量不采集;必须诊断时使用字段级脱敏、哈希、访问控制</td>
+</tr>
+<tr>
+<td>审批、支付等高风险动作</td>
+<td>记录决策 ID、策略版本、结果,不记录不必要的原始材料</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python">import hmac
+from hashlib import sha256
+
+def trace_metadata(tenant_id: str, prompt_version: str, trace_key: bytes) -&gt; dict:
+    # trace_key 来自密钥管理系统,不能写进代码
+    tenant_hash = hmac.new(trace_key, tenant_id.encode(), sha256).hexdigest()[:24]
+    return {&quot;tenant_hash&quot;: tenant_hash, &quot;prompt_version&quot;: prompt_version}
+</code></pre>
+<blockquote>
+<p>这套脱敏原则和 <a href="../../frameworks/01-langchain/05-production/13-langsmith-production-loop.html">LangSmith 生产质量闭环</a>里讲的做法完全一致——这里用的是厂商中立的可观测性数据模型,LangSmith 是这套模型在 LangChain 生态里的一种具体实现,选用其他 Tracing 方案时同样适用这些边界原则。</p>
+</blockquote>
+<h2 id="85">8.5 采样策略:不是所有流量都值得全量记录</h2>
+<p>全量记录所有 Trace 在高流量场景下成本很高,需要按风险分层采样:</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>采样建议</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>安全拦截、越权、支付、失败请求</td>
+<td>100% 记录,优先分析</td>
+</tr>
+<tr>
+<td>新模型/新 Prompt 的灰度发布</td>
+<td>按版本和租户分层采样,保留对照组用于<a href="../05-release-pipeline/10-llm-cicd-canary-ab.html">第 10 章</a>的 A/B 分析</td>
+</tr>
+<tr>
+<td>普通低风险流量</td>
+<td>随机采样,设置成本上限</td>
+</tr>
+</tbody>
+</table>
+<h2 id="86-trace">8.6 从 Trace 到告警:指标聚合与阈值</h2>
+<p>Trace 数据汇聚之后,要转化为可以设置告警阈值的聚合指标,这些指标同时是<a href="../06-performance-operations/12-slo-capacity-incident-response.html">第 12 章</a> SLO 体系的输入:</p>
+<pre><code class="language-python"># 伪代码:从 Trace 聚合出关键指标
+metrics = {
+    &quot;p50_latency_ms&quot;: percentile(latencies, 50),
+    &quot;p99_latency_ms&quot;: percentile(latencies, 99),
+    &quot;error_rate&quot;: failed_count / total_count,
+    &quot;contract_violation_rate&quot;: violations / total_count,  # 对应第5章
+    &quot;fallback_rate&quot;: fallback_count / total_count,          # 对应第3章
+    &quot;token_cost_per_request&quot;: total_tokens * unit_price / total_count,
+}
+</code></pre>
+<h2 id="87">8.7 常见错误</h2>
+<h3 id="871-prompt">8.7.1 为了排障记录全部 Prompt 和工具输出</h3>
+<p>Trace 本身会成为新的敏感数据面。应在发送前按白名单投影、脱敏,而不是采集全部再指望后台隐藏。</p>
+<h3 id="872-trace">8.7.2 只有日志,没有 Trace</h3>
+<p>复杂链路失败时,单纯的日志无法还原跨步骤的因果关系,排查效率极低。</p>
+<h3 id="873-trace">8.7.3 全量采集所有流量的 Trace</h3>
+<p>高流量场景下成本失控。应按风险分层采样,安全类和失败请求优先全量。</p>
+<h3 id="874">8.7.4 采集了数据却没有转化为可告警的聚合指标</h3>
+<p>Trace 堆积如山但没有形成 p99 延迟、错误率这类可以设阈值告警的指标,故障发生时仍然要靠人工翻查才能发现。</p>
+<h3 id="875">8.7.5 把可观测性当成事后补救,而非架构设计的一部分</h3>
+<p>参见<a href="../01-foundations/02-production-architecture-overview.html">第 2 章</a>,可观测性的数据边界和采样策略应该在系统设计阶段就规划好。</p>
+<h2 id="88">8.8 本章总结</h2>
+<ol>
+<li><strong>Tracing 把一次请求的多个步骤组织成 Span 树</strong>,解决日志无法关联跨步骤因果的问题;</li>
+<li><strong>日志、指标、追踪三种信号分工不同</strong>,分别回答"细节是什么""趋势如何""这次具体发生了什么";</li>
+<li><strong>GenAI 场景的 Span 应遵循 OpenTelemetry 语义约定</strong>,统一记录模型参数、Token 用量、延迟等字段;</li>
+<li><strong>数据边界必须在采集前确定</strong>,密钥、PII 等敏感信息默认不采集或脱敏后采集;</li>
+<li><strong>采样策略按风险分层</strong>,安全类和失败请求优先全量记录;</li>
+<li><strong>Trace 数据要聚合成可告警的指标</strong>,是 SLO 体系(第 12 章)的直接输入。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://opentelemetry.io/docs/specs/semconv/gen-ai/">OpenTelemetry: Semantic conventions for generative AI systems</a></li>
+<li><a href="https://sre.google/sre-book/monitoring-distributed-systems/">Google SRE Book: Monitoring Distributed Systems</a></li>
+<li><a href="https://docs.langchain.com/langsmith/observability">LangSmith Observability</a></li>
+<li><a href="https://docs.arize.com/phoenix/tracing/llm-traces">Arize Phoenix: Tracing</a></li>
+<li><a href="https://www.honeycomb.io/blog/pillars-observability">Honeycomb: Observability for LLMs</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

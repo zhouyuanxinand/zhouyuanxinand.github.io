@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>缓存、批处理与成本 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="缓存、批处理与成本 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>性能、成本与运营</span> / <span>缓存、批处理与成本</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十一章：缓存、批处理、吞吐与成本优化</h1>
+<h2 id="111">11.1 成本优化的四个杠杆</h2>
+<p>LLM 应用的成本主要由 token 用量和调用次数决定。四个可独立操作的杠杆:<strong>减少重复调用(缓存)、合并调用(批处理)、换更便宜的模型(路由)、压缩上下文(减少 token)</strong>。这里先看前两个应用层杠杆,路由降本已在<a href="../02-request-reliability/03-model-gateway-routing-fallback.html">第 3 章</a>讨论,推理引擎内部的量化、KV Cache 等降本手段见 <a href="../../llm/03-inference-serving/">LLM · 推理与部署</a>,不再重复展开。</p>
+<pre class="mermaid">flowchart TB
+    COST["调用成本"] --> CACHE["缓存:<br/>避免重复计算"]
+    COST --> BATCH["批处理:<br/>摊薄单位开销"]
+    COST --> ROUTE["路由降本:<br/>见第3章"]
+    COST --> CTX["上下文压缩:<br/>减少输入token"]
+</pre>
+
+<h2 id="112">11.2 语义缓存:应用层最直接的降本手段</h2>
+<p><a href="../../tools/05-transport-gateway/14-llm-gateway.html">Tools · LLM 网关</a>已经详细讲过语义缓存的机制(向量相似度匹配)、阈值调参(0.85–0.95)和适用场景,这里不重复展开,只强调一点应用层的补充实践:<strong>缓存命中率应该按业务场景分别统计,而不是看一个全局数字</strong>。客服 FAQ 场景命中率可能高达 60%,但个性化推荐场景命中率可能不到 5%——全局平均数会掩盖"这个场景其实值得开缓存,那个场景根本不该开"的差异化决策。</p>
+<h2 id="113-prompt-caching">11.3 Prompt Caching:另一种缓存,作用层次不同</h2>
+<p><strong>语义缓存跳过整次模型调用,Prompt Caching(如 Anthropic 的 Prompt Caching、OpenAI 的自动 Prompt Caching)是调用照做,但复用已经计算过的前缀部分的 KV,只需要重新计算新增的部分。</strong> 这是<a href="../../llm/03-inference-serving/14-kv-cache.html">LLM · KV Cache</a>机制在应用层的直接收益。</p>
+<p><strong>应用层能做的事是把 Prompt 结构设计成"缓存友好"</strong>:</p>
+<pre><code class="language-python"># 缓存友好的结构:固定不变的部分放前面,易变部分放后面
+prompt = (
+    SYSTEM_INSTRUCTIONS      # 长期不变,命中缓存
+    + FEW_SHOT_EXAMPLES      # 较少变化,大概率命中缓存
+    + retrieved_context      # 每次检索结果不同,缓存不命中
+    + user_question          # 每次都不同
+)
+</code></pre>
+<p>如果把 <code>user_question</code> 放在最前面、<code>SYSTEM_INSTRUCTIONS</code> 放在后面,即使内容完全一样,Prompt Caching 也无法命中——<strong>前缀必须字节级完全一致才能复用 KV</strong>。这条设计原则简单,但很多团队在拼接 Prompt 时完全没意识到顺序会影响成本。</p>
+<h2 id="114-vs">11.4 请求批处理:同步实时 vs 异步批量</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>策略</th>
+<th>收益</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户实时对话</td>
+<td>不适合等待攒批,牺牲延迟换吞吐不划算</td>
+<td>无</td>
+</tr>
+<tr>
+<td>后台批量任务(摘要、打标签、离线分析)</td>
+<td>使用批量 API(如 OpenAI Batch API、Anthropic Message Batches)</td>
+<td>通常比同步调用便宜 50% 左右,代价是数小时级别的延迟</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python"># 伪代码:把可以延迟处理的任务路由到批量 API
+def submit_batch_job(tasks: list[dict]) -&gt; str:
+    batch_input = &quot;\n&quot;.join(json.dumps(t) for t in tasks)
+    return batch_api.create(input_file=batch_input, completion_window=&quot;24h&quot;)
+</code></pre>
+<p><strong>批量 API 和第 3 章讲的"实时路由"是完全不同的两条路径</strong>:实时对话走网关的低延迟路由,能够容忍延迟的后台任务应该在架构设计阶段就分流到批量 API,而不是和实时流量走同一条路径再事后优化。</p>
+<h2 id="115-token">11.5 上下文压缩:减少输入侧 token</h2>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检索结果精简</td>
+<td>RAG 场景下只把真正相关的片段放入上下文,而非整篇文档,详见 <a href="../../rag/03-retrieval/">RAG · 检索</a></td>
+</tr>
+<tr>
+<td>历史对话摘要</td>
+<td>多轮对话中把较早的轮次压缩成摘要而非保留全文,详见 <a href="../../agent/03-memory-context/">Agent · 记忆与上下文</a></td>
+</tr>
+<tr>
+<td>精简系统 Prompt</td>
+<td>定期审查系统 Prompt 是否存在冗余指令,过长的系统 Prompt 会在每次调用中重复计费</td>
+</tr>
+</tbody>
+</table>
+<h2 id="116">11.6 吞吐:用并发和排队策略平衡延迟与成本</h2>
+<p>在自建推理服务的场景下(见 <a href="../../llm/03-inference-serving/20-deployment-frameworks.html">LLM · 部署框架</a>),连续批处理(continuous batching)等技术由推理引擎负责;应用层能控制的是<strong>并发请求数的准入策略</strong>——过多并发请求同时涌入会推高排队延迟,进而影响 SLO(见<a href="12-slo-capacity-incident-response.html">第 12 章</a>):</p>
+<pre><code class="language-python">import asyncio
+
+semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
+
+async def call_model_with_admission_control(prompt: str):
+    async with semaphore:
+        return await model_client.generate(prompt)
+</code></pre>
+<h2 id="117">11.7 成本可观测性:没有度量就没有优化依据</h2>
+<p><a href="../04-evaluation-observability/08-online-observability-tracing.html">第 8 章</a>提到的 Trace 数据应该聚合出按业务场景、按团队维度的成本报表:</p>
+<table>
+<thead>
+<tr>
+<th>报表维度</th>
+<th>回答的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>按接口/场景</td>
+<td>哪个功能最烧钱,是否有优化空间</td>
+</tr>
+<tr>
+<td>按团队/租户</td>
+<td>成本如何分摊</td>
+</tr>
+<tr>
+<td>按模型版本</td>
+<td>换模型前后的成本变化是否符合预期</td>
+</tr>
+</tbody>
+</table>
+<h2 id="118">11.8 常见错误</h2>
+<h3 id="1181">11.8.1 只统计全局缓存命中率,不按场景拆分</h3>
+<p>会掩盖"该开缓存的场景没开、不该开的场景瞎开"的差异化问题,见 11.2 节。</p>
+<h3 id="1182-prompt">11.8.2 拼接 Prompt 时把易变内容放在前面</h3>
+<p>导致 Prompt Caching 完全无法命中,是最容易被忽视的隐性成本浪费。</p>
+<h3 id="1183">11.8.3 把可以异步处理的任务和实时流量混在一起同步处理</h3>
+<p>错失批量 API 通常 50% 左右的降本空间,还可能因为攒批逻辑拖慢实时请求。</p>
+<h3 id="1184">11.8.4 历史对话不做任何压缩,无限累加上下文</h3>
+<p>多轮对话越往后,输入 token 越多,成本和延迟同步上升,且可能超出上下文窗口限制。</p>
+<h3 id="1185">11.8.5 没有成本报表,优化决策靠猜测</h3>
+<p>不知道哪个场景真正烧钱,优化精力容易投入到影响不大的地方。</p>
+<h2 id="119">11.9 本章总结</h2>
+<ol>
+<li><strong>成本优化有四个杠杆</strong>:缓存、批处理、路由降本、上下文压缩,这里先看前两个应用层手段;</li>
+<li><strong>语义缓存命中率要按业务场景拆分统计</strong>,而非只看全局数字;</li>
+<li><strong>Prompt Caching 要求前缀字节级一致才能命中</strong>,Prompt 结构设计应把固定内容放在前面;</li>
+<li><strong>能容忍延迟的后台任务应分流到批量 API</strong>,通常能降本约 50%,不应和实时流量混在一起处理;</li>
+<li><strong>上下文压缩(检索精简、对话摘要)直接减少输入 token</strong>,是最容易被忽视的降本手段;</li>
+<li><strong>成本可观测性是优化的前提</strong>,应按场景、团队、模型版本建立报表。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-caching">Anthropic: Prompt caching</a></li>
+<li><a href="https://platform.openai.com/docs/guides/prompt-caching">OpenAI: Prompt caching</a></li>
+<li><a href="https://platform.openai.com/docs/guides/batch">OpenAI: Batch API</a></li>
+<li><a href="https://docs.anthropic.com/en/docs/build-with-claude/batch-processing">Anthropic: Message Batches API</a></li>
+<li><a href="https://cloud.google.com/architecture/framework/cost-optimization/ai-ml">Google Cloud: Cost optimization for AI and ML workloads</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

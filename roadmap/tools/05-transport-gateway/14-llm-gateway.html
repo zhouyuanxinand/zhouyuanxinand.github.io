@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM 网关 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="LLM 网关 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>传输与网关</span> / <span>LLM 网关</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="llm">第十四章：LLM 网关</h1>
+<h2 id="141">14.1 网关是什么，放在哪</h2>
+<p>先看它在系统里的位置。</p>
+<pre class="mermaid">flowchart TB
+    subgraph NO["没有网关"]
+        A1[订单服务] --> O1[OpenAI API]
+        A1 --> O2[Anthropic API]
+        A2[客服服务] --> O1
+        A2 --> O3[国产模型 API]
+        A3[数据服务] --> O2
+        A3 --> O3
+    end
+
+    subgraph YES["有网关"]
+        B1[订单服务] --> GW[LLM 网关]
+        B2[客服服务] --> GW
+        B3[数据服务] --> GW
+        GW --> P1[OpenAI]
+        GW --> P2[Anthropic]
+        GW --> P3[国产模型]
+    end
+
+    style NO fill:#fce8e6
+    style YES fill:#e6f4ea
+</pre>
+
+<p>网关就是<strong>坐在应用和各模型 API 之间的中间人</strong>。应用只认识网关，不直接对接多个厂商。</p>
+<p>位置决定了它最适合处理什么问题：<strong>所有流量都会经过这里，所以认证、路由、限流、观测这类横切关注点适合集中收口。</strong></p>
+<h2 id="142">14.2 没有网关时的五个痛点</h2>
+<p>一个稍具规模的 AI 产品同时用多个模型是常态：主流程用高端模型，成本敏感任务用小模型，代码任务换一家，向量化又是另一个模型。每家的 SDK、鉴权方式、参数格式都有差异。不做网关，这些差异会<strong>渗透到每个业务服务里</strong>。</p>
+<h3 id="1421-api-key">14.2.1 API Key 散落</h3>
+<p>Key 散在各服务的配置文件里，任何一处泄露都是安全事故。</p>
+<p>一个真实的场景：某工程师离职，他存在本地开发机或内部文档里的 Key 没及时清理，两周后被扫到，拿去跑批量请求——<strong>几千美元的账单是一个晚上就能烧出来的</strong>。</p>
+<h3 id="1422">14.2.2 重复劳动且版本不一</h3>
+<p>每个服务各写一套重试和限流逻辑。同一个逻辑（比如「429 要指数退避重试」）A 服务写对了、B 服务写错了，出问题时要先花半小时搞清楚是哪个服务的重试逻辑在作怪。</p>
+<h3 id="1423">14.2.3 成本黑箱</h3>
+<p>想知道这个月花了多少钱、哪个团队用得最多？没法统计，因为各服务各记各的。月底财务问「这笔三万美元的账单分摊给哪个业务线」，你只能两手一摊。</p>
+<h3 id="1424">14.2.4 换模型要改代码</h3>
+<p>想把某个任务从 A 模型换成 B 模型？改代码、测试、发版。A/B 测试模型效果？再来一遍。</p>
+<h3 id="1425">14.2.5 配额无法管控</h3>
+<p>周五下班前某工程师无意中跑了个死循环脚本，一晚上吃光下周的 token 预算，周一用户打开产品全是 429。</p>
+<p><strong>这种事一年只要发生一次，你就会明白配额管理不能指望各服务自觉。</strong></p>
+<h3 id="1426">14.2.6 根本原因是同一个</h3>
+<p>这几个痛点看起来分散，其实都指向同一个问题：</p>
+<blockquote>
+<p><strong>这些问题没有统一收口，结果就是每个业务服务都得各管一摊。</strong></p>
+</blockquote>
+<p>这也是为什么 LLM 网关不能等同于 Nginx 反向代理——Nginx 能做流量转发，但不理解 token、不理解模型语义、不理解 prompt。</p>
+<h2 id="143">14.3 网关的七项核心能力</h2>
+<h3 id="1431">14.3.1 多模型统一接口</h3>
+<p>大多数 LLM 网关对外暴露一个 <strong>OpenAI 兼容接口</strong>。业务代码就像调 OpenAI 一样调它：</p>
+<pre><code class="language-python"># 接入网关只改两处
+client = OpenAI(
+    base_url=&quot;https://llm-gateway.internal/v1&quot;,  # 改成网关地址
+    api_key=&quot;sk-virtual-team-order-xxx&quot;,          # 网关分配的虚拟 Key
+)
+
+# 其余代码一行不动
+resp = client.chat.completions.create(
+    model=&quot;chat-default&quot;,       # 逻辑模型名，不是厂商模型名
+    messages=[...],
+)
+</code></pre>
+<p>注意 <code>model</code> 传的是<strong>逻辑名</strong>（<code>chat-default</code>），网关根据路由配置决定实际打到哪家。</p>
+<p>这样一来，业务层看到的始终只是逻辑模型名。做 A/B 测试、成本优化或模型替换时，通常不用改业务代码。</p>
+<h3 id="1432">14.3.2 负载均衡与故障转移</h3>
+<p>模型 API 不是 100% 可靠：会偶发 503，某地区节点会超时，高峰期会被限流。</p>
+<p>网关可以给同一个逻辑模型名配多条路由：</p>
+<pre><code class="language-yaml">model_list:
+  - model_name: chat-default
+    provider: openai
+    model: gpt-4o
+    priority: 1
+  - model_name: chat-default
+    provider: azure          # 同一个模型的另一个部署
+    model: gpt-4o
+    priority: 2
+  - model_name: chat-default
+    provider: anthropic      # 跨厂商兜底
+    model: claude-sonnet-4
+    priority: 3
+</code></pre>
+<p>主路由连续失败达到阈值时自动切到备用路由，业务代码通常不需要跟着改。</p>
+<blockquote>
+<p>注意跨厂商兜底有个前提：两个模型的能力和输出风格要足够接近，否则故障转移会带来质量抖动。工程上更稳的做法是同一模型的多个部署（如 OpenAI + Azure OpenAI）优先，跨厂商作为最后一层。</p>
+</blockquote>
+<h3 id="1433">14.3.3 限流与配额</h3>
+<p>给每个团队的虚拟 Key 设独立的 token 日预算：研发团队每天 100 万，产品团队每天 50 万。</p>
+<p>某个团队超配额时，<strong>只有该 Key 的请求返回 429，其他团队完全不受影响</strong>。这就把 14.2.5 那个「死循环脚本吃光全公司预算」的事故封在了单个 Key 里。</p>
+<h3 id="1434">14.3.4 成本追踪与可观测性</h3>
+<p>网关集中记录每次调用的 token 用量、响应时间、错误率，这让你能回答：</p>
+<ul>
+<li>哪个接口最烧钱？</li>
+<li>研发团队和产品团队各用了多少？</li>
+<li>各模型的 P95 响应时间分别是多少？</li>
+</ul>
+<p>有了这些数据，<strong>成本优化才有依据</strong>——比如发现某个接口消耗了 40% 的 token，但实际上可以用便宜得多的模型替代。</p>
+<p>网关通常可直接对接 Langfuse、Prometheus 等监控系统，<strong>不需要在业务代码里手动埋点</strong>。</p>
+<h3 id="1435-prompt">14.3.5 Prompt 安全与内容过滤</h3>
+<p>在网关层统一做输入输出校验：</p>
+<table>
+<thead>
+<tr>
+<th>检查项</th>
+<th>防什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prompt 注入检测</td>
+<td>用户通过特殊指令劫持模型行为</td>
+</tr>
+<tr>
+<td>PII 过滤</td>
+<td>身份证号、手机号被发送到外部 API</td>
+</tr>
+<tr>
+<td>内容安全审核</td>
+<td>违规输入输出</td>
+</tr>
+</tbody>
+</table>
+<p>集中做的好处是<strong>安全策略统一更新，任何接入点自动获得保护</strong>——「有一个服务漏了检测」这种事不会再发生。</p>
+<h3 id="1436">14.3.6 语义缓存</h3>
+<p>这类能力最能体现 LLM 网关和普通 API 网关的区别。</p>
+<p><strong>普通 HTTP 缓存是精确匹配</strong>，请求一字不差才命中。但 LLM 的问题有大量语义相近的变体：</p>
+<blockquote>
+<p>「北京今天热吗」/「北京现在天气怎样」/「今天北京气温多少」</p>
+</blockquote>
+<p>三个问题本质上是同一个需求，精确匹配全部 miss，每次都要打底层模型——三次完整的 LLM 调用费用。</p>
+<pre class="mermaid">flowchart TB
+    Q[收到新问题] --> E[问题向量化 embedding]
+    E --> S[在向量库里做相似度搜索]
+    S --> H{"最高相似度<br/>超过阈值?"}
+    H -->|是| HIT["直接返回历史答案<br/>完全跳过 LLM 调用"]
+    H -->|否| MISS[调用 LLM]
+    MISS --> W["把「问题向量 + 回答」<br/>写入缓存"]
+    W --> R[返回]
+
+    style HIT fill:#e6f4ea
+    style MISS fill:#fef7e0
+</pre>
+
+<p><strong>两个关键工程细节：</strong></p>
+<p><strong>一是相似度阈值</strong>，这是最重要的调参点：</p>
+<table>
+<thead>
+<tr>
+<th>阈值</th>
+<th>后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>太高（0.99）</td>
+<td>基本只有一模一样的问题才命中，缓存形同虚设</td>
+</tr>
+<tr>
+<td>太低（0.7）</td>
+<td>「北京今天热吗」命中「上海今天热吗」的答案，答非所问</td>
+</tr>
+<tr>
+<td><strong>0.85–0.95</strong></td>
+<td>通常的调试区间，具体看场景和用户提问多样性</td>
+</tr>
+</tbody>
+</table>
+<p><strong>二是缓存有效期</strong>，不同内容差别极大：</p>
+<ul>
+<li>天气、股价这类实时信息：几分钟，过期必须重查；</li>
+<li>产品 FAQ、技术文档：几天甚至更长都没问题。</li>
+</ul>
+<p><strong>适用场景</strong>：高频重复问答（如客服机器人），命中率可以很高，省下的费用可观。<strong>需要个性化或强实时性的问答要在网关层识别出来直接绕过缓存。</strong></p>
+<blockquote>
+<p>语义缓存和 <a href="../../llm/03-inference-serving/14-kv-cache.html">Prompt Caching</a> 不是一回事：前者是「跳过整次调用」，后者是「调用照做但复用已计算的 KV」。</p>
+</blockquote>
+<h3 id="1437-api-key">14.3.7 API Key 集中管理</h3>
+<p>业务服务拿到的是网关分配的<strong>虚拟 Key</strong>，根本接触不到真实密钥。</p>
+<p>好处不只是防泄漏：虚拟 Key 天然就是配额、成本归属、权限控制的载体——你可以按团队、按项目、按环境发不同的 Key，随时吊销单个 Key 而不影响其他人。</p>
+<h2 id="144">14.4 常见网关框架</h2>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>类型</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LiteLLM</strong></td>
+<td>开源，Python</td>
+<td>支持上百个模型，OpenAI 兼容接口，社区最活跃，功能最全</td>
+</tr>
+<tr>
+<td><strong>Bifrost</strong></td>
+<td>开源，Rust</td>
+<td>主打高性能低延迟，适合对吞吐要求高的场景</td>
+</tr>
+<tr>
+<td><strong>Portkey</strong></td>
+<td>商业 + 开源</td>
+<td>功能完整，有托管版，适合不想自运维的团队</td>
+</tr>
+<tr>
+<td><strong>Kong AI Gateway</strong></td>
+<td>商业（Kong 扩展）</td>
+<td>基于成熟的 Kong 网关扩展 AI 能力，适合已有 Kong 的团队</td>
+</tr>
+<tr>
+<td><strong>One API / New API</strong></td>
+<td>开源，Go</td>
+<td>国内社区活跃，对国产模型支持好，部署简单</td>
+</tr>
+<tr>
+<td><strong>Envoy AI Gateway</strong></td>
+<td>开源</td>
+<td>基于 Envoy，适合已有 service mesh 的团队</td>
+</tr>
+<tr>
+<td><strong>自研（Nginx/Envoy 之上）</strong></td>
+<td>自研</td>
+<td>灵活但工作量大，适合有特殊合规需求的团队</td>
+</tr>
+</tbody>
+</table>
+<p>选型建议：</p>
+<ul>
+<li><strong>快速起步、模型种类多</strong> → LiteLLM</li>
+<li><strong>已有 Kong / Envoy 基础设施</strong> → 对应的 AI Gateway 扩展</li>
+<li><strong>国产模型为主</strong> → One API 系</li>
+<li><strong>不想自运维</strong> → Portkey 等托管方案</li>
+</ul>
+<p>不管选哪个，<strong>网关是整条链路上的单点</strong>，务必做好这几件事：多副本部署、健康检查、锁定依赖版本并关注上游安全公告（开源网关是典型的供应链攻击目标，因为它手里握着所有真实 API Key）。</p>
+<h2 id="145">14.5 网关不是万能的</h2>
+<p>有几件事网关做不了或不该做：</p>
+<table>
+<thead>
+<tr>
+<th>不该放进网关</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>业务 prompt 模板</td>
+<td>属于业务逻辑，放网关会让网关变成业务耦合点</td>
+</tr>
+<tr>
+<td>复杂的 Agent 编排</td>
+<td>网关是无状态转发层，多轮状态管理不是它的职责</td>
+</tr>
+<tr>
+<td>RAG 检索</td>
+<td>检索策略与业务强相关，且需要访问业务数据</td>
+</tr>
+</tbody>
+</table>
+<p>网关的边界应该是<strong>横切关注点</strong>：认证、路由、限流、观测、缓存、安全。一旦开始往里塞业务逻辑，它就从「基础设施」退化成了「另一个需要跟着业务发版的服务」。</p>
+<p>另外，<strong>网关会增加一跳延迟</strong>（通常几毫秒到几十毫秒）。对绝大多数 LLM 调用（动辄数百毫秒到数秒）这可以忽略，但对延迟极度敏感的场景要实测评估。</p>
+<h2 id="146">14.6 常见错误</h2>
+<h3 id="1461-llm-nginx">14.6.1 把 LLM 网关等同于 Nginx 反向代理</h3>
+<p>Nginx 能转发流量，但<strong>不理解 token、不理解模型语义、不理解 prompt</strong>。按 token 计费的配额、语义缓存、prompt 注入检测、成本归属——这些都需要理解 LLM 语义才能做。</p>
+<h3 id="1462">14.6.2 只说负载均衡</h3>
+<p>负载均衡只是其中一项。更完整的视角还包括：统一接口、故障转移、Key 集中管理、按团队配额、成本追踪、安全过滤、语义缓存。</p>
+<h3 id="1463">14.6.3 说不清语义缓存与普通缓存的区别</h3>
+<p>普通缓存是精确匹配，语义缓存是<strong>向量相似度匹配</strong>。而且要能说出阈值调参这个关键点——太高等于没有缓存，太低会答非所问。</p>
+<h3 id="1464">14.6.4 语义缓存无差别开启</h3>
+<p>需要个性化或强实时性的问答必须绕过缓存。给客服 FAQ 开缓存很划算，给「查一下我的订单状态」开缓存是事故。</p>
+<h3 id="1465">14.6.5 跨厂商故障转移不考虑质量一致性</h3>
+<p>自动从 A 厂商切到 B 厂商，业务层无感知——但输出风格和能力可能明显不同。优先用同一模型的多个部署做兜底。</p>
+<h3 id="1466">14.6.6 忽略网关自身的单点风险</h3>
+<p>所有流量都过网关，它挂了整个 AI 能力就没了。而且它握着所有真实 Key，是供应链攻击的高价值目标。多副本 + 版本锁定 + 关注安全公告是基本要求。</p>
+<h3 id="1467">14.6.7 往网关里塞业务逻辑</h3>
+<p>Prompt 模板、Agent 编排、RAG 检索都不该进网关。网关只管横切关注点。</p>
+<h2 id="147">14.7 本章总结</h2>
+<ol>
+<li><strong>网关是应用与模型 API 之间的中间人</strong>，集中拦截所有流量，所以能统一处理横切关注点；</li>
+<li><strong>五个痛点源自同一个原因</strong>：没有集中管理的地方——Key 散落、重复造轮子、成本黑箱、换模型要改代码、配额失控；</li>
+<li><strong>它不等于 Nginx</strong>：Nginx 不理解 token、不理解 prompt、不理解模型语义；</li>
+<li><strong>七项核心能力</strong>：统一接口、故障转移、配额限流、成本追踪、安全过滤、语义缓存、Key 集中管理；</li>
+<li><strong>语义缓存是最有代表性的能力</strong>，用向量相似度替代精确匹配，阈值通常调在 0.85–0.95；</li>
+<li><strong>语义缓存要区分内容类型</strong>：实时信息短 TTL 或绕过，稳定知识可长期缓存；</li>
+<li><strong>网关是单点</strong>，要多副本、锁版本、关注安全公告——它握着所有真实 Key；</li>
+<li><strong>边界是横切关注点</strong>，业务 prompt、Agent 编排、RAG 检索不该进网关。</li>
+</ol>
+<blockquote>
+<p><strong>可以把它理解成一个懂模型语义的统一入口：请求当然会从这里转发，但更大的价值在于把 Key 管理、配额、成本、安全、缓存这些重复问题集中治理。</strong></p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.litellm.ai/">LiteLLM 文档</a></li>
+<li><a href="https://github.com/BerriAI/litellm">LiteLLM GitHub</a></li>
+<li><a href="https://github.com/Portkey-AI/gateway">Portkey AI Gateway</a></li>
+<li><a href="https://konghq.com/products/kong-ai-gateway">Kong AI Gateway</a></li>
+<li><a href="https://aigateway.envoyproxy.io/">Envoy AI Gateway</a></li>
+<li><a href="https://langfuse.com/docs">Langfuse: LLM 可观测性</a></li>
+<li><a href="https://genai.owasp.org/llm-top-10/">OWASP Top 10 for LLM Applications</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

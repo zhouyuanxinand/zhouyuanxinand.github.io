@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Query 理解与改写 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Query 理解与改写 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>在线检索</span> / <span>Query 理解与改写</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="query">第十二章：Query 理解与改写</h1>
+<h2 id="121">12.1 要解决的是什么问题</h2>
+<p>用户提问的方式，和文档写作的方式，天然不一样。</p>
+<table>
+<thead>
+<tr>
+<th>用户会问</th>
+<th>文档里写的是</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>「年假怎么请」</td>
+<td>「带薪年休假申请与审批流程」</td>
+</tr>
+<tr>
+<td>「它多少钱」</td>
+<td>（需要上文才知道「它」指什么）</td>
+</tr>
+<tr>
+<td>「介绍一下我们公司的技术栈」</td>
+<td>（分散在十几篇文档里）</td>
+</tr>
+<tr>
+<td>「量子计算对密码学的影响」</td>
+<td>（需要先知道量子计算是什么）</td>
+</tr>
+</tbody>
+</table>
+<p>这四行对应了<strong>四种不同的鸿沟</strong>，而 Query 改写的各种方法，正是分别针对这四种鸿沟：</p>
+<pre class="mermaid">flowchart TB
+    G[Query 与文档之间的鸿沟] --> G1[表述鸿沟<br/>同一意思不同说法]
+    G --> G2[指代鸿沟<br/>多轮对话中的省略]
+    G --> G3[粒度鸿沟<br/>问题太宽泛或太复合]
+    G --> G4[抽象层级鸿沟<br/>问题太具体或太抽象]
+
+    G1 --> M1[直接改写 / 多 Query 扩展 / HyDE]
+    G2 --> M2[指代消解]
+    G3 --> M3[查询分解]
+    G4 --> M4[Step-back 提问]
+</pre>
+
+<blockquote>
+<p><strong>理解这些方法时，重点是它们分别对应哪种鸿沟，而不是只记方法名。</strong></p>
+</blockquote>
+<h2 id="122">12.2 直接改写</h2>
+<p>直接改写通常用 LLM 把口语化的问题改成更接近文档表述的形式，并补充领域术语。</p>
+<p>「年假怎么请」→「带薪年休假的申请流程和审批要求」</p>
+<p>这类方法适合处理口语化输入和术语不匹配，但改写一旦偏离原意，后续检索就会整体跑偏。所以<strong>要保留原始 Query 一起检索作为兜底</strong>（第十章 10.3.2）。</p>
+<h2 id="123">12.3 指代消解</h2>
+<p>指代消解会结合对话历史，把省略和指代还原成完整问题。</p>
+<pre><code>用户：iPhone 17 有几个版本？
+助手：有标准版、Pro 和 Pro Max。
+用户：Pro 的价格呢？    ← 直接拿去检索必然失败
+      ↓ 消解后
+      iPhone 17 Pro 的价格是多少？
+</code></pre>
+<p>这在多轮对话场景里通常是必需环节，而不是可选优化。很多「多轮对话下 RAG 效果突然变差」的问题，根源就在这里。</p>
+<p>实现时通常只传入最近若干轮历史，传太多反而会引入干扰。</p>
+<h2 id="124-query">12.4 多 Query 扩展</h2>
+<p>多 Query 扩展会让 LLM 生成同一问题的多个不同表述，<strong>并行</strong>检索后再合并结果。</p>
+<p>「年假怎么请」→</p>
+<ul>
+<li>「年假申请流程是什么」</li>
+<li>「带薪休假需要哪些审批」</li>
+<li>「休年假要提前多久提交」</li>
+</ul>
+<p>单个 Query 的表述可以看作<strong>随机的一次采样</strong>，可能刚好没命中文档的措辞。多个表述能覆盖更大的语义邻域，<strong>降低“表述不巧”导致的漏召</strong>。</p>
+<p>代价也很明确：一次 LLM 调用、N 倍的检索开销（可并行），以及后续的融合去重。这更适合召回率优先、可以接受额外延迟的场景。</p>
+<h2 id="125-hyde">12.5 HyDE：假设性文档嵌入</h2>
+<p>HyDE 不直接用 Query 检索，而是<strong>先让 LLM 生成一个“假想的答案文档”，再用这个假想文档去做向量检索</strong>。</p>
+<pre class="mermaid">flowchart LR
+    Q[Query: 年假怎么请] --> LLM[LLM 生成假想答案]
+    LLM --> H["假想文档: 员工申请年休假<br/>需提前 3 个工作日在系统提交<br/>经直属主管审批..."]
+    H --> EMB[向量化]
+    EMB --> SEARCH[检索真实文档]
+</pre>
+
+<p>它之所以有效，是因为向量检索本质上在比较两段文本的相似度，而<strong>问题和答案在语义空间里并不天然接近</strong>：问题是疑问句、通常很短；文档是陈述句、通常更长。</p>
+<p>用一个<strong>形式上更像文档的假想答案</strong>去检索，匹配的就变成「文档 vs 文档」而不是「问题 vs 文档」，<strong>在语义空间里的距离往往更近</strong>。</p>
+<p>这里的关键是：假想文档的内容不必正确。它不是用来回答问题的，而是用来<strong>提供检索信号</strong>。真正有用的是它的措辞、结构和术语分布。</p>
+<p>代价是一次额外的 LLM 调用，延迟通常会增加几百毫秒。如果问题涉及模型几乎没有先验知识的领域（企业内部黑话、全新的产品名），生成的假想文档可能与真实文档差得很远，<strong>反而降低效果</strong>。</p>
+<h2 id="126-step-back">12.6 Step-back 提问</h2>
+<p>Step-back 提问会先把具体问题<strong>抽象成一个更宽泛的问题</strong>，先检索背景知识，再回来回答原问题。</p>
+<p>「XX 型号电池在零下 20 度的续航衰减多少」
+→ 先问「锂电池在低温下的性能特性是什么」</p>
+<p>有些具体问题在文档里并没有直接写出答案，但<strong>支撑推理的原理性内容是有的</strong>。这时先检索原理，再让模型基于原理推导，通常比硬查具体表述更有效。</p>
+<p>它适合需要推理而非直接查找的问题，也适合原理性内容较多的知识库。风险在于抽象过头后会召回大量无关的通用内容，所以<strong>通常要与原始 Query 一起检索并合并结果</strong>。</p>
+<h2 id="127">12.7 查询分解</h2>
+<p>查询分解会把复合问题拆成多个子问题，分别检索，再综合结果。</p>
+<p>「对比 A 方案和 B 方案的成本和风险」
+→ 「A 方案的成本」「A 方案的风险」「B 方案的成本」「B 方案的风险」</p>
+<p>它主要解决一类向量检索的结构性缺陷：一个包含多个实体和多个维度的复合 Query，其向量是这些成分的混合，<strong>对任何一个成分都不够聚焦</strong>，结果往往是每个都召回一点、每个都不完整。</p>
+<p>多跳问题可以看作分解的特例：「A 公司 CEO 的母校在哪」需要先查出 CEO 是谁，再查这个人的母校——<strong>后一步依赖前一步的结果，必须串行</strong>。这已经进入 Agentic RAG 的范畴（第十五章）。</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>子问题关系</th>
+<th>执行方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>并列分解</td>
+<td>互相独立</td>
+<td><strong>并行</strong></td>
+</tr>
+<tr>
+<td>多跳分解</td>
+<td>后者依赖前者</td>
+<td><strong>必须串行</strong></td>
+</tr>
+</tbody>
+</table>
+<p>区分这两种分解方式很重要，因为它决定了延迟是「取最大值」还是「累加」。</p>
+<h2 id="128-query">12.8 Query 路由</h2>
+<p>改写之外还有一类动作：<strong>判断这个问题该走哪条路</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>路由决策</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>要不要检索</td>
+<td>闲聊和纯改写任务不需要（第十章 10.3.1）</td>
+</tr>
+<tr>
+<td>检索哪个知识库</td>
+<td>产品文档 / 制度文档 / 代码库</td>
+</tr>
+<tr>
+<td>用哪种检索方式</td>
+<td>术语精确查找偏 BM25，概念性问题偏向量</td>
+</tr>
+<tr>
+<td>需要几轮检索</td>
+<td>简单查找一轮，多跳问题多轮</td>
+</tr>
+</tbody>
+</table>
+<p>根据问题复杂度动态选择策略，通常比“所有问题一视同仁”更合适。相关研究方向（如 Adaptive-RAG）也表明：<strong>对简单问题用重策略是浪费，对复杂问题用轻策略则往往不够用</strong>。</p>
+<h2 id="129">12.9 方法对比与选择</h2>
+<table>
+<thead>
+<tr>
+<th>方法</th>
+<th>治的鸿沟</th>
+<th>LLM 调用</th>
+<th>延迟增加</th>
+<th>主要风险</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>指代消解</td>
+<td>指代</td>
+<td>1 次</td>
+<td>低</td>
+<td>消解错误</td>
+</tr>
+<tr>
+<td>直接改写</td>
+<td>表述</td>
+<td>1 次</td>
+<td>低</td>
+<td>改写偏离原意</td>
+</tr>
+<tr>
+<td>多 Query 扩展</td>
+<td>表述</td>
+<td>1 次</td>
+<td>中（检索可并行）</td>
+<td>引入噪音</td>
+</tr>
+<tr>
+<td>HyDE</td>
+<td>表述</td>
+<td>1 次</td>
+<td>中</td>
+<td>域外知识时反效果</td>
+</tr>
+<tr>
+<td>Step-back</td>
+<td>抽象层级</td>
+<td>1 次</td>
+<td>中</td>
+<td>抽象过度</td>
+</tr>
+<tr>
+<td>查询分解</td>
+<td>粒度</td>
+<td>1 次+</td>
+<td><strong>高</strong>（多跳需串行）</td>
+<td>分解不当</td>
+</tr>
+<tr>
+<td>路由</td>
+<td>—</td>
+<td>0–1 次</td>
+<td>低</td>
+<td>路由错误</td>
+</tr>
+</tbody>
+</table>
+<p>实践中常见的组合方式如下：</p>
+<ol>
+<li><strong>多轮对话场景先做指代消解</strong>，否则后续检索很容易因为省略和指代而失败；</li>
+<li><strong>然后做轻量的路由</strong>（要不要检索、走哪个库），通常用规则或小模型，成本较低；</li>
+<li><strong>再按需选一种改写方法</strong>，不要叠加多种，因为每种都会增加一次 LLM 调用；</li>
+<li><strong>始终保留原始 Query 一起检索</strong>。</li>
+</ol>
+<h2 id="1210">12.10 常见错误</h2>
+<h3 id="12101">12.10.1 罗列方法但说不出各治什么问题</h3>
+<p>只罗列方法名而不建立「鸿沟 → 方法」的对应关系，通常无法判断何时该用哪一种。</p>
+<h3 id="12102-hyde">12.10.2 认为 HyDE 的假想文档必须内容正确</h3>
+<p>它提供的是检索信号，不是答案本身。</p>
+<h3 id="12103-query">12.10.3 改写后丢弃原始 Query</h3>
+<p>改写失败时没有兜底。</p>
+<h3 id="12104">12.10.4 多轮对话不做指代消解</h3>
+<p>必需项，缺了会导致大面积召回失败。</p>
+<h3 id="12105">12.10.5 不区分并列分解与多跳分解</h3>
+<p>前者可并行，后者必须串行，延迟特征完全不同。</p>
+<h3 id="12106">12.10.6 所有问题都走同一套重策略</h3>
+<p>简单问题用重策略是纯粹的成本浪费。</p>
+<h3 id="12107">12.10.7 叠加多种改写方法</h3>
+<p>每种一次 LLM 调用，延迟累加，收益却不叠加。</p>
+<h2 id="1211">12.11 本章总结</h2>
+<ol>
+<li><strong>Query 改写解决的是四种鸿沟</strong>：表述、指代、粒度、抽象层级——<strong>每种方法对应一种鸿沟</strong>；</li>
+<li><strong>指代消解在多轮对话中是必需项</strong>；</li>
+<li><strong>多 Query 扩展</strong>通过覆盖更大的语义邻域降低"表述不巧"导致的漏召；</li>
+<li><strong>HyDE 的做法</strong>：用形式上像文档的假想答案检索，把「问题 vs 文档」变成「文档 vs 文档」；<strong>内容不需要正确，只需要像</strong>；</li>
+<li><strong>Step-back</strong> 先检索原理再推导，适合答案没有被直接写出来的问题；</li>
+<li><strong>查询分解</strong>要区分并列（可并行）和多跳（必须串行）；</li>
+<li><strong>路由</strong>根据问题复杂度选择策略，避免简单问题用重策略；</li>
+<li><strong>始终保留原始 Query 兜底</strong>，不要叠加多种改写方法。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2212.10496">Precise Zero-Shot Dense Retrieval without Relevance Labels</a></li>
+<li><a href="https://arxiv.org/abs/2310.06117">Take a Step Back: Evoking Reasoning via Abstraction in Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2305.14283">Query Rewriting for Retrieval-Augmented Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2403.14403">Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LangChain 与 LangGraph · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="LangChain 与 LangGraph — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>LangGraph</span> / <span>LangChain 与 LangGraph</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="langchain-langgraph">第九章：LangChain 与 LangGraph 的层次关系</h1>
+<h2 id="91">9.1 两者处于同一层吗</h2>
+<p>只按功能多少来比较这两个框架，很容易忽略它们是<strong>上下层关系</strong>。</p>
+<blockquote>
+<p><strong>LangChain 提供高层 Agent API，LangGraph 提供更低层的编排框架与运行时。</strong></p>
+<p>本章聚焦层次、选型和组合边界；<code>interrupt</code> 审批协议、节点容错版本、流式脱敏和持久化实现放在<a href="10-langgraph-advantages.html">第十章</a>展开。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>官方定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LangChain</strong></td>
+<td><strong>高层 Agent 框架</strong>，提供模型、工具和常见的 Agent 循环</td>
+</tr>
+<tr>
+<td><strong>LangGraph</strong></td>
+<td><strong>更低层的编排框架与运行时</strong>，负责有状态流程如何执行、暂停和恢复</td>
+</tr>
+</tbody>
+</table>
+<p><strong>LangGraph 可以使用 LangChain 的模型和工具组件，但并不强制依赖 LangChain</strong>，也可以直接接其他模型 SDK 或普通 Python 函数。</p>
+<h3 id="911">9.1.1 关键的层次关系</h3>
+<pre class="mermaid">flowchart TB
+    A["LangChain 高层 Agent API<br/>create_agent"] --> B["编译后的 LangGraph"]
+    B --> C["检查点、流式事件、中断与执行运行时"]
+
+    style A fill:#e8f0fe
+    style C fill:#fff3cd
+</pre>
+
+<p><strong><code>create_agent</code> 会构建一个基于 LangGraph 的图运行时</strong>：Agent 在模型节点和工具节点之间循环，直到模型给出最终答案或命中停止条件。</p>
+<blockquote>
+<p><strong>这也解释了为什么两者看起来能力重叠，却不能互相替代</strong>：</p>
+<ul>
+<li>用 <strong>LangChain</strong> 时，框架已经替你搭好了常见 Agent 的拓扑，<strong>你主要配置零件和生命周期钩子</strong>；</li>
+<li>用 <strong>LangGraph</strong> 时，<strong>节点怎么拆、状态怎么更新、下一步去哪，都由你来决定</strong>。</li>
+</ul>
+</blockquote>
+<h2 id="92">9.2 核心差异：抽象层级</h2>
+<table>
+<thead>
+<tr>
+<th>对比维度</th>
+<th>LangChain v1</th>
+<th>LangGraph</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>官方定位</strong></td>
+<td>高层 Agent 开发框架</td>
+<td>低层 Agent 编排框架与运行时</td>
+</tr>
+<tr>
+<td><strong>主要入口</strong></td>
+<td><code>create_agent</code>、模型、工具、middleware、结构化输出</td>
+<td><code>StateGraph</code>、State、Node、Edge、<code>Command</code>、<code>Send</code>、Subgraph</td>
+</tr>
+<tr>
+<td><strong>默认提供什么</strong></td>
+<td>预构建的模型与工具调用循环，以及常用扩展点</td>
+<td>构建任意有状态工作流的编排原语，<strong>不替你规定 Prompt 或 Agent 架构</strong></td>
+</tr>
+<tr>
+<td><strong>控制流</strong></td>
+<td>标准 Agent loop 已搭好，可通过 middleware 定制</td>
+<td>开发者显式定义顺序、条件路由、循环、并行、动态分发和子图</td>
+</tr>
+<tr>
+<td><strong>状态</strong></td>
+<td>以 AgentState 和 messages 为默认核心，可扩展字段</td>
+<td>可设计完整 State Schema、输入输出 Schema、内部通道与 reducer</td>
+</tr>
+<tr>
+<td><strong>持久化与记忆</strong></td>
+<td>通过底层 LangGraph 的 checkpointer 和 store 使用</td>
+<td>直接在图编译和运行层控制 checkpointer、store、thread 与状态历史</td>
+</tr>
+<tr>
+<td><strong>durable execution</strong></td>
+<td>可以继承底层运行能力，标准 Agent 也能暂停和恢复</td>
+<td><strong>是核心定位之一</strong>，更适合显式设计长流程的恢复边界和副作用</td>
+</tr>
+<tr>
+<td><strong>人工介入</strong></td>
+<td>常用 <code>HumanInTheLoopMiddleware</code> 审批工具调用</td>
+<td>可在<strong>任意节点内</strong>用 <code>interrupt()</code> 暂停，用 <code>Command(resume=...)</code> 恢复</td>
+</tr>
+<tr>
+<td><strong>流式输出</strong></td>
+<td>直接从 Agent 输出消息 token、步骤更新和自定义进度</td>
+<td>除消息和状态外，还可观察 checkpoint、task、debug 等更底层事件</td>
+</tr>
+<tr>
+<td><strong>扩展方式</strong></td>
+<td>middleware 钩住 Agent、模型和工具生命周期</td>
+<td>节点、边、路由函数、<code>Command</code>、<code>Send</code>、子图和 Runtime</td>
+</tr>
+<tr>
+<td><strong>部署与调试</strong></td>
+<td>可接 LangSmith tracing、Studio 和 Deployment</td>
+<td>同一套能力，并能更直接查看节点路径和状态变化</td>
+</tr>
+<tr>
+<td><strong>更适合</strong></td>
+<td>标准工具调用 Agent、客服助手、数据查询助手、快速原型</td>
+<td>长流程、多阶段审批、确定性与 Agent 混排、复杂并行、多 Agent 系统</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>「持久化」「流式输出」「人工介入」会同时出现在两列，是因为这些能力由 LangGraph 运行时提供，LangChain Agent 也能直接使用。</strong></p>
+<p>两者差别主要是封装层级和控制粒度，不是简单的有或没有。</p>
+</blockquote>
+<h2 id="93-langchain">9.3 「LangChain 只能线性执行」为什么是错的</h2>
+<p><strong>它混淆了三个不同概念。</strong></p>
+<h3 id="931-chain">9.3.1 传统 Chain 也不只能顺序执行</h3>
+<p><strong>LCEL 除了 <code>RunnableSequence</code>，也能通过并行和分支 Runnable 表达并发与条件选择</strong>（见 <a href="../01-foundations/02-chain-and-lcel.html">第二章</a>）。</p>
+<blockquote>
+<p>固定的 Prompt、模型、解析器流水线<strong>常写成线性形式，但那是用法选择，不是框架能力上限</strong>。</p>
+</blockquote>
+<h3 id="932-create_agent">9.3.2 <code>create_agent</code> 本身就不是一条直线</h3>
+<p>模型可能直接结束，也可能请求工具；工具执行后又回到模型继续决策——<strong>这已经形成「条件路由 + 循环」</strong>，多个工具调用还可能被并行执行。</p>
+<blockquote>
+<p><strong>拿一条早期 <code>prompt | model | parser</code> 管道去代表当前 LangChain Agent，并不公平。</strong></p>
+</blockquote>
+<h3 id="933">9.3.3 真正拉开差异的是「业务拓扑成为一等公民」</h3>
+<p><strong>比如这样一条流程</strong>：</p>
+<pre class="mermaid">flowchart TB
+    A["权限校验"] --> B1["研究节点 1"] & B2["研究节点 2"] & B3["研究节点 3"]
+    B1 & B2 & B3 --> C["汇总"]
+    C --> D{"金额高?"}
+    D -->|是| E["转人工"]
+    D -->|否| F["继续"]
+    F --> G{"失败?"}
+    G -->|是| H["补偿节点"]
+    G -->|否| I["等待次日任务继续"]
+
+    style C fill:#e8f0fe
+    style H fill:#fff3cd
+</pre>
+
+<p><strong>这时开发者需要明确看到每个节点、状态字段和路由条件</strong>，图编排的价值才真正体现出来。</p>
+<blockquote>
+<p><strong>更准确的边界</strong>：LangChain 能表达分支和循环，但它的高层 Agent API 主要围绕<strong>通用模型与工具循环</strong>组织；<strong>LangGraph 则允许开发者直接拥有整个工作流的拓扑控制权。</strong></p>
+</blockquote>
+<h2 id="94-middleware">9.4 Middleware 与图编排有何不同</h2>
+<p>middleware 能覆盖一部分定制需求，但它不等于图编排。</p>
+<blockquote>
+<p>区别在于：是在<strong>围绕同一套 Agent loop 加横切逻辑</strong>，还是要<strong>重新定义整条业务流程的拓扑</strong>。</p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>处理的问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>middleware</strong></td>
+<td>改造<strong>标准 Agent loop</strong>：模型调用前动态生成提示词、裁剪消息、选模型和工具；调用后做安全检查；给工具调用增加重试和人工审批。<strong>这些逻辑都围绕 Agent / Model / Tool 的生命周期展开，不需要重新设计整张图</strong></td>
+</tr>
+<tr>
+<td><strong>节点和边</strong></td>
+<td><strong>更一般的流程结构</strong>：分类节点进入完全不同的子流程，多个节点并行后汇合，把数据库写入、人工表单、规则引擎和一个完整 Agent 放在同一张图中。<strong>这里的每一步不一定是模型或工具调用，甚至可以完全不使用 LLM</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>middleware 不是独立运行时</strong>，它运行在 <code>create_agent</code> 返回的编译图内部。<strong>这个完整 Agent 还可以作为节点或子图放进更大的 <code>StateGraph</code>，middleware 会跟着它一起工作。</strong></p>
+<p><strong>这正是两层组合，而不是二选一。</strong></p>
+</blockquote>
+<h3 id="941">9.4.1 组合示例</h3>
+<pre><code class="language-python">from typing import Literal
+
+from langchain.agents import AgentState, create_agent
+from langgraph.graph import END, START, StateGraph
+
+class WorkflowState(AgentState):
+    # route 是外层业务流程状态，不属于标准 Agent loop 的固定字段
+    route: Literal[&quot;research&quot;, &quot;reject&quot;]
+
+def classify_request(state: WorkflowState) -&gt; dict:
+    # 这里用确定性规则演示路由，实际项目也可以调用分类模型
+    text = str(state[&quot;messages&quot;][-1].content)
+    route = &quot;reject&quot; if &quot;删除生产数据&quot; in text else &quot;research&quot;
+    return {&quot;route&quot;: route}
+
+def choose_route(state: WorkflowState) -&gt; Literal[&quot;research_agent&quot;, &quot;reject&quot;]:
+    # 条件边根据外层业务状态选择下一节点
+    return &quot;research_agent&quot; if state[&quot;route&quot;] == &quot;research&quot; else &quot;reject&quot;
+
+def reject_request(state: WorkflowState) -&gt; dict:
+    # 确定性的拒绝节点不需要调用模型
+    return {&quot;messages&quot;: [{&quot;role&quot;: &quot;assistant&quot;, &quot;content&quot;: &quot;该操作不在允许范围内。&quot;}]}
+
+# create_agent 返回编译后的 LangGraph，可直接嵌入外层图成为子图
+research_agent = create_agent(
+    model=research_model,
+    tools=[search_tool],
+)
+
+builder = StateGraph(WorkflowState)
+builder.add_node(&quot;classify&quot;, classify_request)
+builder.add_node(&quot;research_agent&quot;, research_agent)
+builder.add_node(&quot;reject&quot;, reject_request)
+builder.add_edge(START, &quot;classify&quot;)
+builder.add_conditional_edges(&quot;classify&quot;, choose_route)
+builder.add_edge(&quot;research_agent&quot;, END)
+builder.add_edge(&quot;reject&quot;, END)
+
+# 外层 LangGraph 管业务拓扑，内层 LangChain Agent 管模型与工具循环
+workflow = builder.compile()
+</code></pre>
+<blockquote>
+<p><strong>这段代码不是在把 LangChain「迁移」成 LangGraph，而是在正确分工。</strong> 内部研究 Agent 继续享受高层抽象，外部业务流程则获得显式路由。</p>
+</blockquote>
+<h2 id="95-state">9.5 State：默认状态与自由建模</h2>
+<p>Agent 需要状态，是因为模型调用、工具结果、人工意见和中间产物不能只靠函数局部变量一直传下去。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>状态使用姿势</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LangChain</strong></td>
+<td>为常见 Agent 准备了 <strong>AgentState，默认核心是 <code>messages</code></strong>。用户消息、工具调用、工具结果和最终回复都追加到这份状态。可用 TypedDict 扩展字段，<strong>官方更推荐让相关 middleware 声明自己需要的状态</strong>，避免能力和数据散落</td>
+</tr>
+<tr>
+<td><strong>LangGraph</strong></td>
+<td><strong>状态设计本身成为工作流架构的一部分</strong>。可定义整体 State，也可区分输入、输出和内部 Schema。<strong>节点只返回局部更新，reducer 决定并行或多次更新如何合并</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="951-reducer">9.5.1 为什么需要 reducer</h3>
+<blockquote>
+<p><strong>假如多个研究节点同时写入 <code>evidence</code>，我们希望追加结果，而不是让后写入的结果覆盖前一份证据。</strong></p>
+<p><strong>合并语义必须在 State 中提前定义。</strong></p>
+</blockquote>
+<p><strong>这不是说 LangChain 没有 State</strong>——它的 Agent State 就运行在 LangGraph 上。区别在于：用 LangChain 时通常接受一套<strong>为标准 Agent loop 设计好的状态骨架</strong>；直接用 LangGraph 时，你要为整个业务工作流<strong>设计数据通道和更新规则</strong>，也因此拥有更大的自由度和责任。</p>
+<h2 id="96">9.6 谁提供持久化与记忆</h2>
+<p>这里常见两种误解：</p>
+<ul>
+<li>❌「LangChain 管记忆，LangGraph 管持久化」</li>
+<li>❌「只有 LangGraph 才能断点恢复」</li>
+</ul>
+<blockquote>
+<p>这两种说法都把上下层关系拆开了。</p>
+</blockquote>
+<h3 id="961-langgraph">9.6.1 LangGraph 的两套持久化机制</h3>
+<table>
+<thead>
+<tr>
+<th>机制</th>
+<th>保存</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Checkpointer</strong></td>
+<td>按 <code>thread_id</code> 保存图状态快照</td>
+<td>线程内短期记忆、人工介入、时间旅行、故障恢复</td>
+</tr>
+<tr>
+<td><strong>Store</strong></td>
+<td>图状态之外、<strong>跨线程</strong>可读取的业务数据</td>
+<td>用户偏好、事实、共享知识等长期记忆</td>
+</tr>
+</tbody>
+</table>
+<p><strong><code>create_agent</code> 会把 checkpointer 和 store 交给底层图</strong>，因此 LangChain Agent 同样可以获得短期记忆、长期记忆和恢复能力（见 <a href="../02-agent-building/06-memory.html">第六章</a>）。</p>
+<blockquote>
+<p><strong>真正的差异在控制粒度</strong>：LangChain 给标准 Agent 暴露便利入口，<strong>LangGraph 让开发者在任意节点和子图层面设计状态保存与恢复边界</strong>。</p>
+</blockquote>
+<h3 id="962-durable-execution">9.6.2 durable execution 的选型含义</h3>
+<p>Checkpointer 能恢复状态，不会替业务保证副作用安全；复杂流程需要显式设计任务边界与幂等。这正是业务需要下沉 LangGraph 的信号之一。<strong>恢复语义、审批协议和容错实现见<a href="10-langgraph-advantages.html">第十章</a>。</strong></p>
+<h2 id="97">9.7 人工介入有什么区别</h2>
+<table>
+<thead>
+<tr>
+<th>需求</th>
+<th>更合适的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>「模型想发送邮件时先让人确认」</td>
+<td><strong><code>HumanInTheLoopMiddleware</code></strong>：工具真正执行前暂停，接受批准、修改、拒绝或人工直接回复</td>
+</tr>
+<tr>
+<td>理赔流程展示中间材料让审核员补字段；营销流程等一周后继续；多位审核人分别填意见再按票数路由</td>
+<td><strong>LangGraph 的 <code>interrupt()</code></strong>：可放在节点内部的<strong>任意业务位置</strong>，恢复时把外部输入送回流程</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>底层状态都由 LangGraph 持久化，恢复时继续使用相同的 <code>thread_id</code>。</strong></p>
+<p><strong>准确说法是</strong>：LangChain 提供了围绕 Agent 工具调用的<strong>高层审批体验</strong>，LangGraph 提供了<strong>更通用的中断与恢复原语</strong>。前者省事，后者表达范围更广。</p>
+<p>审批载荷的严格 schema、身份边界、任务/版本绑定和一次性幂等决策属于实现要求，见<a href="10-langgraph-advantages.html">第十章</a>，不要仅把它当成一个布尔确认框。</p>
+</blockquote>
+<h2 id="98">9.8 流式输出能看到多深</h2>
+<p><strong>用户界面逐字显示模型回答，只是流式输出最表面的一层。</strong></p>
+<ul>
+<li>用户还想看到「正在搜索」「工具已返回」「等待审批」等进度；</li>
+<li><strong>开发者可能需要观察哪个节点更新了哪些状态、哪个任务失败、何时写入检查点。</strong></li>
+</ul>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>能观察到</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LangChain Agent</strong></td>
+<td><code>stream</code> / <code>stream_events</code> 输出模型消息、Agent 步骤和工具自定义进度（<strong>因为 <code>create_agent</code> 返回编译图，它遵循 LangGraph 的流式接口</strong>）</td>
+</tr>
+<tr>
+<td><strong>LangGraph</strong></td>
+<td>更低层的 <code>values</code>、<code>updates</code>、<code>messages</code>、<code>custom</code>、<code>checkpoints</code>、<code>tasks</code>、<code>debug</code> 等事件类型，还能处理<strong>子图命名空间</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>两者都能流式输出</strong>——LangChain 优先给常见 Agent 体验，LangGraph 允许观察完整执行引擎。</p>
+</blockquote>
+<p><code>stream_events(..., version="v3")</code> 的类型化投影和前端状态白名单属于具体实现，见<a href="10-langgraph-advantages.html">第十章</a>。</p>
+<h2 id="99">9.9 部署与调试如何分工</h2>
+<p><strong>把 LangSmith 当成 LangGraph 专属控制台也不准确。</strong></p>
+<p>LangSmith 承担 <strong>tracing、evaluation、Studio 和 Deployment</strong> 等平台能力，可以观察 LangChain Agent，也可以观察直接编写的 LangGraph，甚至支持其他框架接入 tracing。</p>
+<blockquote>
+<p><strong>由于 <code>create_agent</code> 本身就是图，LangChain Agent 也可以在 Studio 中查看节点、线程、状态和执行轨迹。</strong></p>
+</blockquote>
+<p><strong>直接使用 LangGraph 时</strong>，业务步骤被拆成更明确的节点，往往更容易看到复杂路由走了哪条路径，并使用 checkpoint 做状态回放和时间旅行调试。<strong>但这种可见性来自图的建模粒度，不代表 LangChain 无法部署或调试。</strong></p>
+<blockquote>
+<p>这里要分清两个问题：是否使用托管平台，是<strong>部署选择</strong>；是否使用 LangChain 高层 Agent API，是<strong>开发抽象选择</strong>。</p>
+</blockquote>
+<h2 id="910-langgraph">9.10 什么时候下沉 LangGraph</h2>
+<pre class="mermaid">flowchart TB
+    Q1{"需求能自然表达成<br/>『给模型一组工具，让它循环调用直到完成』吗?"}
+    Q1 -->|能| A["从 create_agent 开始<br/>客服问答、数据库查询助手、内部知识助手"]
+    A --> A2["提示词动态化、模型切换、工具筛选<br/>摘要、重试、护栏、敏感工具审批<br/>先用 middleware 解决"]
+    Q1 -->|主角已不是一个 Agent loop<br/>而是一条业务流程| B["考虑 LangGraph"]
+    B --> B2["典型信号：<br/>确定性规则与模型决策交替出现<br/>多条路径并行再汇合<br/>跨小时/跨天暂停恢复<br/>多个 Agent 协作<br/>必须精确控制失败补偿和人工节点"]
+
+    style A fill:#e6f4ea
+    style B fill:#fff3cd
+</pre>
+
+<h3 id="9101">9.10.1 更常见的做法是渐进式组合</h3>
+<p><strong>先用 LangChain 做出单个可用 Agent，等业务拓扑变复杂时，再把这个 Agent 作为 LangGraph 的节点或子图。</strong></p>
+<blockquote>
+<p>官方推荐的路线也是：先从高层入口开始，复杂度上来后再下沉到细粒度控制。</p>
+</blockquote>
+<h3 id="9102">9.10.2 最后一个误区</h3>
+<blockquote>
+<p><strong>LangGraph 更底层，不代表它天然更适合所有项目。</strong></p>
+<p>控制权越大，需要自己设计和测试的状态、路由、恢复与副作用就越多。一个标准 Agent 用几十个节点重搭一遍，未必更可靠，反而可能增加维护成本。</p>
+</blockquote>
+<h2 id="911_1">9.11 常见错误</h2>
+<h3 id="9111">9.11.1 把两者当成并列的两套引擎比功能多少</h3>
+<p><strong>它们是上下层关系</strong>，<code>create_agent</code> 就构建在 LangGraph 上。</p>
+<h3 id="9112-langchain">9.11.2 说「LangChain 只能线性」</h3>
+<p><strong>LCEL 能并行和分支，Agent loop 本身就是条件路由 + 循环。</strong></p>
+<h3 id="9113-langgraph">9.11.3 说「持久化 / 流式 / 记忆 / 人工审批只有 LangGraph 才有」</h3>
+<p><strong>LangChain Agent 通过底层 LangGraph 同样能用</strong>，差别是控制粒度和使用成本。</p>
+<h3 id="9114-middleware">9.11.4 认为 middleware 能替代图编排</h3>
+<p><strong>middleware 围绕 Agent / Model / Tool 生命周期</strong>，节点和边处理的是更一般的流程结构（可以完全不含 LLM）。</p>
+<h3 id="9115-middleware">9.11.5 把 middleware 当成独立运行时</h3>
+<p><strong>它跑在编译图内部。</strong></p>
+<h3 id="9116-langgraph-reducer">9.11.6 用 LangGraph 却不定义 reducer</h3>
+<p><strong>并行写入同一字段会互相覆盖</strong>，合并语义必须提前定义。</p>
+<h3 id="9117-durable-execution">9.11.7 以为 durable execution 就是把状态存进数据库</h3>
+<p><strong>恢复时重跑扣款和发邮件照样出事故</strong>，副作用必须放进任务边界并保证幂等。</p>
+<h3 id="9118-langsmith-langgraph">9.11.8 把 LangSmith 当成 LangGraph 专属</h3>
+<p><strong>它可以观察 LangChain Agent，也支持其他框架接入。</strong></p>
+<h3 id="9119">9.11.9 把部署选择和抽象选择混为一谈</h3>
+<p><strong>是否托管 ≠ 是否用高层 API。</strong></p>
+<h3 id="91110">9.11.10 认为「更底层 = 更高级」</h3>
+<p><strong>控制权越大，要自己设计和测试的东西越多。</strong></p>
+<h2 id="912">9.12 本章总结</h2>
+<ol>
+<li><strong>关系先定准</strong>：LangChain v1 是高层 Agent 框架，LangGraph 是低层编排框架与运行时，<strong><code>create_agent</code> 构建在 LangGraph 上</strong>；</li>
+<li><strong>核心边界</strong>：LangChain 默认提供常见模型与工具循环；LangGraph 不替你规定 Agent 架构，而是把 State、Node、Edge、分支、循环、并行、子图、中断和恢复交出来；</li>
+<li><strong>「LangChain 只能线性」是错的</strong>：LCEL 支持并行分支，Agent loop 本身就是条件路由加循环；</li>
+<li><strong>真正的差异是「业务拓扑是不是一等公民」</strong>；</li>
+<li><strong>middleware 改造同一台机器，图编排重新规划整条生产线</strong>，且 middleware 跑在编译图内部；</li>
+<li><strong>AgentState 是为标准 loop 准备的骨架，LangGraph 让状态设计成为架构的一部分</strong>，reducer 决定合并语义；</li>
+<li><strong>Checkpointer 管线程内快照，Store 管跨线程数据</strong>，两者都由 LangGraph 提供、LangChain 可直接使用；</li>
+<li><strong>durable execution 的难点是副作用而非存储</strong>：任务边界 + 幂等；</li>
+<li><strong>人工介入两档</strong>：中间件审批工具调用 vs <code>interrupt()</code> 放在任意业务位置；</li>
+<li><strong>流式输出两档</strong>：Agent 步骤与消息 vs checkpoint / task / debug 等引擎级事件；</li>
+<li><strong>LangSmith 不是 LangGraph 专属</strong>，部署选择与抽象选择要分开；</li>
+<li><strong>推荐路线是渐进式组合</strong>：先 LangChain 做出可用 Agent，业务拓扑变复杂时把它作为节点或子图嵌入 LangGraph。</li>
+</ol>
+<blockquote>
+<p>可以把两者的关系记成这样：LangChain 负责高层 Agent 入口和标准模型/工具循环，LangGraph 负责更细粒度的状态与流程控制。多数真实项目会先用 LangChain 构建 Agent，再按需要把它嵌进 LangGraph 的业务流程里。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langchain/overview">LangChain 官方文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/agents">LangChain: Agents 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/middleware">LangChain: Middleware</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/streaming">LangChain: Streaming</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/use-graph-api">LangGraph: Graph API</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence">LangGraph 持久化文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/interrupts">LangGraph: Human-in-the-loop</a></li>
+<li><a href="https://docs.langchain.com/langsmith/observability">LangSmith 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

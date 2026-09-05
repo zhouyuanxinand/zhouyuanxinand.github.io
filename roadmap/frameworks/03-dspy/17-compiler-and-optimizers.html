@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>编译器与优化器 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="编译器与优化器 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>DSPy</span> / <span>编译器与优化器</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="dspy">第十七章：DSPy 的编译器与优化器</h1>
+<h2 id="171-prompt">17.1 从「手工调 Prompt」到「指标驱动的自动搜索」</h2>
+<p>第十六章讲的 <code>Signature</code> 和 <code>Module</code> 只是声明式编程的前半段；DSPy 的关键能力在<strong>编译</strong>阶段——给定一个 <code>Program</code>、一个训练/验证数据集和一个评估指标，编译器会自动搜索能让指标最优的具体实现（Few-shot 示例、Prompt 措辞，甚至更新底层模型权重），而不需要人工反复试错。</p>
+<p>用一个不涉及具体实现细节的抽象目标来描述这个过程：给定程序参数 $\theta$（可以是 few-shot 示例集合、指令措辞、也可以是模型权重）、验证集 $D$ 和评估指标 $\mu$，编译器求解</p>
+<p>$$
+\theta^{*} = \arg\max_{\theta} \frac{1}{|D|} \sum_{(x, y) \in D} \mu\bigl(f_\theta(x), y\bigr)
+$$</p>
+<p>这与 <a href="../../llm/">评测与选型主题</a> 中「能力评测指标」一章讨论的是同一套量化方法，只是在 DSPy 里它直接成为<strong>优化目标</strong>，而不只是事后打分工具。</p>
+<h2 id="172">17.2 三类优化器：从少样本引导到跨模型迁移</h2>
+<p>DSPy 提供的优化器（<code>teleprompter</code>）大体分三类，复杂度和适用场景依次递进：</p>
+<table>
+<thead>
+<tr>
+<th>优化器</th>
+<th>优化对象</th>
+<th>核心机制</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>BootstrapFewShot</code></td>
+<td>Few-shot 示例集合</td>
+<td>用当前 <code>Program</code> 自己在训练集上生成候选推理轨迹，保留通过指标校验的轨迹作为示例</td>
+</tr>
+<tr>
+<td><code>MIPROv2</code></td>
+<td>指令措辞 + Few-shot 示例</td>
+<td>先用贝叶斯搜索联合优化指令与示例组合，再在验证集上评估候选组合</td>
+</tr>
+<tr>
+<td><code>GEPA</code></td>
+<td>指令措辞（基于反思的进化搜索）</td>
+<td>让模型对失败样本做自然语言反思，把反思结果变异为新指令，通过评估结果做进化式筛选，比传统贝叶斯搜索更依赖失败案例的语义分析</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid">flowchart LR
+    P["未优化的 Program"] --> B{"选择优化器"}
+    B -->|"数据量小、任务简单"| BF["BootstrapFewShot"]
+    B -->|"需要同时调指令和示例"| MI["MIPROv2"]
+    B -->|"需要从失败案例反思迭代"| GE["GEPA"]
+    BF --> C["编译产物：优化过的 Program"]
+    MI --> C
+    GE --> C
+    C --> D["可直接替换原 Program，接口不变"]
+</pre>
+
+<p>编译产物替换原 <code>Program</code> 时，调用方代码通常不需要修改。<code>compiled_program = optimizer.compile(program, trainset=trainset)</code> 之后，<code>compiled_program</code> 和 <code>program</code> 暴露的调用接口是一致的，优化只发生在内部的 Prompt 和示例上。</p>
+<h2 id="173-langsmith">17.3 评测与优化的一体化：和 LangSmith 式可观测性的差异</h2>
+<p><a href="../01-langchain/05-production/13-langsmith-production-loop.html">LangSmith 生产质量闭环</a> 描述的是一种<strong>事后回路</strong>：先上线，采集 Trace 和生产反馈，离线组建 Dataset，人工或半自动分析后再改 Prompt，本质上是「观测 → 人工决策 → 修改」。</p>
+<p>DSPy 的评测循环发生在<strong>编译阶段之内</strong>，是「评测即优化」：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LangSmith 式可观测性</th>
+<th>DSPy 编译式优化</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>评测发生的时机</strong></td>
+<td>上线后持续采集、离线复盘</td>
+<td>编译时对训练/验证集反复评估</td>
+</tr>
+<tr>
+<td><strong>谁来决定怎么改</strong></td>
+<td>工程师根据 Trace 和评估结果人工调整 Prompt</td>
+<td>优化器根据指标自动搜索 Prompt/示例组合</td>
+</tr>
+<tr>
+<td><strong>反馈闭环速度</strong></td>
+<td>依赖生产流量积累和人工分析节奏</td>
+<td>只要有标注数据和指标，可以在开发阶段快速迭代</td>
+</tr>
+<tr>
+<td><strong>可解释性</strong></td>
+<td>Trace 直接可读，容易定位具体失败点</td>
+<td>编译过程是搜索式黑盒，需要额外记录候选方案对比</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这不是互斥关系</strong>：即使用 DSPy 编译出了一版 <code>Program</code>，生产环境依然需要 LangSmith、OpenTelemetry 之类的运行时可观测性来发现「训练集没覆盖到的失败模式」，再把这些新失败样本补回 DSPy 的训练集重新编译——两者分别覆盖「开发期离线优化」和「生产期在线监控」两个不同阶段。</p>
+<h2 id="174-dspy">17.4 什么时候值得引入 DSPy</h2>
+<p>编译式优化不是免费的：它要求你有<strong>结构化的评估指标</strong>和<strong>一定规模的标注数据</strong>，还要接受「优化器在搜索什么」不总是完全透明。</p>
+<table>
+<thead>
+<tr>
+<th>项目特征</th>
+<th>是否适合引入 DSPy</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>有明确、可自动计算的评估指标（准确率、F1、结构化字段匹配等）</td>
+<td><strong>适合</strong>，指标越明确优化效果越可控</td>
+</tr>
+<tr>
+<td>只能靠人工主观判断「答案好不好」</td>
+<td><strong>谨慎</strong>，缺乏自动指标会让优化器退化成盲目搜索</td>
+</tr>
+<tr>
+<td>Prompt 需要频繁跨模型迁移（换供应商、换版本）</td>
+<td><strong>适合</strong>，重新编译比人工重写全部 Prompt 更省成本</td>
+</tr>
+<tr>
+<td>团队更看重「Prompt 每一个字都可解释、可审计」</td>
+<td><strong>谨慎</strong>，编译产物的具体措辞是搜索出来的，可解释性弱于手写 Prompt</td>
+</tr>
+<tr>
+<td>已经有一套基于 LangChain/LlamaIndex 的生产系统</td>
+<td><strong>可以局部引入</strong>：把某个高价值、指标明确的子任务（如信息抽取）单独用 DSPy 编译，再包装成 Tool 接入现有系统</td>
+</tr>
+</tbody>
+</table>
+<h2 id="175">17.5 常见错误</h2>
+<h3 id="1751">17.5.1 没有评估指标就直接上优化器</h3>
+<p>优化器的搜索完全依赖指标函数 $\mu$ 的质量；指标定义得粗糙（比如只判断输出格式是否合法，不判断内容是否正确），优化器会精确地把 Prompt 优化到「擅长骗过这个粗糙指标」，而不是真正解决任务。</p>
+<h3 id="1752-prompt">17.5.2 把编译产物当成一次性的静态 Prompt 永久使用</h3>
+<p>模型供应商更新底层模型后，之前编译出的 Few-shot 示例和措辞不一定还是最优的，需要重新触发编译，而不是把编译产物当成写死的常量。</p>
+<h3 id="1753">17.5.3 用训练集本身当验证集评估优化效果</h3>
+<p><code>BootstrapFewShot</code> 之类的优化器本身就是在训练集上生成候选示例，如果验证也用同一批数据，测出来的指标会系统性偏高，看不出真实的泛化能力。</p>
+<h3 id="1754-dspy">17.5.4 期望 DSPy 优化器解决模型能力上限问题</h3>
+<p>优化器只能在给定模型的能力范围内搜索更好的 Prompt 和示例组合，模型本身做不到的推理（比如复杂数值计算），换多少种 Prompt 措辞也解决不了，这类问题应该交给 <code>ProgramOfThought</code> 生成代码执行，而不是继续加大搜索预算。</p>
+<h2 id="176">17.6 本章总结</h2>
+<ol>
+<li><strong>DSPy 编译可以理解为指标驱动的自动搜索</strong>：给定 <code>Program</code>、数据集和评估指标，优化器搜索能让指标最优的具体实现；</li>
+<li><strong><code>BootstrapFewShot</code>、<code>MIPROv2</code>、<code>GEPA</code> 代表复杂度递增的三类策略</strong>：分别是自举示例、联合搜索指令与示例、基于失败反思的进化搜索；</li>
+<li><strong>编译产物与原 <code>Program</code> 接口一致</strong>，可以无缝替换，优化只发生在内部实现上；</li>
+<li><strong>DSPy 的「评测即优化」和 LangSmith 式的「观测后人工决策」是两个不同阶段的能力，互补而非互斥</strong>；</li>
+<li><strong>引入 DSPy 的前提是有明确的评估指标和一定规模的标注数据</strong>，缺乏这两者时优化器容易退化成盲目搜索甚至过拟合指标本身；</li>
+<li><strong>DSPy 解决不了模型能力上限问题</strong>，它只能在给定模型能力范围内寻找更好的 Prompt 表达方式。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://dspy.ai/learn/optimization/optimizers/">DSPy: Optimizers 概念</a></li>
+<li><a href="https://dspy.ai/getting-started/gepa-optimization/">DSPy: GEPA 优化教程</a></li>
+<li><a href="https://arxiv.org/abs/2310.03714">DSPy 论文：Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines"</a></li>
+<li><a href="https://arxiv.org/abs/2507.19457">GEPA 论文：Agrawal et al., "GEPA: Reflective Prompt Evolution Can Outperform Reinforcement Learning"</a></li>
+<li><a href="https://docs.smith.langchain.com/">LangSmith 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

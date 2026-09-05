@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>幻觉的成因与缓解 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="幻觉的成因与缓解 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>Prompt 与可靠性</span> / <span>幻觉的成因与缓解</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十八章：幻觉的成因与缓解</h1>
+<h2 id="181">18.1 幻觉到底是什么</h2>
+<p><strong>定义</strong>：模型生成了与训练事实、用户输入或已知世界不一致的内容，<strong>但语言上看起来很流畅合理</strong>。</p>
+<p><strong>两个关键特征缺一不可</strong>：</p>
+<ol>
+<li><strong>内容错</strong>；</li>
+<li><strong>听起来对</strong>。</li>
+</ol>
+<blockquote>
+<p>如果只是错但一眼看出来错（比如语法错乱），那是普通的生成质量问题，<strong>不算幻觉</strong>。幻觉特指那种「读起来很顺、引用看起来很专业、但仔细查证发现是编的」的输出。</p>
+</blockquote>
+<h3 id="1811">18.1.1 几个典型例子</h3>
+<ul>
+<li>推荐一本书，给出书名和作者，听起来像那么回事，但那位作者从没写过这本书；</li>
+<li>让模型解释某个从未举办过的赛事有哪些项目，模型一本正经列出十几项；</li>
+<li>写医学综述时引用「Smith et al., 2018」，去 PubMed 查根本不存在。</li>
+</ul>
+<h2 id="182">18.2 元根源：模型不是数据库</h2>
+<pre class="mermaid">flowchart TB
+    subgraph DB["数据库"]
+        D1["输入查询"] --> D2["返回精确匹配的记录"]
+        D2 --> D3["找不到 → 明确报错"]
+    end
+    subgraph LLM["LLM"]
+        L1["输入上下文"] --> L2["按概率续写最可能的下一个 token"]
+        L2 --> L3["一直续写直到结束<br/>没有『查询失败』这个状态"]
+    end
+
+    style D3 fill:#e6f4ea
+    style L3 fill:#fdecea
+</pre>
+
+<blockquote>
+<p><strong>模型从来没有「查询失败」这个状态，它永远会输出点什么——因为它的全部使命就是「续写」。</strong></p>
+</blockquote>
+<p>模型会幻觉，先要从这里理解：它不会像数据库那样返回「查无此项」，只会继续往下生成。后面的三类成因，都是这个机制在不同环节的放大。</p>
+<h2 id="183">18.3 根因一：训练数据本身就有错</h2>
+<p>训练数据来自互联网语料 + 公开语料 + 书籍 + 代码仓库，TB 级别，里面什么都有：</p>
+<ul>
+<li>百科里有过时的、错误的、被破坏的版本；</li>
+<li>新闻里有谣言、虚假报道、带立场的扭曲叙述；</li>
+<li>论坛博客里满是民科、阴谋论、错误常识；</li>
+<li><strong>不同来源互相矛盾</strong>（同一事件的不同说法、同一数据的不同版本）；</li>
+<li><strong>时间过期的信息</strong>（十年前的「最新研究」）。</li>
+</ul>
+<p>模型在预训练时把这些全学进了参数里，<strong>没有「真假区分」机制</strong>。</p>
+<blockquote>
+<p><strong>但训练数据只是冰山一角——即使数据 100% 正确干净，模型还是会幻觉。</strong></p>
+</blockquote>
+<h2 id="184">18.4 根因二：生成机制是「续写」不是「查询」</h2>
+<p>最难处理的是这一层：生成过程不会先判断「知道/不知道」，只会继续选下一个 token。</p>
+<h3 id="1841">18.4.1 模型对「自己知不知道」没有显式信号</h3>
+<p>你问「鲁迅是谁的笔名？」，模型的处理流程<strong>不是</strong>「查知识库 → 找到周树人 → 输出」，<strong>而是</strong>「在我的参数里，给定这个上下文，下一个 token 最高概率是什么？」</p>
+<ul>
+<li>训练时见过很多次「鲁迅是周树人的笔名」→「周」的概率很高，答对；</li>
+<li><strong>训练时只见过 1–2 次</strong> → 概率没那么高，模型会<strong>按概率挑一个看起来合理的名字续上去</strong>。</li>
+</ul>
+<h3 id="1842-temperature0">18.4.2 反直觉的推论：Temperature=0 也会幻觉</h3>
+<p>Temperature=0 等价于贪心解码，每步选概率最高的 token。<strong>但「概率最高的 token」不等于「正确的 token」</strong>，只是「按训练数据统计最可能出现在这个上下文之后的 token」。</p>
+<p>如果模型对某个事实记忆模糊，分布可能是：</p>
+<pre><code>茅 35%  |  周 32%  |  鲁 18%  |  巴 15%
+</code></pre>
+<p><strong>Temperature=0 会铁定选「茅」，错得很自信。</strong></p>
+<blockquote>
+<p><strong>温度只能减少「同一个错误重复出现的随机性」，不能修正「错误本身」。</strong> 模型记错了就是记错了——<strong>温度调低反而让错误答案更稳定地输出</strong>。</p>
+</blockquote>
+<h3 id="1843-vs">18.4.3 参数化知识 vs 检索式知识</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>参数化知识（LLM 权重）</th>
+<th>检索式知识（RAG）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>精确度</strong></td>
+<td><strong>模糊</strong>——不是 key-value 存的，是分布式编码在权重里，记得多准取决于训练时见过多少次</td>
+<td>精确，找到就是找到</td>
+</tr>
+<tr>
+<td><strong>可检索性</strong></td>
+<td><strong>不可检索</strong>——模型自己不知道某条知识在哪几个权重里</td>
+<td>有明确出处</td>
+</tr>
+<tr>
+<td><strong>可验证性</strong></td>
+<td><strong>不可验证</strong>——输出事实时没法标注「这条来自训练数据的某段」</td>
+<td>可追溯到具体文档</td>
+</tr>
+<tr>
+<td><strong>未命中</strong></td>
+<td>仍然会编一个出来</td>
+<td><strong>明确返回空</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>这就是为什么 RAG 能显著缓解幻觉</strong>——它把模糊的参数化记忆换成了精确的检索结果。</p>
+<h2 id="185">18.5 根因三：对齐目标的副作用</h2>
+<p><strong>更隐蔽的一层：对齐训练反而会鼓励模型「自信地回答」，加剧幻觉。</strong></p>
+<pre class="mermaid">flowchart TB
+    A["SFT 阶段<br/>标注员写的期望回答几乎都是<br/>『自信、详细、专业』<br/>很少写『我不知道』"]
+    A --> B["模型学到：碰到问题就要给出详细回答<br/>从没学过『碰到不会的就拒答』"]
+    B --> C["RLHF 阶段<br/>『详细自信专业』的回答几乎永远比<br/>『我不确定』得分高——哪怕它是错的"]
+    C --> D["原因：标注员自己也不一定知道答案对不对<br/>打分依据更多是『读起来像不像专家』"]
+    D --> E["奖励模型学到：自信 = 高分，谨慎 = 低分"]
+    E --> F["PPO 把这个偏好放大到主模型<br/>→ 永远自信、永远不拒答<br/>→ 幻觉率反而上升"]
+
+    style F fill:#fdecea
+</pre>
+
+<h3 id="1851-calibrated-refusal">18.5.1 Calibrated Refusal</h3>
+<p>Anthropic 的《Language Models (Mostly) Know What They Know》专门研究过这个问题，提出「<strong>校准的拒答</strong>」概念：<strong>让模型的「自信度」和「实际正确率」对齐</strong>——该说不知道的时候就说不知道。</p>
+<blockquote>
+<p><strong>注意措辞</strong>：闭源模型的具体训练配方公开资料不会讲完。可以说「某类模型体现了更强的拒答校准倾向」，<strong>不要断言某个产品一定就是某一套论文流程的直接结果</strong>。</p>
+</blockquote>
+<h2 id="186">18.6 三类幻觉的典型表现</h2>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>特征</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>① 事实性幻觉</strong></td>
+<td>编造不存在的事实，或张冠李戴。<strong>最常见、最容易识破</strong></td>
+<td>编造不存在的人物 / 论文；时间错误；地理错误</td>
+</tr>
+<tr>
+<td><strong>② 推理性幻觉</strong></td>
+<td>事实层面没问题，但<strong>推理过程错乱、前后矛盾、逻辑跳跃</strong></td>
+<td>数学题前面算对后面算错；代码里引用从未定义的变量；推理链断一步强行得结论</td>
+</tr>
+<tr>
+<td><strong>③ 上下文不一致</strong></td>
+<td><strong>最隐蔽</strong>。不违反客观事实，但<strong>违反用户在 Prompt 里给的明确条件</strong></td>
+<td>用户说「只根据下面的资料回答」，模型答的却是自己脑袋里的知识；系统 Prompt 说不要泄露内部信息，模型还是复述了出来</td>
+</tr>
+</tbody>
+</table>
+<h2 id="187">18.7 缓解方案：三层组合</h2>
+<pre class="mermaid">flowchart LR
+    T["训练层<br/>治本但成本高"] --> I["推理层<br/>即插即用但上限有限"] --> S["系统层<br/>最有效但增加延迟和复杂度"]
+
+    style S fill:#e6f4ea
+</pre>
+
+<h3 id="1871">18.7.1 训练层</h3>
+<table>
+<thead>
+<tr>
+<th>做法</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>加入大量拒答样例</strong></td>
+<td>主动往 SFT 数据里塞「我不确定」「这个我没把握」「建议查专业资料」，<strong>让模型学到拒答也是合格回答</strong></td>
+</tr>
+<tr>
+<td><strong>校准训练</strong></td>
+<td>用专门的偏好数据，让「<strong>错误且自信</strong>」被严厉扣分，模型就会主动避免自信地说错话</td>
+</tr>
+<tr>
+<td><strong>用奖励模型筛掉幻觉回答</strong></td>
+<td>对生成的回答做事实核查，把有幻觉的标记为低分作为负样本</td>
+</tr>
+</tbody>
+</table>
+<p><strong>优点是治本，代价是训练成本高、效果上限受训练数据质量限制。</strong></p>
+<h3 id="1872">18.7.2 推理层（不改模型）</h3>
+<table>
+<thead>
+<tr>
+<th>做法</th>
+<th>针对</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>CoT 分步分析</strong></td>
+<td>推理性幻觉</td>
+<td>更不容易跳步，错的时候也更容易追溯（见 <a href="17-cot.html">第十七章</a>）。<strong>但不保证一定正确</strong></td>
+</tr>
+<tr>
+<td><strong>Temperature 调低</strong></td>
+<td>随机偏差型幻觉</td>
+<td>只能解决「模型本来知道但随机抽到了低概率错答案」。<strong>事实性问答用 0–0.3 是工程标配</strong>（见 <a href="../03-inference-serving/13-temperature-top-p-top-k.html">第十三章</a>）</td>
+</tr>
+<tr>
+<td><strong>Self-Consistency</strong></td>
+<td>推理性幻觉</td>
+<td>采样 5–10 次多数投票。<strong>提升幅度取决于模型、题目和采样次数，不要当成固定收益</strong></td>
+</tr>
+<tr>
+<td><strong>约束解码</strong></td>
+<td>格式类幻觉</td>
+<td>限制每步只能从合法 vocabulary 里选 token，<strong>能根除「输出格式错误」这一类</strong>。vLLM、TGI 都支持</td>
+</tr>
+</tbody>
+</table>
+<p><strong>优点是即插即用，缺点是对「模型记忆模糊」这个根本问题没办法。</strong></p>
+<h3 id="1873-llm">18.7.3 系统层（把 LLM 当成会犯错的组件，外面加防护栏）</h3>
+<table>
+<thead>
+<tr>
+<th>做法</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>RAG</strong></td>
+<td><strong>最有效的系统层方案之一</strong>。把「靠模糊参数记忆」换成「靠可追溯的检索结果」。<strong>但不是固定能降一个数量级</strong>——效果取决于检索召回、文档质量、Rerank、Prompt 约束和引用校验（详见 <a href="../../rag/">RAG 主题</a>）</td>
+</tr>
+<tr>
+<td><strong>后处理事实核查</strong></td>
+<td>输出后用另一个 LLM 或检索系统核查其中的事实声明，核查不过就标红或删掉</td>
+</tr>
+<tr>
+<td><strong>强制带引用来源</strong></td>
+<td>要求每条事实声明后跟引用编号，对应到检索返回的具体文档。<strong>即使有幻觉，用户也能识别出来</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>优点是最有效、可观测、可追溯；缺点是引入额外延迟和系统复杂度。对企业级应用几乎是必选项。</strong></p>
+<h2 id="188">18.8 为什么幻觉不可能完全消除</h2>
+<p>原因还是前面那条：LLM 按概率续写下一个 token，<strong>这个机制天然就带着「会编」的可能性</strong>。</p>
+<p>无论怎么对齐、怎么 RAG、怎么核查，<strong>只要模型还是按概率生成的，就一定有概率生成错误内容</strong>。</p>
+<h3 id="1881">18.8.1 现实的工程目标</h3>
+<table>
+<thead>
+<tr>
+<th>目标</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>降低发生率</strong></td>
+<td>从 30% 降到 5% 就是巨大的胜利</td>
+</tr>
+<tr>
+<td><strong>让用户能识别</strong></td>
+<td>带引用、加可信度标记、对不确定回答主动声明</td>
+</tr>
+<tr>
+<td><strong>限定使用场景</strong></td>
+<td>医疗、法律等高风险场景<strong>必须有人类把关</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>工程上更实际的目标是：把幻觉率压低，让用户看得出哪些内容需要核查，并在高风险场景加人工复核。</p>
+</blockquote>
+<h2 id="189">18.9 常见错误</h2>
+<h3 id="1891">18.9.1 把幻觉说成「模型出错」</h3>
+<p>幻觉特指<strong>流畅合理但实际错误</strong>。语法错乱那是生成质量问题。</p>
+<h3 id="1892">18.9.2 只说训练数据有噪声</h3>
+<p>那只是第一层。<strong>即使数据 100% 干净，续写机制本身就会产生幻觉。</strong></p>
+<h3 id="1893-temperature-0">18.9.3 认为把 Temperature 调到 0 就能解决</h3>
+<p>概率最高的 token 不等于正确的 token。<strong>记忆模糊时，Temperature=0 只会让错误答案更稳定地输出。</strong></p>
+<h3 id="1894">18.9.4 忽略对齐训练的副作用</h3>
+<p>RLHF 中「自信 = 高分、谨慎 = 低分」的偏好被放大，反而推高了幻觉率。<strong>这是第三层根因，最能拉开差距。</strong></p>
+<h3 id="1895-rag">18.9.5 认为 RAG 能根除幻觉</h3>
+<p>RAG 显著缓解事实性幻觉，<strong>但不是固定降一个数量级</strong>，效果取决于召回、文档质量、Rerank 和引用校验，而且对上下文不一致型幻觉帮助有限。</p>
+<h3 id="1896">18.9.6 只讲一层缓解方案</h3>
+<p>工业级应用是<strong>训练层 + 推理层 + 系统层组合使用</strong>，没有单一银弹。</p>
+<h3 id="1897">18.9.7 断言某闭源模型用了某套具体流程</h3>
+<p>公开资料没写的保持谨慎，说「体现了更强的拒答校准倾向」就好。</p>
+<h3 id="1898">18.9.8 承诺「能彻底消除幻觉」</h3>
+<p>这是概率生成机制的固有产物，只能降低发生率和提升可识别性。</p>
+<h2 id="1810">18.10 本章总结</h2>
+<ol>
+<li><strong>幻觉 = 流畅合理 + 实际错误</strong>，两个特征缺一不可；</li>
+<li><strong>元根源是「模型不是数据库是续写器」</strong>，它没有「查询失败」这个状态；</li>
+<li><strong>根因一：训练数据有噪声、矛盾、过时信息</strong>，模型没有真假区分机制；</li>
+<li><strong>根因二：生成机制是按概率续写</strong>，模型对「自己知不知道」没有显式信号——<strong>所以 Temperature=0 也会幻觉</strong>；</li>
+<li><strong>参数化知识是模糊、不可检索、不可验证的</strong>，这是 RAG 能缓解幻觉的根本原因；</li>
+<li><strong>根因三：对齐训练的副作用</strong>——SFT 数据缺拒答样例，RLHF 偏好「自信」，奖励模型学到「自信 = 高分」；</li>
+<li><strong>三类幻觉</strong>：事实性（最常见）、推理性（逻辑错乱）、上下文不一致（最隐蔽）；</li>
+<li><strong>训练层</strong>：拒答数据增强、校准训练、用 RM 筛幻觉——治本但贵；</li>
+<li><strong>推理层</strong>：CoT、低温、Self-Consistency、约束解码——即插即用但上限有限；</li>
+<li><strong>系统层</strong>：RAG、后处理事实核查、强制带引用——最有效但增加延迟和复杂度；</li>
+<li><strong>幻觉不可能被彻底消除</strong>，工程目标是降低发生率、让用户能识别、限定高风险场景。</li>
+</ol>
+<blockquote>
+<p>幻觉不是一个补丁就能修掉的 bug，更像概率生成系统的长期噪声；工程上要做的是检索、校准和核查，把它控制在业务能承受的范围内。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2202.03629">Survey of Hallucination in Natural Language Generation</a></li>
+<li><a href="https://arxiv.org/abs/2311.05232">A Survey on Hallucination in Large Language Models: Principles, Taxonomy, Challenges, and Open Questions</a></li>
+<li><a href="https://arxiv.org/abs/2207.05221">Language Models (Mostly) Know What They Know</a></li>
+<li><a href="https://arxiv.org/abs/2109.07958">TruthfulQA: Measuring How Models Mimic Human Falsehoods</a></li>
+<li><a href="https://arxiv.org/abs/2005.11401">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</a></li>
+<li><a href="https://arxiv.org/abs/2303.08896">SelfCheckGPT: Zero-Resource Black-Box Hallucination Detection for Generative Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2309.11495">Chain-of-Verification Reduces Hallucination in Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2212.08073">Constitutional AI: Harmlessness from AI Feedback</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

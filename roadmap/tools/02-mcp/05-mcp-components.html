@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP 三层组成 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="MCP 三层组成 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>MCP</span> / <span>MCP 三层组成</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="mcp">第五章：MCP 的三层组成</h1>
+<h2 id="51">5.1 用三层把概念理清</h2>
+<p>第一次接触 MCP，最劝退的是名词密度：Host、Client、Server、Tools、Resources、Prompts、JSON-RPC、stdio、Streamable HTTP、sampling、elicitation、roots……</p>
+<p>把它拆成三层来看，会清楚很多，而且这三层在设计上本来就是解耦的：</p>
+<pre class="mermaid">flowchart TB
+    subgraph L1["第一层 · 角色架构：谁和谁在通信"]
+        A["Host ── Client ── Server"]
+    end
+
+    subgraph L2["第二层 · 能力类型：Server 能提供什么"]
+        B["Tools / Resources / Prompts<br/>+ Client input capabilities"]
+    end
+
+    subgraph L3["第三层 · 传输协议：消息怎么传"]
+        C["JSON-RPC 2.0 消息格式<br/>+ stdio / Streamable HTTP 传输方式"]
+    end
+
+    L1 --> L2 --> L3
+</pre>
+
+<p>解耦的意思是：传输可替换而不改变核心能力语义；能力扩展也不必重写角色模型。</p>
+<h2 id="52">5.2 第一层：角色架构</h2>
+<h3 id="521">5.2.1 三个角色各自做什么</h3>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>是什么</th>
+<th>核心职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Host</strong></td>
+<td>AI 应用本身（Claude Desktop、Cursor、你的 Agent）</td>
+<td>启动和管理所有 Client、决定连哪些 Server、执行安全策略、处理用户授权、协调 LLM 调用</td>
+</tr>
+<tr>
+<td><strong>Client</strong></td>
+<td>Host 内部的连接模块</td>
+<td>通信、能力发现和转发请求/结果；通常对应一个 Server 连接</td>
+</tr>
+<tr>
+<td><strong>Server</strong></td>
+<td>工具提供方的独立进程</td>
+<td>暴露 Tools / Resources / Prompts，不关心上游是谁</td>
+</tr>
+</tbody>
+</table>
+<p>用一个公司的类比：Host 是公司，决定和哪些供应商合作；Client 是派驻到每个供应商的联络员，一人对接一家；Server 是供应商，只管按标准交付，不关心客户是谁。</p>
+<h3 id="522">5.2.2 一对一连接便于隔离，但不是安全保证</h3>
+<p>Host 常为每个 Server 建立独立 Client/连接，便于管理生命周期、认证与故障；规范不会因此自动隔离 Server 的文件、网络或进程权限。</p>
+<pre class="mermaid">flowchart TB
+    subgraph GOOD["独立 Client / 连接"]
+        H1[Host] --> C1[Client 1] --> S1[财务数据 Server]
+        H1 --> C2[Client 2] --> S2[第三方工具 Server]
+        NOTE1["便于分别管理<br/>版本、认证、故障与生命周期"]
+    end
+
+    subgraph BOUNDARY["真正的安全边界"]
+        P["Host 策略"] --> R["进程 / 容器权限"]
+        P --> N["网络出口与数据过滤"]
+        P --> A["用户授权与审计"]
+    end
+
+    style GOOD fill:#e6f4ea
+    style BOUNDARY fill:#fff3cd
+</pre>
+
+<p>面对第三方 Server，Host 还应使用最小权限、进程/容器隔离、网络出口控制和参数过滤。只有这些运行时策略才能限制一个 Server 能读取和执行的范围。</p>
+<h3 id="523-host">5.2.3 Host 是唯一的权限把关者</h3>
+<p>Host 和 Client 经常被混在一起。Client 负责通信和转发，授权与策略决定仍在 Host。</p>
+<p>具体来说，这些决策全在 Host：</p>
+<ul>
+<li>用户是否授权某次工具调用；</li>
+<li>哪些 Server 的工具可以暴露给模型；</li>
+<li>敏感操作是否需要二次确认；</li>
+<li>多个 Server 的上下文怎么聚合进 Prompt。</li>
+</ul>
+<p>Server 无权决定自己的工具会不会被调用，Client 也无权替用户同意。这条边界在讨论 MCP 安全时是核心。</p>
+<h2 id="53">5.3 第二层：能力类型</h2>
+<h3 id="531-server">5.3.1 Server 提供的三类能力</h3>
+<p>区分它们的关键是<strong>默认控制路径</strong>，而不是「读还是写」或是否有副作用：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>控制权</th>
+<th>有副作用</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Tools</strong></td>
+<td>模型或 Host 工作流可选择，Host 最终放行</td>
+<td>可读、可写或有副作用</td>
+<td>搜索、创建 Issue、发消息、写文件</td>
+</tr>
+<tr>
+<td><strong>Resources</strong></td>
+<td>Client/Host 决定何时读取/注入</td>
+<td>通常是可读取上下文；不构成安全承诺</td>
+<td>读日志、读文档、读数据库记录</td>
+</tr>
+<tr>
+<td><strong>Prompts</strong></td>
+<td>用户或 Host 取得</td>
+<td>返回模板/消息</td>
+<td>代码审查模板、周报生成模板</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>Tools 是可执行能力，Resources 是可加载上下文，Prompts 是可取得的模板；每一项实际权限都由 Host 的策略决定。</strong></p>
+</blockquote>
+<p>对应的 JSON-RPC 方法：</p>
+<pre><code class="language-json">{&quot;method&quot;: &quot;tools/list&quot;}          // 发现有哪些工具
+{&quot;method&quot;: &quot;tools/call&quot;}          // 调用某个工具
+{&quot;method&quot;: &quot;resources/list&quot;}      // 列出可用资源
+{&quot;method&quot;: &quot;resources/read&quot;}      // 读取某个资源
+{&quot;method&quot;: &quot;prompts/list&quot;}        // 列出提示模板
+{&quot;method&quot;: &quot;prompts/get&quot;}         // 展开某个模板
+</code></pre>
+<p><code>*/list</code> 这组方法就是「自动发现」的实现。应用不需要硬编码工具清单，连上就问一句。</p>
+<h3 id="532-server-client">5.3.2 容易被漏掉的第四类：Server 需要 Client 输入</h3>
+<p>上面三类是 Server <strong>提供</strong>给 Client 的。执行过程中，Server 有时还需要模型推理或用户补充信息。2026-07-28 规范不再让 Server 反向发起 JSON-RPC request，而是在当前响应中返回 <code>InputRequiredResult</code>；Client 处理后带输入重发原请求。</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>Server 想要什么</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Sampling</strong></td>
+<td>让 Host 一侧的模型完成受控推理</td>
+<td>Server 需要模型能力，但不应持有 Host 的模型密钥</td>
+</tr>
+<tr>
+<td><strong>Elicitation</strong></td>
+<td>向用户索取结构化补充信息</td>
+<td>参数不全时补充；不能替代高风险动作的独立审批</td>
+</tr>
+</tbody>
+</table>
+<p>Sampling 让 Server 不必持有 Host 的模型 API Key。Host 仍要审查模型、预算、可见上下文与返回范围，防止远端 Server 滥用推理资源或诱导数据外带。</p>
+<h3 id="533-inputrequiredresult">5.3.3 InputRequiredResult 的往返模式</h3>
+<p>当前消息方向仍是 Client request → Server response。需要 Client 输入时，Server 暂停当前处理并返回输入需求：</p>
+<pre class="mermaid">sequenceDiagram
+    participant C as Client
+    participant S as Server
+
+    rect rgb(230, 244, 234)
+    Note over C,S: Server 需要模型输入
+    C->>S: tools/call
+    S-->>C: InputRequiredResult(sampling)
+    C->>C: Host 审查并执行模型调用
+    C->>S: 重发 tools/call + input
+    S-->>C: 工具结果
+    end
+</pre>
+
+<p>并非每个 Server 都使用这些能力。Host 应逐请求声明允许的 Client capabilities，并把用户交互、模型访问、预算和数据边界纳入授权策略。</p>
+<h2 id="54">5.4 第三层：传输协议</h2>
+<h3 id="541">5.4.1 消息格式与传输方式是解耦的</h3>
+<p>这一层的设计点，就是把消息格式和传输方式分开：</p>
+<pre class="mermaid">flowchart TB
+    MSG["JSON-RPC 2.0<br/>消息格式（不变）"]
+    MSG --> T1["stdio<br/>本地子进程"]
+    MSG --> T2["Streamable HTTP<br/>远程服务"]
+    MSG --> T3["自定义传输<br/>规范允许扩展"]
+</pre>
+
+<p>同一套 JSON-RPC 消息可以跑在任意传输层上。<strong>切换传输方式不影响上层的工具调用逻辑</strong>——同一个 Server 实现，改几行配置就能从本地子进程变成远程 HTTP 服务。</p>
+<h3 id="542">5.4.2 两种主要传输方式</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>stdio</th>
+<th>Streamable HTTP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Server 形态</td>
+<td>本地子进程</td>
+<td>独立 HTTP 服务</td>
+</tr>
+<tr>
+<td>通信通道</td>
+<td>操作系统管道（stdin/stdout）</td>
+<td>HTTP POST</td>
+</tr>
+<tr>
+<td>延迟</td>
+<td>极低</td>
+<td>有网络开销</td>
+</tr>
+<tr>
+<td>多 Client 共享</td>
+<td>不支持，每个 Host 起一份</td>
+<td>支持</td>
+</tr>
+<tr>
+<td>认证</td>
+<td>靠进程隔离和环境变量</td>
+<td>需要完整的 OAuth 授权</td>
+</tr>
+<tr>
+<td>典型用途</td>
+<td>文件系统、本地 Git、本地数据库</td>
+<td>团队共享服务、SaaS 工具</td>
+</tr>
+</tbody>
+</table>
+<p>一个实用细节：stdio 模式下 <strong>stdout 只能走协议消息</strong>，任何 <code>print</code> 调试输出都会污染消息流导致解析失败。日志必须写 stderr——这是新手写 MCP Server 最常踩的坑。</p>
+<p>传输层的完整细节，包括 HTTP+SSE 到 Streamable HTTP 的演进，见 <a href="12-mcp-transport.html">第十二章</a>。</p>
+<h2 id="55">5.5 三层拼起来：一次完整调用</h2>
+<pre class="mermaid">sequenceDiagram
+    participant U as 用户
+    participant H as Host
+    participant C as Client
+    participant S as Server
+    participant M as LLM
+
+    Note over H,S: 可选发现阶段
+    H->>C: 创建 Client 连接 GitHub Server
+    C->>S: server/discover
+    S-->>C: 支持的版本与能力
+    C->>S: tools/list
+    S-->>C: [create_issue, search_repos, ...]
+    C->>H: 汇总工具清单
+
+    Note over H,M: 运行阶段
+    U->>H: 帮我提个 bug issue
+    H->>M: messages + 所有 Server 的工具 Schema
+    M-->>H: tool_calls: create_issue(...)
+    H->>U: 请确认：将创建 Issue
+    U->>H: 同意
+    H->>C: 转发调用
+    C->>S: tools/call
+    S-->>C: {"issue_url": "..."}
+    C->>H: 结果
+    H->>M: role=tool 消息
+    M-->>H: 已创建 Issue，链接是……
+    H->>U: 最终答案
+</pre>
+
+<p>这次完整调用里，有三点最值得注意：</p>
+<ol>
+<li><strong>若 Host 使用模型 Function Calling</strong>，可将 MCP Tool 转为该模型的 schema；也可由规则、结构化输出或人工操作调用 MCP。MCP 对模型接口没有强制要求；</li>
+<li><strong>用户授权发生在 Host 层</strong>，在调用真正发出去之前；</li>
+<li><strong>能力可提前发现，但协商是逐请求的</strong>；每个请求仍携带版本与 Client capabilities，不能只信启动时缓存。</li>
+</ol>
+<h2 id="56">5.6 常见错误</h2>
+<h3 id="561">5.6.1 把三层混在一起讲</h3>
+<p>面试时把 Host/Client/Server 和 Tools/Resources/Prompts 和 stdio/HTTP 混着说，听起来像在背名词。分成三层，每层回答一个问题（谁在通信、提供什么、怎么传），结构立刻清晰。</p>
+<h3 id="562">5.6.2 把连接映射误作安全沙箱</h3>
+<p>独立 Client/连接有助于管理；但安全边界要靠 Host 的授权、运行时隔离和网络策略，不能只靠对象关系。</p>
+<h3 id="563-host-client">5.6.3 把 Host 的职责安到 Client 上</h3>
+<p>授权、安全策略、生命周期管理都在 Host。Client 只是管道。</p>
+<h3 id="564-server">5.6.4 只知道三类 Server 能力，不知道输入需求</h3>
+<p>Sampling 与 Elicitation 让 Server 在执行中请求 Host 提供模型或用户输入。当前规范通过 <code>InputRequiredResult</code> 完成往返，不应继续照抄旧版 Server→Client request 流程。</p>
+<h3 id="565-stdout">5.6.5 忽略 stdout 污染问题</h3>
+<p>stdio 模式下往 stdout 打日志会直接破坏协议消息流，而且报错信息通常是难懂的 JSON 解析失败。日志一律写 stderr。</p>
+<h3 id="566">5.6.6 忽略逐请求能力协商</h3>
+<p>每个请求都要携带版本与 Client capabilities；不要只在启动时发现一次后永久相信缓存，也不要假定任意 Host 都允许 sampling 或 elicitation。</p>
+<h2 id="57">5.7 本章总结</h2>
+<ol>
+<li><strong>三层拆解</strong>：角色架构解决「谁和谁通信」，能力类型解决「提供什么」，传输协议解决「怎么传」；</li>
+<li><strong>三层尽量解耦</strong>，传输和能力可分别演进；</li>
+<li><strong>Host 是决策者，Client 是连接器，Server 是提供者</strong>；独立连接不替代运行时安全隔离；</li>
+<li><strong>三类正向能力按默认控制路径区分</strong>：Tools 可由模型/工作流选择，Resources 由 Client 加载，Prompts 由用户/Host 取得；</li>
+<li><strong>输入需求容易被漏</strong>：Sampling 让 Server 受控借用 Host 模型，Elicitation 补充用户信息；</li>
+<li><strong>当前规范用 <code>InputRequiredResult</code> 而非 Server 反向 request</strong>，Client capabilities 随每个请求声明并由 Host 策略控制；</li>
+<li><strong>消息格式与传输方式解耦</strong>，同一个 Server 换配置就能在本地和远程之间切换；</li>
+<li><strong>stdio 下 stdout 是协议专用通道</strong>，日志必须走 stderr。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/architecture">MCP 架构说明</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28">MCP 规范 2026-07-28</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools">MCP Server 能力：Tools</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/client">MCP Client 输入模式</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/basic/transports">MCP 传输层规范</a></li>
+<li><a href="https://www.jsonrpc.org/specification">JSON-RPC 2.0 规范</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

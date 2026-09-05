@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>解码策略 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="解码策略 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>推理与部署</span> / <span>解码策略</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十二章：解码策略</h1>
+<h2 id="121-token">12.1 本质：从概率分布里选下一个 token</h2>
+<p>LLM 是自回归生成的。每生成一个新 token，模型输出一个 vocabulary 大小（典型 5 万到 15 万）的概率分布：</p>
+<pre><code>下一个 token 是「苹」的概率 30%
+                「香」的概率 25%
+                「桃」的概率 20%
+                ...（后面还有几万个词）
+</code></pre>
+<p><strong>所谓解码策略，就是回答「怎么从这个分布里选一个 token 出来」。</strong></p>
+<h3 id="1211">12.1.1 更深层：两种对任务本质的假设</h3>
+<p>不同策略的差异不只是「选哪个」，而是对生成任务的<strong>根本假设不同</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>策略族</th>
+<th>隐含假设</th>
+<th>目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>贪心 / Beam Search</td>
+<td><strong>存在一个唯一最优答案</strong></td>
+<td>找到它</td>
+</tr>
+<tr>
+<td>Temperature / Top-K / Top-P</td>
+<td><strong>答案有多种合理可能</strong></td>
+<td>从可能空间里采样</td>
+</tr>
+</tbody>
+</table>
+<p>后面几种策略的取舍，本质上都落在这两种任务假设上。</p>
+<h2 id="122">12.2 贪心解码：最简单也最容易踩坑</h2>
+<p>每一步无脑选概率最高的 token，拼到序列后面，进入下一步。</p>
+<h3 id="1221">12.2.1 优点</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>极简</strong></td>
+<td>每步只挑最大值，时间复杂度 $O(V)$，几乎没开销</td>
+</tr>
+<tr>
+<td><strong>完全确定</strong></td>
+<td>相同输入永远得到相同输出，便于调试和复现</td>
+</tr>
+<tr>
+<td><strong>对工程友好</strong></td>
+<td>单元测试、批处理、结果比对都稳定</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1222">12.2.2 臭名昭著的复读机问题</h3>
+<p>让模型用贪心续写「I love my dog because」，常见输出：</p>
+<pre><code>I love my dog because he is so cute. He is so cute. He is so cute. He is so cute. ...
+</code></pre>
+<p><strong>为什么？</strong> 模型某一步生成了「He is so cute」，下一步在概率分布里发现这个模式刚出现过、上下文里概率很高，又选了它；再下一步又选一遍。</p>
+<p><strong>贪心一旦走进这种自我加强的循环，就出不来了。</strong></p>
+<h3 id="1223">12.2.3 更隐蔽的问题：乏味</h3>
+<p>每步都选最稳的路，最终生成的是「最大众化的表达」，读起来很乏味。对代码生成、信息抽取可能没问题，但对创意写作、对话场景太单调。</p>
+<h3 id="1224">12.2.4 但它有最佳战场</h3>
+<p><strong>输出有标准答案的精确任务</strong>：代码生成、SQL 生成、JSON 抽取。贪心反而是首选——<strong>确定、不会乱写</strong>。</p>
+<h2 id="123-beam-search">12.3 Beam Search：翻译时代的王者</h2>
+<p>贪心的扩展版：每一步不只保留一条路径，而是<strong>保留 $B$ 条最高概率的路径同时推进</strong>（$B$ 叫束宽，典型 4 或 8）。</p>
+<h3 id="1231-b3">12.3.1 流程（以 B=3 为例）</h3>
+<pre class="mermaid">flowchart TB
+    S["起点"] --> A1["我"] & A2["你"] & A3["他"]
+    A1 --> B1["我喜"]
+    A1 --> B2["我爱"]
+    A2 --> B3["你爱"]
+    B1 --> C["……继续展开，每步都只留总概率最高的 3 条"]
+    B2 --> C
+    B3 --> C
+    C --> END["遇到 EOS 后<br/>从 3 条最终路径里选整体概率最高的"]
+
+    style END fill:#e6f4ea
+</pre>
+
+<p>每步把 $B$ 个前缀各自展开得到 $B \times V$ 个候选，从中挑总概率最高的 $B$ 条。</p>
+<h3 id="1232">12.3.2 优点</h3>
+<ul>
+<li><strong>全局视野更好</strong>：某一步贪心选错了，Beam Search 还有 $B-1$ 条备份路径；</li>
+<li><strong>更接近全局最优</strong>：总体概率比贪心高得多，输出更「合理」。</li>
+</ul>
+<p>2014–2018 年的机器翻译时代它是绝对主流（Google NMT、fairseq、OpenNMT）。原因是<strong>翻译任务有独特属性：给定源句，存在一个或几个「最优译文」</strong>，Beam Search 的目标和任务本质高度匹配。</p>
+<h2 id="124-llm-beam-search">12.4 为什么 LLM 时代 Beam Search 失宠了</h2>
+<p>这是高频追问点。表面理由是「慢」（$B$ 倍计算量），<strong>但深层原因是任务本质与算法目标不匹配</strong>。</p>
+<h3 id="1241">12.4.1 根本原因：开放式生成没有最优答案</h3>
+<p>Beam Search 优化的是「找到整体概率最高的那条序列」。</p>
+<p>翻译时代合理，因为「I love you → 我爱你」确实有最优答案。但在<strong>写故事、对话、回答开放问题</strong>里，根本不存在最优答案，存在的只是<strong>一个广阔的合理回答空间</strong>。</p>
+<h3 id="1242-beam-search-curse">12.4.2 反直觉的失效模式：Beam Search Curse</h3>
+<p>更糟的是，它在长序列上会<strong>输出最乏味、最重复的内容</strong>。</p>
+<p>因果链是这样的：</p>
+<pre class="mermaid">flowchart LR
+    A["优化目标：<br/>整体概率最高"] --> B["等价于：<br/>每步都选最稳的词"]
+    B --> C["最稳的词往往是<br/>重复前面出现过的内容"]
+    C --> D["因为重复模式在概率分布上<br/>特别尖锐（模型对它太熟）"]
+    D --> E["长文本生成陷入复读<br/>甚至比贪心还严重"]
+
+    style E fill:#fdecea
+</pre>
+
+<p>实测过的人会发现：<strong>$B$ 越大输出越保守乏味，$B=8$ 比 $B=4$ 还差</strong>。这就是有名的「Beam Search 困境」。</p>
+<h3 id="1243">12.4.3 工程上的硬伤：与现代推理优化不兼容</h3>
+<table>
+<thead>
+<tr>
+<th>优化</th>
+<th>冲突点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>KV Cache</strong></td>
+<td>假设序列是「单一前缀往下生成」，Beam Search 要同时维护 $B$ 条不同前缀，<strong>KV Cache 要复制 $B$ 份，显存爆炸</strong></td>
+</tr>
+<tr>
+<td><strong>Flash Attention / PagedAttention</strong></td>
+<td>都是为单序列设计的，改起来很麻烦</td>
+</tr>
+</tbody>
+</table>
+<p>所以主流推理框架（vLLM、SGLang、TGI）虽然大多支持 Beam Search，<strong>但默认通常不开</strong>。</p>
+<blockquote>
+<p><strong>更准确的说法</strong>：Beam Search 不是彻底没用，而是从「默认主角」退回了「特定任务工具」——某些翻译、受约束生成、候选重排场景仍会用到。</p>
+</blockquote>
+<h2 id="125">12.5 采样族：用随机性换多样性</h2>
+<p>LLM 时代的主流，核心思路从「找最优」变成「<strong>按概率分布掷骰子</strong>」。</p>
+<h3 id="1251">12.5.1 普通采样的新问题：长尾噪声</h3>
+<p>直接按模型输出的概率分布随机抽，多样性是有了，但模型的分布往往有一条<strong>长长的尾巴</strong>：</p>
+<pre><code>前 20 个词概率合起来   90%
+后面几万个词分摊       10%（每个都极小）
+</code></pre>
+<p>普通采样有概率从这堆极小概率的词里抽到一个完全不合理的词（生成中文时突然冒出 <code>@$%</code>），<strong>让整段输出毁掉</strong>。</p>
+<h3 id="1252">12.5.2 三种调节器</h3>
+<table>
+<thead>
+<tr>
+<th>调节器</th>
+<th>机制</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Temperature</strong></td>
+<td>每个 logit 除以 $T$ 再 softmax，<strong>控制分布锐度</strong></td>
+<td>$T&lt;1$ 分布变尖（保守）；$T&gt;1$ 变平（发散）；$T \to 0$ 等价贪心</td>
+</tr>
+<tr>
+<td><strong>Top-K</strong></td>
+<td><strong>固定截断</strong>：只从概率最高的 $K$ 个 token 里采样</td>
+<td>候选集大小固定，不随分布形状变化</td>
+</tr>
+<tr>
+<td><strong>Top-P（Nucleus）</strong></td>
+<td><strong>自适应截断</strong>：从高到低累加概率，超过阈值 $P$ 就停</td>
+<td><strong>候选集大小自动适应分布形状</strong>：分布尖锐时候选少，平坦时候选多</td>
+</tr>
+</tbody>
+</table>
+<p>$$
+p_i = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}
+$$</p>
+<p>三者的详细调参见 <a href="13-temperature-top-p-top-k.html">第十三章</a>。<strong>采样族通过「引入随机性 + 截断长尾」，在多样性和质量之间找平衡。</strong></p>
+<h2 id="126">12.6 实际选型</h2>
+<p>本质是看任务对「确定性」和「多样性」的需求：</p>
+<table>
+<thead>
+<tr>
+<th>任务类型</th>
+<th>推荐策略</th>
+<th>典型参数</th>
+<th>为什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>SQL 生成 / JSON 抽取</strong></td>
+<td>贪心</td>
+<td>$T=0$</td>
+<td>结构严格，<strong>错一个字符就报错</strong></td>
+</tr>
+<tr>
+<td><strong>代码生成</strong></td>
+<td>贪心 / 低温采样</td>
+<td>$T=0 \sim 0.2$</td>
+<td>有标准结构，要稳定可复现</td>
+</tr>
+<tr>
+<td><strong>数学推理</strong></td>
+<td>贪心，或 Self-Consistency 多次采样</td>
+<td>$T=0$，或 $T=0.7$ 投票</td>
+<td>单次贪心稳，多次采样投票更准</td>
+</tr>
+<tr>
+<td><strong>机器翻译</strong></td>
+<td>贪心 / 低温采样</td>
+<td>$T=0 \sim 0.3$</td>
+<td>有相对标准答案</td>
+</tr>
+<tr>
+<td><strong>日常对话</strong></td>
+<td>Top-P 采样</td>
+<td>$T=0.7$，$P=0.9$</td>
+<td>既要自然又不能太离谱</td>
+</tr>
+<tr>
+<td><strong>创意写作</strong></td>
+<td>Top-P 采样</td>
+<td>$T=1.0 \sim 1.2$，$P=0.95$</td>
+<td>鼓励多样性和惊喜</td>
+</tr>
+<tr>
+<td><strong>头脑风暴</strong></td>
+<td>高温 Top-P</td>
+<td>$T=1.2$，$P=0.95$</td>
+<td>越发散越好</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1261">12.6.1 一个简单口诀</h3>
+<pre><code>任务有标准答案            →  贪心 / T=0
+有多种合理答案，要稳一些   →  Top-P=0.9 + T=0.7
+鼓励多样性                →  Top-P=0.95 + T=1.0 以上
+</code></pre>
+<blockquote>
+<p><strong>别死记固定配置。</strong> 各家 API 的默认值会随模型版本和产品形态变化。可靠做法是：<strong>先用官方默认值当基线，再按任务是「精确」还是「开放」去调</strong>，并用测试集观察跑偏率。</p>
+</blockquote>
+<h2 id="127">12.7 两个进阶策略</h2>
+<p>它们是「在主流采样基础上的加速 / 加强」，<strong>不替代基础解码策略，而是叠加使用</strong>。</p>
+<h3 id="1271-speculative-decoding">12.7.1 推测解码（Speculative Decoding）：推理加速</h3>
+<p>用一个小的草稿模型（比如 1B）快速生成多个 token，再用大的目标模型（比如 70B）<strong>一次性验证</strong>这几个 token。一致就直接用，不一致就以大模型为准。</p>
+<p><strong>为什么能加速？</strong> 大模型推理的瓶颈是<strong>访存</strong>——每次只生成一个 token，却要把整个权重从显存搬到计算单元（详见 <a href="../01-foundations/03-attention-variants.html">第三章</a> 的 memory-bound 分析）。如果一次能验证 5 个 token，<strong>访存次数就少了 5 倍</strong>。</p>
+<p>实测能提速 2–3 倍，<strong>且结果与原模型完全等价</strong>（不是近似）。</p>
+<h3 id="1272-self-consistency">12.7.2 Self-Consistency：推理任务增强</h3>
+<p>对同一个数学题，用较高 Temperature 采样生成 $N$ 条独立推理路径，最后取<strong>最终答案出现最多次的那个</strong>（多数投票）。</p>
+<p><strong>直觉</strong>：正确答案往往可以通过多种推理路径得到，而错误答案是随机的——<strong>多条路径不太可能收敛到同一个错误</strong>。</p>
+<p>在 GSM8K 等数学推理任务上能比单次贪心提升 5–15 个百分点，<strong>代价是 $N$ 倍调用成本</strong>。</p>
+<h2 id="128">12.8 常见错误</h2>
+<h3 id="1281">12.8.1 说不出解码策略的本质</h3>
+<p>每步都有一个 vocabulary 大小的概率分布，解码策略就是从中挑 token 的规则。这是整道题的地基。</p>
+<h3 id="1282-beam-search">12.8.2 只说「Beam Search 慢」</h3>
+<p><strong>深层原因是任务本质与算法目标不匹配</strong>——开放式生成没有唯一最优答案。说出这一句才算答到点上。</p>
+<h3 id="1283-beam">12.8.3 认为 Beam 越大越好</h3>
+<p>$B=8$ 常常比 $B=4$ 还差。这是 Beam Search Curse 的直接体现。</p>
+<h3 id="1284-beam-search-kv-cache">12.8.4 不知道 Beam Search 与 KV Cache 冲突</h3>
+<p>$B$ 条前缀要复制 $B$ 份 KV Cache，显存爆炸。这是它在 LLM 推理栈里被边缘化的工程原因。</p>
+<h3 id="1285-beam-search">12.8.5 说 Beam Search「已经彻底没用了」</h3>
+<p>它退回了特定任务工具的定位，翻译、受约束生成、候选重排仍然会用。</p>
+<h3 id="1286">12.8.6 认为贪心一无是处</h3>
+<p>SQL、JSON、代码这类结构严格的任务，贪心是首选。</p>
+<h3 id="1287">12.8.7 死记温度默认值</h3>
+<p>各家默认值随版本变化。该说的是「用官方默认当基线，按任务精确 / 开放去调」。</p>
+<h3 id="1288">12.8.8 把推测解码当成近似加速</h3>
+<p>它是<strong>完全等价</strong>的——大模型验证不通过就回退，输出分布不变。</p>
+<h2 id="129">12.9 本章总结</h2>
+<ol>
+<li><strong>解码策略 = 从每步的概率分布里挑 token 的规则</strong>；</li>
+<li><strong>两族策略隐含两种任务假设</strong>：确定性族假设有唯一最优解，采样族假设有多种合理可能；</li>
+<li><strong>贪心极简、完全可复现</strong>，但会陷入自我加强的复读循环，且输出乏味；</li>
+<li><strong>贪心的最佳战场是 SQL / JSON / 代码</strong>这类结构严格任务；</li>
+<li><strong>Beam Search 保留 $B$ 条路径</strong>，在翻译时代称王因为翻译确有最优译文；</li>
+<li><strong>LLM 时代失宠的根本原因是目标不匹配</strong>：开放式生成没有最优答案；</li>
+<li><strong>Beam Search Curse</strong>：整体概率最高等价于每步选最稳的词，反而更容易复读，$B$ 越大越乏味；</li>
+<li><strong>工程硬伤</strong>：与 KV Cache、Flash Attention 等单序列优化不兼容；</li>
+<li><strong>采样族用随机性换多样性</strong>，靠 Temperature 调锐度、Top-K 固定截断、Top-P 自适应截断压住长尾噪声；</li>
+<li><strong>选型看任务需要确定性还是多样性</strong>，精确任务 $T=0$，对话 $T=0.7/P=0.9$，创意 $T=1.0+$；</li>
+<li><strong>推测解码提速 2–3 倍且结果等价</strong>，<strong>Self-Consistency 在推理任务上提升 5–15 个点</strong>，两者都是叠加而非替代。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1904.09751">The Curious Case of Neural Text Degeneration（Top-P / Nucleus Sampling）</a></li>
+<li><a href="https://arxiv.org/abs/1805.04833">Hierarchical Neural Story Generation（Top-K Sampling）</a></li>
+<li><a href="https://arxiv.org/abs/2203.11171">Self-Consistency Improves Chain of Thought Reasoning in Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2211.17192">Fast Inference from Transformers via Speculative Decoding</a></li>
+<li><a href="https://arxiv.org/abs/2302.01318">Accelerating Large Language Model Decoding with Speculative Sampling</a></li>
+<li><a href="https://arxiv.org/abs/2010.02650">If Beam Search Is the Answer, What Was the Question?</a></li>
+<li><a href="https://arxiv.org/abs/1409.3215">Sequence to Sequence Learning with Neural Networks</a></li>
+<li><a href="https://docs.vllm.ai/">vLLM 文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

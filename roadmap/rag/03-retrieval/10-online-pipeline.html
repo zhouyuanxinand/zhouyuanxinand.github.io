@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 在线链路 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="RAG 在线链路 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>在线检索</span> / <span>RAG 在线链路</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rag">第十章：RAG 在线链路全流程</h1>
+<h2 id="101">10.1 为什么要单独讲在线链路</h2>
+<p>第一章给出了离线与在线的全景。这一章聚焦在线部分，因为它有三个离线阶段没有的约束：</p>
+<table>
+<thead>
+<tr>
+<th>约束</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>延迟</strong></td>
+<td>每次提问都要走一遍，用户在等</td>
+</tr>
+<tr>
+<td><strong>成本</strong></td>
+<td>每次提问都产生 LLM 调用费用</td>
+</tr>
+<tr>
+<td><strong>失败处理</strong></td>
+<td>任何一步失败都会直接反映到用户看到的答案里</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>离线链路错了可以重跑，在线链路错了用户直接看到。</strong> 所以在线链路的每一步都要考虑降级路径。</p>
+</blockquote>
+<h2 id="102">10.2 完整链路</h2>
+<pre class="mermaid">flowchart TB
+    Q[用户 Query] --> S0[0. 前置判断<br/>要不要检索]
+    S0 -->|不需要| DIRECT[直接生成]
+    S0 -->|需要| S1[1. Query 理解与改写]
+    S1 --> S2[2. Query 向量化]
+    S2 --> S3[3. 多路召回]
+    S3 --> S4[4. 融合去重]
+    S4 --> S5[5. Rerank 精排]
+    S5 --> S6[6. 上下文裁剪与组装]
+    S6 --> S7[7. Prompt 拼装]
+    S7 --> S8[8. 生成]
+    S8 --> S9[9. 引用标注与校验]
+    S9 --> OUT[返回答案]
+</pre>
+
+<p>第 0 步和第 9 步在基础版 RAG 的示意图里常被省略，但在生产系统里往往必需。</p>
+<h2 id="103">10.3 逐步拆解</h2>
+<h3 id="1031-0">10.3.1 第 0 步：判断要不要检索</h3>
+<p><strong>不是所有问题都需要检索。</strong></p>
+<ul>
+<li>「你好」「帮我把上一段翻译成英文」——不需要检索，检索反而会引入噪音；</li>
+<li>「今年的报销标准是多少」——需要检索。</li>
+</ul>
+<p>对所有输入都检索有两个代价：<strong>每次都多花几百毫秒和一次向量化成本</strong>，以及<strong>给闲聊类问题塞进无关文档，反而让答案变差</strong>（第二章 2.4.2 节）。</p>
+<p>判断方式可以是轻量分类模型、规则，或者让 LLM 自己决定（把检索做成一个工具）。<strong>后者是 Agentic RAG 的雏形</strong>（第十五章）。</p>
+<h3 id="1032-1-query">10.3.2 第 1 步：Query 理解与改写</h3>
+<p>原始的用户输入常常不适合直接检索：口语化、有指代、太笼统、或者一个问题里包含多个子问题。</p>
+<p>这一步的常见动作（第十二章详细展开）：</p>
+<ul>
+<li><strong>指代消解</strong>：把「它的价格呢」结合上文还原成「iPhone 17 的价格是多少」；</li>
+<li><strong>改写</strong>：口语转书面、补充领域术语；</li>
+<li><strong>分解</strong>：一个复合问题拆成多个子问题；</li>
+<li><strong>扩展</strong>：生成多个不同表述的 Query 并行检索。</li>
+</ul>
+<p>改写会引入一次额外的 LLM 调用，也会带来方向跑偏的风险。工程上通常同时保留原始 Query 和改写后的 Query 一起检索，这样即使改写失败，原始 Query 仍能兜底。</p>
+<p>多轮对话场景里通常要先做指代消解；直接拿「它多少钱」去检索，往往什么都搜不到。</p>
+<h3 id="1033-2-query">10.3.3 第 2 步：Query 向量化</h3>
+<p>技术上最简单，但有<strong>整条链路最重要的一条硬性约束</strong>：</p>
+<blockquote>
+<p><strong>Query 编码器必须与建库的 Document 编码器构成发布者声明的兼容模型对，并使用同一可比较向量空间。</strong></p>
+</blockquote>
+<p>许多模型以同一个编码器完成两端编码；若模型卡明确提供共同训练的 query/document 双塔，可按其指定前缀、归一化和度量使用。任意两个维度相同的模型并不兼容：跨空间计算距离没有意义，而且<strong>这个错误不会报错</strong>——维度对得上仍会得到噪音。</p>
+<p>一个实用做法是：<strong>把模型对、版本、维度、归一化和距离度量写入索引元数据，服务启动时校验 Query 配置与索引记录的兼容性；不兼容则重建或拒绝启动。</strong> 这比事后排查便宜得多。</p>
+<p>另外记得按模型卡要求给 Query 加<strong>指令前缀</strong>（第六章 6.5.3）。</p>
+<h3 id="1034-3">10.3.4 第 3 步：多路召回</h3>
+<p>至少两路：<strong>向量检索</strong>（语义匹配）+ <strong>关键词检索</strong>（精确匹配）。</p>
+<p>两者的失败模式互补：向量检索在专有名词、型号、错误码上容易漏；关键词检索在同义表述上完全无能为力（第十一章）。</p>
+<p><strong>这一步应该并行执行</strong>，两路的耗时取最大值而非累加。</p>
+<h3 id="1035-4">10.3.5 第 4 步：融合去重</h3>
+<p>不同召回路的分数<strong>不在同一个量纲上</strong>——向量的余弦相似度和 BM25 的分数无法直接比较，简单加权需要归一化且很难调。</p>
+<p><strong>主流做法是 RRF（倒数排名融合）</strong>：只用排名不用原始分数，天然规避了量纲问题（第十三章展开）。</p>
+<p><strong>去重也在这一步做</strong>：父子切分下多个子块命中同一父块要合并（第五章 5.3.2），不同召回路命中同一 chunk 要合并。</p>
+<h3 id="1036-5-rerank">10.3.6 第 5 步：Rerank 精排</h3>
+<p>用 cross-encoder 对候选重新打分。这是<strong>整条链路中性价比最高的单点优化</strong>，但也是<strong>延迟大头之一</strong>（100–400ms）。</p>
+<p><strong>两个工程要点</strong>：</p>
+<ul>
+<li><strong>候选数要控制</strong>。从 100 降到 50，延迟几乎减半，效果损失通常很小；</li>
+<li><strong>要采用经业务评测集校准的置信度/拒答策略</strong>。不同 Query 的裸分不可直接比较；低置信度时直接拒答、澄清或降级，而不是硬凑够 K 个候选（详见<a href="13-hybrid-retrieval-rerank.html">第十三章</a>）。</li>
+</ul>
+<h3 id="1037-6">10.3.7 第 6 步：上下文裁剪与组装</h3>
+<p>拿到精排结果后，还要处理三件事。先控制总量：按第二章 2.6 节的结论，<strong>不要把所有候选都塞进去</strong>，应设定 Token 预算，超出就截断。再安排顺序：考虑到「lost in the middle」现象（第二章 2.4.2），<strong>把最相关的内容放在开头和结尾</strong>，次要的放中间。最后附加元数据，在每个片段前标注来源、章节、日期，让模型感知信息的<strong>时效和权威性</strong>，也为引用标注提供依据。</p>
+<h3 id="1038-7-prompt">10.3.8 第 7 步：Prompt 拼装</h3>
+<p>Prompt 需要明确约束模型的行为（第十七章详细展开）：</p>
+<ul>
+<li><strong>只依据给定材料回答</strong>；</li>
+<li><strong>材料不足时明确说明，不要编造</strong>；</li>
+<li><strong>每个结论标注来源编号</strong>；</li>
+<li><strong>材料之间冲突时说明冲突，不要擅自选一个</strong>。</li>
+</ul>
+<p>知识库里经常同时存在新旧版本的冲突材料，因此最后一条通常不能省略。</p>
+<h3 id="1039-8">10.3.9 第 8 步：生成</h3>
+<p><strong>默认使用流式输出。</strong> 端到端 P95 可能有 2–3 秒，但首 Token 在几百毫秒内返回，用户的体感差异巨大。</p>
+<h3 id="10310-9">10.3.10 第 9 步：引用标注与校验</h3>
+<p>生成完不等于结束。至少要做：</p>
+<ul>
+<li><strong>引用有效性检查</strong>：模型标注的来源编号是否真实存在（<strong>模型会编引用编号</strong>）；</li>
+<li><strong>可选的忠实度校验</strong>：用一次额外的模型调用检查答案是否被材料支撑；</li>
+<li><strong>拒答兜底</strong>：检索为空或分数过低时，直接返回「未找到相关信息」，<strong>不进入生成环节</strong>。</li>
+</ul>
+<p>最后一条成本很低，但通常很有效，因为在证据不足时会直接终止生成。</p>
+<h2 id="104">10.4 延迟预算表</h2>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>典型耗时</th>
+<th>可优化手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>前置判断</td>
+<td>0–100 ms</td>
+<td>用规则或小模型替代 LLM</td>
+</tr>
+<tr>
+<td>Query 改写</td>
+<td>100–500 ms</td>
+<td>缓存、小模型、与原 Query 并行</td>
+</tr>
+<tr>
+<td>Query 向量化</td>
+<td>10–50 ms</td>
+<td>本地部署、缓存热门 Query</td>
+</tr>
+<tr>
+<td>多路召回</td>
+<td>5–50 ms</td>
+<td>并行执行</td>
+</tr>
+<tr>
+<td>融合去重</td>
+<td>&lt; 5 ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Rerank</td>
+<td>100–400 ms</td>
+<td>减少候选数、更小的模型</td>
+</tr>
+<tr>
+<td>Prompt 拼装</td>
+<td>&lt; 5 ms</td>
+<td>—</td>
+</tr>
+<tr>
+<td>LLM 生成首 Token</td>
+<td>300 ms–2 s</td>
+<td>流式输出、缩短输入</td>
+</tr>
+</tbody>
+</table>
+<p>优化通常应从耗时最大的环节开始：LLM 生成 → Rerank → Query 改写。相比之下，在向量检索上再抠几毫秒，整体收益往往有限。</p>
+<h2 id="105">10.5 每一步的降级路径</h2>
+<p>生产系统必须为每一步准备失败后的行为：</p>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>失败时</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Query 改写</td>
+<td>用原始 Query 继续（<strong>所以要保留原始 Query</strong>）</td>
+</tr>
+<tr>
+<td>关键词检索</td>
+<td>仅用向量结果</td>
+</tr>
+<tr>
+<td>向量检索</td>
+<td>仅用关键词结果</td>
+</tr>
+<tr>
+<td>两路都失败</td>
+<td>直接拒答，不要让模型裸答</td>
+</tr>
+<tr>
+<td>Rerank 超时</td>
+<td>用粗排结果的 Top-K</td>
+</tr>
+<tr>
+<td>LLM 超时</td>
+<td>返回检索到的原文片段 + 提示</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>原则：宁可返回一个诚实的「暂时无法回答」，也不要返回一个编造的答案。</strong> 前者还能继续引导用户，后者会直接破坏结果的可信度。</p>
+</blockquote>
+<h2 id="106">10.6 缓存能加在哪</h2>
+<table>
+<thead>
+<tr>
+<th>缓存层</th>
+<th>缓存内容</th>
+<th>命中条件</th>
+<th>注意</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Query 向量缓存</td>
+<td>Query → 向量</td>
+<td>完全相同的 Query</td>
+<td>便宜有效</td>
+</tr>
+<tr>
+<td>检索结果缓存</td>
+<td>Query → chunk ID 列表</td>
+<td>相同 Query 且知识库未变</td>
+<td><strong>知识库更新时必须失效</strong></td>
+</tr>
+<tr>
+<td>语义缓存</td>
+<td>相似 Query → 答案</td>
+<td>相似度超阈值</td>
+<td><strong>有风险，阈值定高</strong></td>
+</tr>
+<tr>
+<td>Prompt Caching</td>
+<td>固定的系统提示部分</td>
+<td>前缀相同</td>
+<td>模型侧能力，纯收益</td>
+</tr>
+</tbody>
+</table>
+<p><strong>语义缓存要特别小心</strong>：「iPhone 16 的价格」和「iPhone 17 的价格」语义高度相似，但答案完全不同。<strong>阈值定低会直接产生错误答案</strong>，这类故障比不缓存严重得多。</p>
+<h2 id="107">10.7 常见错误</h2>
+<h3 id="1071-embedding">10.7.1 建库和查询用了不同的 Embedding 模型</h3>
+<p>最经典也最致命的错误，且不会报错。</p>
+<h3 id="1072">10.7.2 对所有输入无条件检索</h3>
+<p>浪费成本，还给闲聊类问题引入噪音。</p>
+<h3 id="1073-query">10.7.3 改写后丢掉原始 Query</h3>
+<p>改写失败时没有兜底路径。</p>
+<h3 id="1074-rerank-k">10.7.4 Rerank 后硬凑够 K 个结果</h3>
+<p>即使所有候选都不相关也强行塞满，会增加无依据回答风险。应使用经评测集校准的置信度/拒答策略，并允许返回空、澄清或降级。</p>
+<h3 id="1075">10.7.5 不做引用有效性检查</h3>
+<p>模型会编造来源编号，不校验等于引用形同虚设。</p>
+<h3 id="1076">10.7.6 没有降级路径</h3>
+<p>任何一步失败就整体报错，或者更糟——让模型在没有材料的情况下裸答。</p>
+<h3 id="1077">10.7.7 语义缓存阈值定太低</h3>
+<p>会直接返回错误答案，比不缓存危险得多。</p>
+<h3 id="1078">10.7.8 优化方向错误</h3>
+<p>在几毫秒的向量检索上做优化，忽略几百毫秒的 Rerank 和秒级的生成。</p>
+<h2 id="108">10.8 本章总结</h2>
+<ol>
+<li><strong>在线链路的三个特殊约束</strong>：延迟、成本、失败直接可见；</li>
+<li><strong>完整链路十步</strong>，其中前置判断和引用校验是生产系统区别于 Demo 的关键；</li>
+<li><strong>最硬的约束</strong>：Query 向量化必须与建库用同一模型，建议在服务启动时做一致性校验；</li>
+<li><strong>改写要保留原始 Query</strong>，作为改写失败的兜底；</li>
+<li><strong>多路召回并行执行</strong>，用 RRF 融合规避量纲问题；</li>
+<li><strong>Rerank 要采用经评测集校准的置信度/拒答策略</strong>，并允许返回空、澄清或降级；</li>
+<li><strong>上下文组装要控总量、排顺序、附元数据</strong>；</li>
+<li><strong>默认流式输出</strong>，首 Token 延迟决定体感；</li>
+<li><strong>每一步都要有降级路径</strong>，宁可诚实拒答也不要编造；</li>
+<li><strong>优化从耗时最大的环节开始</strong>：生成 → Rerank → 改写。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2307.03172">Lost in the Middle: How Language Models Use Long Contexts</a></li>
+<li><a href="https://arxiv.org/abs/2310.11511">Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</a></li>
+<li><a href="https://arxiv.org/abs/2403.14403">Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

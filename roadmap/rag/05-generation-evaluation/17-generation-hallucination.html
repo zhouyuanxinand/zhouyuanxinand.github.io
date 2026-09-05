@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>生成、Grounding 与幻觉 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="生成、Grounding 与幻觉 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>生成与评估</span> / <span>生成、Grounding 与幻觉</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="grounding">第十七章：生成、Grounding 与幻觉规避</h1>
+<h2 id="171">17.1 幻觉不是单一检索问题</h2>
+<blockquote>
+<p><strong>幻觉是多因素失效，不是单一检索问题。</strong></p>
+</blockquote>
+<p>检索缺失、过期或冲突证据、上下文截断与处理错误、模型超出证据生成，以及缓存或工具返回的错误复用，都可能造成不实输出。检索质量是重要且常见的上游因素：材料缺失或错误时，生成层技巧无法把答案变成事实；但<strong>检索充分时模型仍可能误读、过度概括或错误引用。</strong> 因此要把数据治理、检索、grounding、引用校验、拒答和事后评估联合起来。</p>
+<h2 id="172">17.2 幻觉的主要来源</h2>
+<pre class="mermaid">flowchart TB
+    H[RAG 中的不实输出] --> H1[证据不可用或不可靠]
+    H --> H2[证据到答案的推理失真]
+    H --> H3[系统处理与复用失效]
+
+    H1 --> C1[知识库缺失、过期或错误]
+    H1 --> C2[有但未召回]
+    H1 --> C3[召回后被截断或权限过滤]
+
+    H2 --> C4[脑补材料没有的细节]
+    H2 --> C5[误读、错误归因或过度概括]
+    H2 --> C6[参数化知识覆盖材料]
+    H2 --> C7[冲突材料被擅自消解]
+    H3 --> C8[缓存、版本或引用校验失效]
+</pre>
+
+<p>这些来源对应的治理手段不同，但可以组合使用；只优化单一环节，通常会遗漏其他失效模式。</p>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>主要治法</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>证据缺失、陈旧或未召回</td>
+<td><strong>数据治理 + 检索优化 + 拒答机制</strong></td>
+</tr>
+<tr>
+<td>误读、超出证据或错误归因</td>
+<td><strong>Grounding 约束 + 引用校验 + 事后校验</strong></td>
+</tr>
+<tr>
+<td>缓存、版本与上下文处理失效</td>
+<td><strong>版本绑定、失效策略与回归评测</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="1721">17.2.1 参数化知识覆盖</h3>
+<p>模型自己的训练知识和检索到的材料<strong>冲突</strong>时，它可能会<strong>相信自己而不是材料</strong>。</p>
+<p>典型场景：企业内部规定与通用常识不同（比如公司规定的报销上限与行业惯例不同）。模型可能输出"常见的"数字而不是材料里的数字。</p>
+<p><strong>这类幻觉最危险</strong>，因为答案看起来完全合理，且与材料的差异很隐蔽。</p>
+<p><strong>治法</strong>：在 Prompt 里显式声明「<strong>材料中的信息优先于你的已有知识，两者冲突时以材料为准</strong>」。</p>
+<h2 id="173">17.3 第一道防线：拒答</h2>
+<p>这是成本最低、也最常被漏掉的控制点之一。</p>
+<pre class="mermaid">flowchart TB
+    R[检索结果] --> C1{有结果吗?}
+    C1 -->|无| REJ[拒答]
+    C1 -->|有| C2{校准后置信度足够?}
+    C2 -->|否| REJ[拒答、澄清或降级]
+    C2 -->|是| GEN[进入生成]
+    GEN --> C3{模型说材料不足?}
+    C3 -->|是| REJ2[输出无法回答 + 建议]
+    C3 -->|否| OUT[输出答案 + 引用]
+</pre>
+
+<p>目标是在证据不足时不进入常规生成链路。</p>
+<p>如果检索结果为空，或经业务评测集校准的置信度不足，就直接返回「未找到足够依据的信息」、请求澄清或走受控降级，<strong>不进入常规生成环节</strong>（<a href="../03-retrieval/13-hybrid-retrieval-rerank.html">第十三章 13.4.3</a>）。</p>
+<p>这里需要按业务代价校准：拒答规则更保守时，错误接受可能下降，但拒答会增加；规则更宽松时，覆盖率提高，但无依据回答风险上升。</p>
+<p>不同业务对拒答代价的容忍度不同：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>倾向</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>医疗、法律、财务</td>
+<td><strong>宁可拒答</strong>，错误代价极高</td>
+</tr>
+<tr>
+<td>内部知识助手</td>
+<td>平衡</td>
+</tr>
+<tr>
+<td>创意辅助、头脑风暴</td>
+<td>可以宽松</td>
+</tr>
+</tbody>
+</table>
+<p>因此，拒答策略需要和业务风险一起设计。</p>
+<h2 id="174-prompt">17.4 第二道防线：Prompt 约束</h2>
+<p>常用的 Prompt 约束包括五条：</p>
+<p><strong>（1）限定信息来源</strong></p>
+<p>明确要求只依据给定材料回答，不使用材料之外的知识。</p>
+<p><strong>（2）声明材料优先级</strong></p>
+<p>材料中的信息优先于模型自身知识，冲突时以材料为准。</p>
+<p><strong>（3）提供不知道的出口</strong></p>
+<p>需要明确告诉模型：材料不足时可以直接回答不知道，并把这种行为定义为预期输出。</p>
+<blockquote>
+<p><strong>如果没有这条出口，模型更容易继续补全答案，而不是停在证据边界。</strong></p>
+</blockquote>
+<p><strong>（4）要求标注来源</strong></p>
+<p>每个结论后标注依据的材料编号。</p>
+<p><strong>（5）处理材料冲突</strong></p>
+<p>材料之间矛盾时，<strong>说明存在冲突并列出各方说法</strong>，而不是擅自选一个。</p>
+<p>知识库里经常同时存在新旧版本或不同部门口径，这条约束会直接影响输出是否可审计。</p>
+<h3 id="1741">17.4.1 上下文的组织方式也影响幻觉</h3>
+<ul>
+<li><strong>给每个片段编号</strong>，才能做引用；</li>
+<li><strong>标注来源、章节、日期</strong>，让模型知道时效和权威性；</li>
+<li><strong>把最相关的放开头和结尾</strong>（第二章 2.4.2）；</li>
+<li><strong>控制总量</strong>，无关材料会主动损害质量（第二章 2.6）；</li>
+<li><strong>去除新旧版本冲突</strong>（第十三章 13.6）。</li>
+</ul>
+<h2 id="175">17.5 第三道防线：引用与可验证性</h2>
+<p>引用的作用是把答案变成可核查对象，而不是增加表面可信感。</p>
+<p>这里有个常见问题：</p>
+<blockquote>
+<p><strong>模型会编造引用编号。</strong> 它可能标注 <code>[3]</code>，而实际内容来自 <code>[1]</code>，甚至压根不在任何材料里。</p>
+</blockquote>
+<p>因此引用至少要做两级校验：</p>
+<table>
+<thead>
+<tr>
+<th>级别</th>
+<th>做法</th>
+<th>成本</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>基础</td>
+<td>检查引用编号是否真实存在于材料列表中</td>
+<td>几乎为零</td>
+</tr>
+<tr>
+<td>进阶</td>
+<td>检查被引材料是否<strong>真的支撑</strong>该结论</td>
+<td>一次额外模型调用</td>
+</tr>
+</tbody>
+</table>
+<p>未校验的引用会放大误判风险，因为用户可能据此相信一条并不存在的依据。</p>
+<h2 id="176">17.6 第四道防线：事后校验</h2>
+<p>生成完之后，用一次额外的调用检查答案的每个陈述是否被材料支撑。</p>
+<p><strong>成本</strong>：一次额外的 LLM 调用，延迟增加。</p>
+<p><strong>适合</strong>：高风险场景，或者作为<strong>离线的质量抽查</strong>而非在线的每次校验。</p>
+<p><strong>一个务实的做法</strong>：在线只做基础的引用有效性检查（几乎零成本），把昂贵的忠实度校验放到离线<strong>抽样跑</strong>，用来监控质量趋势。</p>
+<h2 id="177">17.7 四种防线的对比</h2>
+<table>
+<thead>
+<tr>
+<th>防线</th>
+<th>治哪个来源</th>
+<th>成本</th>
+<th>效果</th>
+<th>优先级</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>检索优化</td>
+<td>没检索到</td>
+<td>中</td>
+<td><strong>高</strong></td>
+<td><strong>1</strong></td>
+</tr>
+<tr>
+<td>拒答机制</td>
+<td>没检索到</td>
+<td><strong>极低</strong></td>
+<td><strong>高</strong></td>
+<td><strong>2</strong></td>
+</tr>
+<tr>
+<td>Prompt 约束</td>
+<td>超出发挥</td>
+<td><strong>极低</strong></td>
+<td>中到高</td>
+<td><strong>3</strong></td>
+</tr>
+<tr>
+<td>引用有效性校验</td>
+<td>超出发挥</td>
+<td>极低</td>
+<td>中</td>
+<td>4</td>
+</tr>
+<tr>
+<td>忠实度校验</td>
+<td>超出发挥</td>
+<td><strong>高</strong></td>
+<td>高</td>
+<td>5（可离线）</td>
+</tr>
+</tbody>
+</table>
+<p>前三条的成本都较低，通常应先落地，再决定是否增加更昂贵的深度校验。</p>
+<h2 id="178-grounding">17.8 Grounding 与事实正确性的边界</h2>
+<p><strong>「有依据」不等于「正确」。</strong></p>
+<ul>
+<li>材料本身就是错的（知识库里存了过期或错误的文档）→ <strong>答案忠实于材料，但事实上是错的</strong>；</li>
+<li>材料是对的，模型也忠实引用了 → 答案正确。</li>
+</ul>
+<blockquote>
+<p><strong>所有生成层的手段，保证的都是「答案忠实于材料」，而不是「答案事实正确」。</strong> 事实正确性取决于知识库本身的质量。</p>
+</blockquote>
+<p>第十八章里的 Faithfulness 指标衡量的是前者，而不是后者；评估时需要单独区分这两个目标。</p>
+<p><strong>推论</strong>：知识库的内容治理（去除过期文档、标注版本、定期审核）<strong>是幻觉治理的一部分</strong>，而且是最上游的一部分。</p>
+<h2 id="179">17.9 常见错误</h2>
+<h3 id="1791-prompt">17.9.1 只讲 Prompt 技巧不讲检索</h3>
+<p>把幻觉归因为单一检索问题，忽略数据质量、上下文处理、生成与系统复用等失效模式。</p>
+<h3 id="1792">17.9.2 不区分幻觉的两个来源</h3>
+<p>两个来源需要完全不同的治法。</p>
+<h3 id="1793">17.9.3 忽略拒答机制</h3>
+<p>最便宜最有效的手段，且是防"没检索到还硬答"的唯一根治办法。</p>
+<h3 id="1794">17.9.4 不提拒答率与幻觉率的权衡</h3>
+<p>说明没有在真实场景校准拒答策略。</p>
+<h3 id="1795-prompt">17.9.5 Prompt 里不给"不知道"的出口</h3>
+<p>模型会倾向于硬答。给它合法退路是关键设计。</p>
+<h3 id="1796">17.9.6 相信模型标注的引用</h3>
+<p>模型会编引用编号，必须校验。</p>
+<h3 id="1797">17.9.7 不处理材料冲突</h3>
+<p>新旧版本共存很常见，不约束会导致模型擅自选一个。</p>
+<h3 id="1798">17.9.8 混淆"忠实于材料"和"事实正确"</h3>
+<p>生成层只能保证前者，后者取决于知识库质量。</p>
+<h3 id="1799-rag">17.9.9 承诺 RAG 能消除幻觉</h3>
+<p>只能降低。检索失败、材料错误、模型超发挥三条路径都还在。</p>
+<h2 id="1710">17.10 本章总结</h2>
+<ol>
+<li><strong>幻觉是多因素失效</strong>：知识库质量、检索、上下文处理、生成与缓存/版本复用都要治理；</li>
+<li><strong>证据缺失与证据到答案失真</strong>需要不同但可组合的防线；检索重要，却不能独自解决幻觉；</li>
+<li><strong>参数化知识覆盖材料</strong>是最隐蔽的一类，需在 Prompt 中显式声明材料优先；</li>
+<li><strong>第一道防线是拒答</strong>：检索为空或校准后的置信度不足就不进入常规生成，可请求澄清或走受控降级；</li>
+<li><strong>拒答率与错误接受率存在权衡</strong>，应按业务风险在评测集上校准规则，而非固定裸分；</li>
+<li><strong>Prompt 约束五要素</strong>：限定来源、材料优先、<strong>给"不知道"的出口</strong>、要求标注来源、处理冲突；</li>
+<li><strong>引用必须校验</strong>——模型会编引用编号，未校验的引用比没有引用更危险；</li>
+<li><strong>忠实度校验成本高</strong>，可在线只做基础校验、离线抽样做深度校验；</li>
+<li><strong>「有依据」不等于「正确」</strong>：生成层只能保证忠实于材料，事实正确性取决于知识库治理。</li>
+</ol>
+<h2 id="_1">跨主题详解</h2>
+<ul>
+<li>Agent 读取不可信检索内容并调用工具时的风险与隔离方式，见<a href="../../agent/05-production/15-agent-security.html">Agent 安全</a>。</li>
+<li>引用完整性、时效性和鲁棒性如何评测，见<a href="18-rag-evaluation.html">RAG 评估</a>。</li>
+</ul>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2410.07176">Astute RAG: Overcoming Imperfect Retrieval Augmentation and Knowledge Conflicts for Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2310.01558">Making Retrieval-Augmented Language Models Robust to Irrelevant Context</a></li>
+<li><a href="https://arxiv.org/abs/2309.15217">RAGAS: Automated Evaluation of Retrieval Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2401.15884">Corrective Retrieval Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

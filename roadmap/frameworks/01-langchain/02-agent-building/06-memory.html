@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>短期与长期记忆 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="短期与长期记忆 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>Agent 构建</span> / <span>短期与长期记忆</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="langchain">第六章：LangChain 的短期记忆与长期记忆</h1>
+<h2 id="61">6.1 应该记住什么</h2>
+<p><strong>记忆设计的第一步不是选数据库，而是确定作用域。</strong></p>
+<p>假设用户正在规划杭州旅行：</p>
+<table>
+<thead>
+<tr>
+<th>信息</th>
+<th>性质</th>
+<th>归属</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>当前对话提到的日期、预算、下一步计划</td>
+<td><strong>只服务于这次任务</strong></td>
+<td>短期状态</td>
+</tr>
+<tr>
+<td>一周后新建会话，Agent 仍知道他不吃辣、喜欢住地铁附近</td>
+<td><strong>跨会话仍然有效</strong></td>
+<td>长期记忆</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid">flowchart TB
+    A["当前线程运行到了哪里"] --> B["State + Checkpointer"]
+    C["未来其他线程仍可能用到的<br/>用户偏好与事实"] --> D["Store"]
+
+    style B fill:#e8f0fe
+    style D fill:#e6f4ea
+</pre>
+
+<h2 id="62">6.2 短期记忆如何实现</h2>
+<p><code>create_agent</code> 底层运行在 LangGraph 上。<strong>Agent State 默认包含 <code>messages</code></strong>，也可以扩展订单号、当前步骤、工具调用次数等业务字段。</p>
+<h3 id="621-state">6.2.1 只有 State 还不够</h3>
+<p><strong>请求可能由不同服务实例处理，进程也可能重启</strong>——因此需要 Checkpointer 持久化执行状态。</p>
+<pre><code class="language-python">from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver
+
+# Checkpointer 按 thread_id 保存线程内的 Agent State
+agent = create_agent(
+    model=&quot;&lt;provider&gt;:&lt;your-model-id&gt;&quot;,
+    tools=[],
+    checkpointer=InMemorySaver(),
+)
+
+# 两次调用复用同一个 thread_id，表示它们属于同一会话线程
+config = {&quot;configurable&quot;: {&quot;thread_id&quot;: &quot;chat-1001&quot;}}
+
+# 第一轮把用户姓名写入当前线程的 messages 状态
+agent.invoke(
+    {&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;我叫小林&quot;}]},
+    config=config,
+)
+
+# 第二轮会先恢复同一线程之前保存的状态
+result = agent.invoke(
+    {&quot;messages&quot;: [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;我叫什么？&quot;}]},
+    config=config,
+)
+</code></pre>
+<p><code>InMemorySaver</code> 只适合本地演示。生产环境要换成持久化实现，否则进程退出后状态会丢失。</p>
+<h3 id="622-checkpoint">6.2.2 Checkpoint 保存的不只是聊天记录</h3>
+<p><strong>它保存的是图执行过程中的 State 快照</strong>，因此还能支撑：</p>
+<ul>
+<li>暂停恢复</li>
+<li>人工审批</li>
+<li>故障恢复</li>
+</ul>
+<h2 id="63">6.3 消息太多怎么办</h2>
+<p>Checkpointer 能保存历史，但每次是否把全部历史交给模型，要另外控制。消息越多，Token、延迟和干扰越大。</p>
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>作用</th>
+<th>主要风险</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>裁剪</strong></td>
+<td>只选择部分消息进入本次模型上下文</td>
+<td><strong>持久状态仍会继续增长</strong></td>
+</tr>
+<tr>
+<td><strong>删除</strong></td>
+<td>从 State 中永久移除旧消息</td>
+<td><strong>信息不可恢复</strong></td>
+</tr>
+<tr>
+<td><strong>摘要</strong></td>
+<td>把早期历史压缩成简短语义摘要</td>
+<td>可能遗漏细节或<strong>逐轮失真</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="631">6.3.1 不能只按条数处理</h3>
+<ul>
+<li>客服 Agent 可能需要保护<strong>当前工单和用户承诺</strong>；</li>
+<li>代码 Agent 可能需要保护<strong>最新报错和修改记录</strong>。</li>
+</ul>
+<p>策略应同时考虑 Token 预算、消息角色和业务重要性（记忆压缩的通用方法见 <a href="../../../agent/">Agent 主题</a>）。</p>
+<h2 id="64">6.4 长期记忆如何实现</h2>
+<p><strong>新 <code>thread_id</code> 默认不会继承旧线程的 State——这是正确的线程隔离。</strong> 如果某条信息需要跨线程使用，就应提炼后写入 Store。</p>
+<h3 id="641-store">6.4.1 Store 的定位结构</h3>
+<pre><code>namespace = (tenant_id, user_id, memory_type)
+key       = 某条记忆的稳定标识
+value     = JSON 数据
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>读取方式</th>
+<th>场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>精确读取</td>
+<td><strong>已知 key</strong></td>
+</tr>
+<tr>
+<td>向量搜索</td>
+<td>需要从多条记忆中<strong>按语义查找</strong>（需配置向量索引）</td>
+</tr>
+</tbody>
+</table>
+<p>向量检索只是召回方式，不代表所有聊天记录都应该成为长期记忆。</p>
+<h3 id="642">6.4.2 长期记忆常见内容</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户事实与偏好</td>
+<td>不吃辣、偏好中文、常用 Java</td>
+</tr>
+<tr>
+<td>历史经验</td>
+<td>上次如何成功处理支付超时</td>
+</tr>
+<tr>
+<td>工作规则</td>
+<td>退款前必须核验订单归属</td>
+</tr>
+</tbody>
+</table>
+<p>这些分类有助于设计数据结构，但不意味着要把每段原始对话都永久保存。写入前仍要做<strong>去重、脱敏、冲突处理和质量判断</strong>。</p>
+<h2 id="65">6.5 如何跨线程读取</h2>
+<p><strong>工具可以通过 ToolRuntime 访问这些信息，但 <code>state</code>、<code>context</code> 和 <code>store</code> 仍要按作用域区分</strong>（见 <a href="05-tool-registration.html">第五章</a>）：</p>
+<table>
+<thead>
+<tr>
+<th>入口</th>
+<th>内容</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>runtime.state</code></td>
+<td>当前线程的<strong>短期状态</strong></td>
+</tr>
+<tr>
+<td><code>runtime.context</code></td>
+<td><strong>可信</strong>用户身份和权限</td>
+</tr>
+<tr>
+<td><code>runtime.store</code></td>
+<td><strong>跨线程</strong>长期数据</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python">from dataclasses import dataclass
+
+from langchain.tools import ToolRuntime, tool
+
+@dataclass
+class UserContext:
+    # 用户身份由可信应用注入，不暴露给模型填写
+    user_id: str
+
+@tool
+def remember_preference(
+    preference: str,
+    runtime: ToolRuntime[UserContext],
+) -&gt; str:
+    &quot;&quot;&quot;保存当前用户明确要求记住的偏好。&quot;&quot;&quot;
+    # namespace 将不同用户的长期记忆隔离开
+    namespace = (runtime.context.user_id, &quot;preferences&quot;)
+    # key 为 main，本例只维护一条当前偏好记录
+    runtime.store.put(namespace, &quot;main&quot;, {&quot;text&quot;: preference})
+    return &quot;偏好已保存&quot;
+</code></pre>
+<p>模型只负责生成 <code>preference</code>，<code>user_id</code> 由已认证的应用通过 Context 注入。这样可以防止模型填错身份，或<strong>被提示注入诱导访问其他用户的数据</strong>。</p>
+<p><strong>两个不同 <code>thread_id</code> 的会话，只要可信 <code>user_id</code> 相同，就可以访问同一个长期记忆 namespace</strong>；另一位用户则应被 namespace 和服务端权限隔离。</p>
+<h2 id="66">6.6 什么时候写入长期记忆</h2>
+<p>长期记忆会带来收益，也会引入噪声、冲突和隐私风险；把每句闲聊都存进去通常得不偿失。</p>
+<table>
+<thead>
+<tr>
+<th>触发</th>
+<th>写入时机</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户明确说「请记住」</td>
+<td><strong>主链路实时写入</strong>，信息立即生效</td>
+</tr>
+<tr>
+<td>普通对话中推断出的偏好和经验</td>
+<td><strong>会话结束后由后台任务</strong>提炼、去重、脱敏再写入</td>
+</tr>
+</tbody>
+</table>
+<p><strong>无论实时还是后台写入，都应保存来源、时间和置信度</strong>，并支持更新、纠错和删除。</p>
+<p>订单金额、账户余额和库存等实时事实仍应查询权威业务系统，不能用长期记忆代替真实数据库。</p>
+<h2 id="67">6.7 生产环境要注意什么</h2>
+<pre class="mermaid">flowchart TB
+    P1["① 数据能否可靠保存<br/>内存实现随进程退出而丢失<br/>线上要数据库型 Checkpointer 和 Store<br/>表结构与迁移纳入部署流程"]
+    P2["② 这是谁的记忆<br/>thread_id / tenant_id / user_id 必须来自可信身份体系<br/>不信任模型生成的身份<br/>不允许客户端随意指定别人的 namespace"]
+    P3["③ 记忆会过时、冲突、被纠正<br/>去重、更新、过期淘汰<br/>支持用户查看/更正/导出/删除<br/>敏感信息默认不记，需保存的加密并限权<br/>日志与 Trace 不能成为另一个泄漏口"]
+    P4["④ 记忆是否真的改善结果<br/>不能只看写入了多少条"]
+    P1 --> P2 --> P3 --> P4
+
+    style P2 fill:#fff3cd
+</pre>
+
+<h3 id="671">6.7.1 评测必须沿整条链路走</h3>
+<table>
+<thead>
+<tr>
+<th>环节</th>
+<th>检查</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>写入</td>
+<td>这条信息<strong>是否值得写入</strong></td>
+</tr>
+<tr>
+<td>召回</td>
+<td>相关问题<strong>能否召回</strong>，无关问题<strong>会不会误召回</strong></td>
+</tr>
+<tr>
+<td>使用</td>
+<td>注入模型后<strong>是否真正改善答案</strong></td>
+</tr>
+</tbody>
+</table>
+<p>只有写入、召回和使用三步都有效，记忆才不是一个不断膨胀的数据库。</p>
+<h2 id="68-memory">6.8 旧 Memory 还能用吗</h2>
+<p>旧教程常见的 <code>ConversationBufferMemory</code>、<code>ConversationSummaryMemory</code> 属于 <strong>Chain 时代的抽象</strong>，目前主要位于 <code>langchain-classic</code>，适合维护存量项目。</p>
+<p><strong>v1 新项目更推荐</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>职责</th>
+<th>方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>管理线程内状态</td>
+<td><strong>AgentState + Checkpointer</strong></td>
+</tr>
+<tr>
+<td>管理跨线程长期记忆</td>
+<td><strong>Store + namespace/key</strong></td>
+</tr>
+<tr>
+<td>管理裁剪、摘要和写入策略</td>
+<td><strong>Middleware 或图节点</strong></td>
+</tr>
+</tbody>
+</table>
+<p>这套方式把状态作用域、持久化和记忆治理拆得更清楚，也更适合有工具调用、暂停恢复和多用户隔离要求的 Agent。</p>
+<h2 id="69">6.9 常见错误</h2>
+<h3 id="691">6.9.1 先选数据库再想作用域</h3>
+<p><strong>第一步是判断这条信息是线程内的还是跨线程的。</strong></p>
+<h3 id="692-inmemorysaver">6.9.2 用 <code>InMemorySaver</code> 上生产</h3>
+<p><strong>进程退出状态全丢。</strong></p>
+<h3 id="693-checkpoint">6.9.3 以为 Checkpoint 只是聊天记录</h3>
+<p><strong>它是图执行的 State 快照</strong>，正因如此才能支撑暂停恢复和人工审批。</p>
+<h3 id="694">6.9.4 把「能保存」等同于「都要塞给模型」</h3>
+<p>Token、延迟和干扰都会上升，<strong>必须裁剪/删除/摘要</strong>。</p>
+<h3 id="695">6.9.5 按固定条数裁剪</h3>
+<p><strong>当前工单、用户承诺、最新报错</strong>这类消息不能被机械裁掉。</p>
+<h3 id="696">6.9.6 混淆裁剪与删除</h3>
+<p><strong>裁剪不减少持久状态，删除不可恢复</strong>——风险完全不同。</p>
+<h3 id="697">6.9.7 把所有聊天记录写进向量库</h3>
+<p><strong>向量检索只是召回方式</strong>，不代表什么都该长期保存。</p>
+<h3 id="698-user_id">6.9.8 让模型生成 <code>user_id</code></h3>
+<p>会被提示注入诱导访问他人数据，<strong>身份必须来自可信 Context</strong>。</p>
+<h3 id="699">6.9.9 用长期记忆代替权威数据库</h3>
+<p><strong>余额、库存、订单金额这类实时事实必须现查。</strong></p>
+<h3 id="6910">6.9.10 记忆只写不治理</h3>
+<p><strong>没有去重、更新、过期和用户可删除能力</strong>，记得越多风险越大。</p>
+<h3 id="6911">6.9.11 评测只统计写入条数</h3>
+<p><strong>要看召回准确率和是否真的改善了答案。</strong></p>
+<h2 id="610">6.10 本章总结</h2>
+<ol>
+<li><strong>两条主线</strong>：短期记忆是线程级 State，由 Checkpointer 按 <code>thread_id</code> 保存；长期记忆是跨线程数据，由 Store 按 namespace / key 管理；</li>
+<li><strong>记忆设计第一步是确定作用域</strong>，不是选数据库；</li>
+<li><strong>Checkpoint 保存的是 State 快照</strong>，因此还能支撑暂停恢复、人工审批、故障恢复；</li>
+<li><strong>历史管理三策略</strong>：裁剪（状态仍增长）、删除（不可恢复）、摘要（可能失真）；</li>
+<li><strong>裁剪要按 Token 预算 + 消息角色 + 业务重要性</strong>，不能只数条数；</li>
+<li><strong>新线程不继承旧 State 是正确的隔离</strong>，跨线程信息要提炼后写入 Store；</li>
+<li><strong>Store 用 namespace + key 定位</strong>，精确读取与向量搜索并存；</li>
+<li><strong>ToolRuntime 三入口不可混用</strong>：state / context / store；</li>
+<li><strong>写入时机二分</strong>：明确要求实时写，推断出的偏好后台提炼写；</li>
+<li><strong>实时事实不能用长期记忆代替权威系统</strong>；</li>
+<li><strong>生产四关</strong>：可靠持久化 → 可信身份隔离 → 记忆治理与隐私 → 沿写入/召回/使用三步评测；</li>
+<li><strong>旧 Memory 类属 Chain 时代</strong>，已入 <code>langchain-classic</code>。</li>
+</ol>
+<p>可以把 LangChain 的记忆看成按作用域拆开的两套机制：线程内靠 State 和 Checkpointer 保证不失忆和可恢复，线程外靠 Store 加可信 namespace 保证能积累且不串户，中间再用裁剪、摘要和治理策略控制它不会无限膨胀。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langchain/short-term-memory">LangChain: Short-term Memory</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/long-term-memory">LangChain: Long-term Memory</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence">LangGraph 持久化文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/stores">LangGraph Store 文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/middleware">LangChain: Middleware</a></li>
+<li><a href="https://docs.langchain.com/oss/python/migrate/langchain-v1">LangChain v1 迁移指南</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

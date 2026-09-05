@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LangChain v1 架构 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="LangChain v1 架构 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>基础架构</span> / <span>LangChain v1 架构</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="langchain-v1">第三章：LangChain v1 的底层架构</h1>
+<h2 id="31-langchain">3.1 LangChain 解决什么问题</h2>
+<p><strong>直接调用一家模型厂商的 SDK 并不困难。</strong> 应用复杂度上来后，问题主要出现在这些地方：</p>
+<ul>
+<li>不同厂商的<strong>消息格式、工具调用结构和流式响应各不相同</strong>；</li>
+<li>业务还需要接入 Prompt、工具、状态、重试和追踪；</li>
+<li><strong>一旦更换模型，大量厂商专属字段可能已经散落在业务代码中。</strong></li>
+</ul>
+<p>LangChain 的做法是在这些差异之上定义稳定接口：厂商集成负责适配，应用只依赖公共协议，从而让模型、工具和运行时能够相对独立地演进。</p>
+<h2 id="32">3.2 四层架构</h2>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>主要职责</th>
+<th>典型对象</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>核心协议层</strong></td>
+<td>统一组件的数据结构与调用接口</td>
+<td>Message、Runnable、Model、Tool</td>
+</tr>
+<tr>
+<td><strong>集成适配层</strong></td>
+<td>屏蔽模型、向量库和外部服务差异</td>
+<td><code>langchain-openai</code> 等独立集成包</td>
+</tr>
+<tr>
+<td><strong>Agent 开发层</strong></td>
+<td>提供高层 Agent 组装与扩展能力</td>
+<td><code>create_agent</code>、Middleware、Structured Output</td>
+</tr>
+<tr>
+<td><strong>编排运行层</strong></td>
+<td>管理状态、循环、路由、持久化和恢复</td>
+<td>LangGraph Runtime</td>
+</tr>
+</tbody>
+</table>
+<p><strong>可观测性贯穿各层</strong>，通过运行事件和 Trace 记录模型调用、工具调用、耗时和异常。</p>
+<pre class="mermaid">flowchart TB
+    A["核心协议层<br/>Message / Runnable / Model / Tool"]
+    B["集成适配层<br/>各 Provider 独立包"]
+    C["Agent 开发层<br/>create_agent / Middleware / 结构化输出"]
+    D["编排运行层<br/>LangGraph Runtime"]
+    O["可观测性<br/>运行事件与 Trace"]
+    A --- B --- C --- D
+    O -.贯穿.- A
+    O -.贯穿.- D
+
+    style O fill:#fff3cd
+</pre>
+
+<p>这张图描述的是职责边界，不是严格的单向调用顺序。例如模型和编译后的 Agent 都遵循 Runnable 调用方式，但它们承担的架构角色不同。</p>
+<h2 id="33">3.3 协议如何统一数据与执行</h2>
+<p>比起记类名，更重要的是看一条数据如何从用户走到模型，再进入业务系统。</p>
+<h3 id="331">3.3.1 第一棒：统一「传什么」</h3>
+<table>
+<thead>
+<tr>
+<th>消息类型</th>
+<th>表示</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>HumanMessage</code></td>
+<td>用户输入</td>
+</tr>
+<tr>
+<td><code>AIMessage</code></td>
+<td>模型输出</td>
+</tr>
+<tr>
+<td><code>ToolMessage</code></td>
+<td>工具执行结果</td>
+</tr>
+</tbody>
+</table>
+<p><strong>不同厂商原本各有一套消息格式</strong>，适配成 Message 之后，上层就不用跟着每家 SDK 反复改动。</p>
+<h3 id="332-tool">3.3.2 第二棒：Tool 划清边界</h3>
+<p><strong>模型看到的只是工具名称、描述和参数 Schema</strong>，它只能提出「想调用哪个工具、参数是什么」。</p>
+<p>Python 函数或外部服务仍由应用程序执行，权限校验和副作用控制也必须留在这里。</p>
+<h3 id="333-runnable">3.3.3 第三棒：Runnable 统一「怎么执行」</h3>
+<p>提供 <code>invoke</code>、异步调用、批处理和流式输出等调用语义。步骤确定的流程可以直接用 LCEL 组合（见 <a href="02-chain-and-lcel.html">第二章</a>）：</p>
+<pre><code class="language-python"># 三个组件都遵循 Runnable 协议，可以用管道符顺序组合
+chain = prompt | model | output_parser
+
+# 组合后的整体仍然通过统一的 invoke 接口执行
+result = chain.invoke({&quot;question&quot;: &quot;什么是 Agent？&quot;})
+</code></pre>
+<blockquote>
+<p><strong>Message 统一数据表达，Tool 划清模型与业务动作的边界，Runnable 统一执行方式。</strong> 三者连起来，LangChain 才不只是替换模型 SDK 的薄封装。</p>
+</blockquote>
+<h2 id="34-agent-loop">3.4 Agent loop 如何运行</h2>
+<p>Agent 与普通单次调用的区别，在于模型和工具之间可能反复多轮执行。</p>
+<pre class="mermaid">flowchart TB
+    H["HumanMessage"] --> M["Model"]
+    M --> A["AIMessage"]
+    A --> D{"包含 tool_calls?"}
+    D -->|否| F["最终回答"]
+    D -->|是| T["Tool Runtime"]
+    T --> TM["ToolMessage<br/>带 tool_call_id"]
+    TM --> M
+
+    style F fill:#e6f4ea
+</pre>
+
+<h3 id="341-tool_call_id">3.4.1 <code>tool_call_id</code> 为什么重要</h3>
+<p><strong>模型一轮可能请求多个工具</strong>，工具结果必须通过<strong>调用 ID 与原请求对应</strong>，模型才能知道每条结果属于哪次调用。</p>
+<h3 id="342-create_agent">3.4.2 <code>create_agent</code> 返回的是什么</h3>
+<p><code>create_agent</code> 根据模型、工具、系统提示词和中间件创建这套循环。</p>
+<blockquote>
+<p><strong>它返回的不是普通函数，而是编译后的 LangGraph 图</strong>——因此能够在每一步保存状态、输出进度并决定下一条执行边。</p>
+</blockquote>
+<h2 id="35">3.5 数据应该放在哪里</h2>
+<p><strong>Agent 中的数据不应该全部塞进消息或 Prompt。</strong> 运行时会区分三类：</p>
+<table>
+<thead>
+<tr>
+<th>数据</th>
+<th>作用</th>
+<th>示例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>State</strong></td>
+<td>执行中<strong>不断变化</strong>的数据</td>
+<td>消息、当前步骤、工具结果</td>
+</tr>
+<tr>
+<td><strong>Context</strong></td>
+<td>一次调用期间<strong>不变的可信依赖</strong></td>
+<td>用户 ID、租户、权限</td>
+</tr>
+<tr>
+<td><strong>Store</strong></td>
+<td><strong>跨线程</strong>保存的数据</td>
+<td>用户偏好、长期事实</td>
+</tr>
+</tbody>
+</table>
+<p>这样划分后，可信用户身份不需要让模型生成，数据库连接也不会被写入对话上下文。工具可以通过 Runtime 读取这些数据，<strong>同时只把真正需要模型填写的参数暴露在工具 Schema 中</strong>。</p>
+<h2 id="36-middleware">3.6 Middleware 做什么</h2>
+<p>真实应用通常需要处理<strong>动态提示词、模型切换、工具筛选、重试、对话摘要、敏感信息和人工审批</strong>。</p>
+<p><strong>如果把这些逻辑全部塞进 Prompt 或 Tool，代码会很快纠缠在一起。</strong></p>
+<pre class="mermaid">flowchart LR
+    R["请求"] --> M1["进入模型前<br/>按用户身份生成系统提示词<br/>历史过长先做摘要"]
+    M1 --> LLM["模型"]
+    LLM --> M2["决定调工具后<br/>检查权限<br/>敏感动作暂停等审批"]
+    M2 --> T["执行工具<br/>临时网络故障做有上限的重试"]
+    T --> M3["结果返回后<br/>补格式或安全校验"]
+    M3 --> O["输出"]
+
+    style M2 fill:#fff3cd
+</pre>
+
+<blockquote>
+<p><strong>Middleware 并不是另一套运行时。</strong> 它运行在 <code>create_agent</code> 编译出的 LangGraph 内部，对执行行为进行<strong>组合式扩展</strong>。</p>
+</blockquote>
+<h2 id="37-langgraph">3.7 LangGraph 是什么角色</h2>
+<p><strong>如果只用 <code>while</code> 循环实现 Agent</strong>：进程退出后中间状态容易丢失，也很难在敏感工具前暂停几小时再继续。</p>
+<p>LangGraph 把流程建模为 <strong>State + Node + Edge</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>State</td>
+<td>保存状态</td>
+</tr>
+<tr>
+<td>Node</td>
+<td>执行模型或工具</td>
+</tr>
+<tr>
+<td>Edge</td>
+<td>决定下一步</td>
+</tr>
+</tbody>
+</table>
+<p><strong>检查点可以保存每一步状态</strong>，因此能支持中断恢复、人工介入、故障恢复和长时间运行。</p>
+<h3 id="371">3.7.1 两者不是二选一</h3>
+<p>LangChain 提供高层组件和标准 Agent 架构，LangGraph 提供底层执行能力。简单 Agent 直接用 <code>create_agent</code>；只有流程需要复杂分支、并行、审批或精细状态控制时，才需要直接编写 LangGraph。</p>
+<h2 id="38-chain">3.8 旧版 Chain 还能用吗</h2>
+<p>早期教程常见的 <code>LLMChain</code>、<code>ConversationChain</code> 和部分旧式 Agent 执行器已经进入 <strong><code>langchain-classic</code></strong>。</p>
+<p><strong>它们可以用于维护存量项目，但不再代表 v1 的主架构。</strong></p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>更合适的方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>固定的 Prompt、Model、Parser 流程</td>
+<td><strong>Runnable + LCEL</strong></td>
+</tr>
+<tr>
+<td>标准模型与工具循环</td>
+<td><strong><code>create_agent</code></strong></td>
+</tr>
+<tr>
+<td>复杂分支、并行、暂停恢复和人工审批</td>
+<td><strong>直接使用 LangGraph</strong></td>
+</tr>
+<tr>
+<td>维护旧式 Chain 项目</td>
+<td><code>langchain-classic</code> 后渐进迁移</td>
+</tr>
+</tbody>
+</table>
+<h2 id="39">3.9 常见错误</h2>
+<h3 id="391-langchain-sdk">3.9.1 把 LangChain 说成「模型 SDK 的薄封装」</h3>
+<p><strong>Message 统一数据、Tool 划边界、Runnable 统一执行</strong>，三者组合起来才是它的价值。</p>
+<h3 id="392">3.9.2 认为工具是模型执行的</h3>
+<p><strong>模型只能提出调用意图</strong>，真正执行、权限校验和副作用都在应用程序里。</p>
+<h3 id="393-tool_call_id">3.9.3 忽略 <code>tool_call_id</code></h3>
+<p>一轮可能请求多个工具，<strong>没有 ID 对应模型就分不清哪条结果属于哪次调用</strong>。</p>
+<h3 id="394-create_agent">3.9.4 以为 <code>create_agent</code> 返回的是普通函数</h3>
+<p><strong>它返回的是编译后的 LangGraph 图</strong>，这正是它能保存状态、流式输出进度的原因。</p>
+<h3 id="395-prompt">3.9.5 把所有数据都塞进消息或 Prompt</h3>
+<p><strong>State / Context / Store 三分</strong>：可信身份不该让模型生成，数据库连接不该进对话上下文。</p>
+<h3 id="396-middleware">3.9.6 把 Middleware 当成另一套运行时</h3>
+<p><strong>它跑在 <code>create_agent</code> 编译出的图内部</strong>，是组合式扩展点。</p>
+<h3 id="397-langchain-langgraph">3.9.7 把 LangChain 和 LangGraph 说成二选一</h3>
+<p>前者是高层组件与标准架构，后者是底层执行能力。</p>
+<h3 id="398-llmchain">3.9.8 照抄旧教程用 <code>LLMChain</code></h3>
+<p>已进 <code>langchain-classic</code>，新项目不该以它为首选。</p>
+<h2 id="310">3.10 本章总结</h2>
+<ol>
+<li><strong>LangChain 的思路是在厂商差异之上定义稳定接口</strong>，让模型、工具、运行时独立演进；</li>
+<li><strong>四层架构</strong>：核心协议层、集成适配层、Agent 开发层、编排运行层，可观测性贯穿各层；</li>
+<li><strong>Message 统一「传什么」</strong>：Human / AI / Tool 三类消息隔离了各家 SDK 的格式差异；</li>
+<li><strong>Tool 统一「谁执行什么」</strong>：模型只提意图，执行与权限校验留在应用程序；</li>
+<li><strong>Runnable 统一「怎么执行」</strong>：invoke、异步、批处理、流式；</li>
+<li><strong>Agent loop 是模型与工具间可重复多轮的循环</strong>，<code>tool_call_id</code> 保证多工具结果能对上原请求；</li>
+<li><strong><code>create_agent</code> 返回编译后的 LangGraph 图</strong>，因此能保存状态、输出进度、决定执行边；</li>
+<li><strong>数据三分</strong>：State（可变）、Context（不变可信依赖）、Store（跨线程持久）；</li>
+<li><strong>Middleware 是模型和工具调用前后的扩展点</strong>，覆盖动态提示词、权限、审批、重试、摘要、校验；</li>
+<li><strong>LangGraph 用 State + Node + Edge 建模</strong>，检查点支撑中断恢复与人工介入；</li>
+<li><strong>v1 主线是「标准协议 + create_agent + LangGraph Runtime」</strong>，LCEL 仍适合确定性流程，旧式 Chain 主要用于维护存量。</li>
+</ol>
+<p>可以顺着一次请求理解 LangChain v1：协议层统一了传什么和怎么执行，Agent 层组装出模型与工具的循环，LangGraph 让这个循环拥有状态、检查点和恢复能力，Middleware 则在关键位置提供扩展点。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langchain/overview">LangChain 官方文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/agents">LangChain: Agents 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/messages">LangChain: Messages 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/tools">LangChain: Tools 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/middleware">LangChain: Middleware 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/migrate/langchain-v1">LangChain v1 迁移指南</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

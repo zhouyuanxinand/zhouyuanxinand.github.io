@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Deep Research 实现逻辑 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Deep Research 实现逻辑 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>生产闭环</span> / <span>Deep Research 实现逻辑</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="deep-research">第十二章：Deep Research 的实现逻辑</h1>
+<h2 id="121-deep-research">12.1 Deep Research 是什么</h2>
+<p>普通问答通常一次检索就能得到答案；研究任务往往一开始就没有固定路径。</p>
+<p>例如比较三家云厂商的 Agent 托管能力，需要分别查产品定位、价格、限制和区域差异，还要处理<strong>产品改名、资料过期和来源矛盾</strong>。</p>
+<blockquote>
+<p>Deep Research 关注的是一套研究流程：系统要围绕研究目标决定下一步搜什么、哪些问题可以并行、证据是否充分，以及何时停止。</p>
+</blockquote>
+<h3 id="1211">12.1.1 生态里几个名字的区别</h3>
+<table>
+<thead>
+<tr>
+<th>名字</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LangChain</strong></td>
+<td>提供模型、工具和 Agent 等<strong>高层积木</strong></td>
+</tr>
+<tr>
+<td><strong>LangGraph</strong></td>
+<td>负责<strong>有状态流程如何编排和运行</strong></td>
+</tr>
+<tr>
+<td><strong>open_deep_research</strong></td>
+<td>展示一套<strong>具体研究流程</strong></td>
+</tr>
+<tr>
+<td><strong>Deep Agents</strong></td>
+<td>构建在 LangGraph 上的 Python <strong>agent harness</strong>：提供规划、子 Agent、上下文管理和文件系统工具；不是一个保证研究正确性的托管研究产品</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>边界需要明确：Deep Agents 是单独安装的 <code>deepagents</code> SDK/harness，不是 LangChain 核心包的开关，也不替你提供模型、身份系统、业务授权、数据治理或安全隔离。<code>task</code> 子 Agent 默认是一次性、隔离上下文后只回传最终报告；任务清单从 v0.7 起是 opt-in，不应假设每个 Deep Agent 都会规划或长期记忆。</p>
+</blockquote>
+<h2 id="122">12.2 核心流程</h2>
+<pre class="mermaid">flowchart TB
+    S1["① 澄清问题并确定范围"] --> S2["② 生成 Research Brief"]
+    S2 --> S3["③ Supervisor 拆分子课题"]
+    S3 --> S4["④ Researcher 并行检索与核验"]
+    S4 --> S5["⑤ 压缩证据并检查研究缺口"]
+    S5 -->|发现缺口或冲突| S3
+    S5 -->|覆盖充分| S6["⑥ 统一生成最终报告"]
+
+    style S2 fill:#e8f0fe
+    style S6 fill:#e6f4ea
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>关键点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>① 范围澄清</strong></td>
+<td>用户只说「研究某家公司」时，要确认是关注<strong>投资价值、技术路线还是就业风险</strong>，否则后续搜索很容易跑偏</td>
+</tr>
+<tr>
+<td><strong>② Research Brief</strong></td>
+<td>把用户目标、研究维度、时间范围、来源要求和交付形式整理成<strong>稳定的成功标准</strong></td>
+</tr>
+<tr>
+<td><strong>③ 拆分子课题</strong></td>
+<td><strong>只有相对独立的问题才适合并行</strong>（如分别研究三家公司的定价）；后一个问题依赖前一个结论就应该串行</td>
+</tr>
+<tr>
+<td><strong>④ 多轮检索</strong></td>
+<td>每个研究员<strong>只处理一个主题</strong>，并<strong>保留来源信息</strong></td>
+</tr>
+<tr>
+<td><strong>⑤ 压缩与查缺</strong></td>
+<td><strong>不是把所有网页原文塞回 Supervisor</strong>，而是压缩成<strong>带出处的关键证据</strong>；再检查 Brief 是否被覆盖</td>
+</tr>
+<tr>
+<td><strong>⑥ 统一写作</strong></td>
+<td>组织论证、处理重复内容，<strong>将事实、推断和不确定性分开表达</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="123-agent">12.3 为什么需要子 Agent</h2>
+<p><strong>如果一个 Agent 同时研究多个主题</strong>，搜索结果会不断占用同一个上下文——A 公司的价格、B 公司的安全文档和 C 公司的失败请求混在一起，<strong>模型反而更难关注当前证据</strong>。</p>
+<h3 id="1231">12.3.1 第一目的是隔离上下文</h3>
+<blockquote>
+<p><strong>每个 Researcher 只处理一个子课题，最终只返回压缩后的结论和来源，主 Agent 不必背着全部搜索过程继续思考。</strong></p>
+</blockquote>
+<h3 id="1232">12.3.2 并行是隔离之后的自然结果</h3>
+<ul>
+<li>相互独立的研究任务可以同时执行，<strong>整体等待时间下降</strong>；</li>
+<li><strong>彼此依赖的任务却仍要按顺序完成</strong>。</li>
+</ul>
+<blockquote>
+<p><strong>Agent 数量越多，模型调用、搜索费用、限流和协调成本也越高。不能为了并行而并行，关键仍是子课题能否独立推进。</strong></p>
+</blockquote>
+<h3 id="1233-agent">12.3.3 为什么不让子 Agent 分别写报告章节</h3>
+<blockquote>
+<p><strong>因为各章节可能重复背景、使用不同口径，甚至得出相互冲突的结论。</strong></p>
+<p><strong>并行搜证据、统一写报告</strong>，更容易保持全文一致性。</p>
+</blockquote>
+<h2 id="124">12.4 如何保证研究质量</h2>
+<p><strong>研究报告很长、链接很多，并不代表质量高。</strong></p>
+<p>判断质量时，可以沿着「来源 → 证据 → 结论」反向追查：</p>
+<pre class="mermaid">flowchart TB
+    A["① 来源是否值得信<br/>官方文档、论文、监管文件、一手资料更接近原始事实<br/>多篇转载可能都来自同一篇文章<br/>不能因为链接数量多就当成交叉验证"]
+    A --> B["② 来源是否真的支持当前结论<br/>报告应把事实、推断和不确定性分开<br/>遇到冲突时追查发布时间、统计口径和原始出处<br/>而不是挑一个最符合预期的答案"]
+    B --> C["③ 结论仍不稳就回到研究过程<br/>搜索词是否漏掉关键限定<br/>子课题是否重复<br/>停止条件是否过早<br/>工具失败后有没有换用有效来源"]
+
+    style A fill:#e8f0fe
+    style C fill:#fff3cd
+</pre>
+
+<h3 id="1241">12.4.1 评测既看答案也看轨迹</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>检查</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>最终答案</td>
+<td>是否覆盖 Brief</td>
+</tr>
+<tr>
+<td><strong>研究轨迹</strong></td>
+<td>搜索路径是否合理</td>
+</tr>
+<tr>
+<td><strong>来源覆盖率</strong></td>
+<td>关键维度是否都有证据</td>
+</tr>
+<tr>
+<td><strong>引用正确性</strong></td>
+<td>引用是否真的支持结论</td>
+</tr>
+<tr>
+<td>耗时与成本</td>
+<td>是否在预算内</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>通用 Benchmark 可以用于版本比较，但不能代替企业自己的业务数据集。</strong></p>
+</blockquote>
+<h2 id="125">12.5 如何控制成本和安全</h2>
+<h3 id="1251">12.5.1 成本受「宽度」和「深度」双重影响</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>含义</th>
+<th>控制手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>宽度</strong></td>
+<td>并行研究单元数量</td>
+<td><strong>限制同时运行的研究单元</strong></td>
+</tr>
+<tr>
+<td><strong>深度</strong></td>
+<td>每个 Researcher 和 Supervisor 最多迭代多少轮</td>
+<td><strong>限制工具调用次数和补搜轮数</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>单个分支有上限还不够</strong>——整项任务还要设置<strong>总 Token、搜索费用和超时预算</strong>，再补上失败重试、缓存、限流和取消策略。</p>
+<blockquote>
+<p>这样才能明确继续、降级或停止的条件。</p>
+</blockquote>
+<h3 id="1252">12.5.2 网页和外部文档都是不可信输入</h3>
+<blockquote>
+<p><strong>它们可能包含诱导 Agent 泄露密钥或执行危险操作的提示词注入。</strong></p>
+</blockquote>
+<table>
+<thead>
+<tr>
+<th>措施</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>研究工具<strong>优先只读</strong></td>
+</tr>
+<tr>
+<td>内部数据遵循<strong>最小权限</strong></td>
+</tr>
+<tr>
+<td><strong>密钥不要暴露给搜索或沙箱环境</strong></td>
+</tr>
+<tr>
+<td>高风险操作<strong>必须人工审批并保留 Trace</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>对于金融、医疗、法律和安全决策，Deep Research 只能辅助资料整理，不能因为报告带有引用就取消专家复核。</strong></p>
+</blockquote>
+<h3 id="1253-deep-agents">12.5.3 Deep Agents 的文件系统与沙箱边界</h3>
+<p>Deep Agents 向模型提供的是<strong>可插拔 backend 后面的文件系统工具面</strong>：<code>ls</code>、<code>read_file</code>、<code>write_file</code>、<code>edit_file</code>、<code>delete</code>、<code>glob</code>、<code>grep</code>。这不是抽象概念——给错 backend 就可能让模型读写真实文件。</p>
+<table>
+<thead>
+<tr>
+<th>Backend / 场景</th>
+<th>数据与能力</th>
+<th>安全边界</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>默认 State backend</td>
+<td>文件随 LangGraph state/checkpointer 在<strong>同一 thread</strong>内保存</td>
+<td>适合临时工作区；不跨 thread 共享</td>
+</tr>
+<tr>
+<td><code>StoreBackend</code></td>
+<td>文件跨 thread 持久化</td>
+<td>namespace、租户隔离、保留与删除策略由应用负责</td>
+</tr>
+<tr>
+<td><code>FilesystemBackend</code></td>
+<td>访问指定根目录的本地文件</td>
+<td>只授予专用、最小目录；不要把主机目录、密钥目录或用户主目录作为 root</td>
+</tr>
+<tr>
+<td><code>LocalShellBackend</code></td>
+<td>本机文件系统，另有 <code>execute</code></td>
+<td><strong>没有隔离</strong>；仅限受控开发环境</td>
+</tr>
+<tr>
+<td>Sandbox backend</td>
+<td>隔离的文件系统和 <code>execute</code></td>
+<td>适合不可信代码与自主 Agent；仍须限制网络、凭证、挂载目录、资源和生命周期</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>只有 Sandbox 和 LocalShell backend 会提供 shell <code>execute</code>。Sandbox 是隔离边界，不是「默认安全」的同义词：把最小权限凭证按需注入，使用只读/受限网络与 CPU、内存、时间配额，并在删除、外发、付费调用等动作前启用 <code>interrupt_on</code> 审批。不要把宿主机的环境变量或云凭证直接暴露给 Agent。</p>
+</blockquote>
+<p><strong>推荐组合</strong>：临时中间产物放 thread-scoped State backend；经审核、需要跨会话保留的资料放带租户 namespace 的 Store backend；代码执行放一次性 sandbox。需要同时使用时用 Composite backend 按路径路由，而不是把所有数据和权限放进一个可写本地目录。</p>
+<h2 id="126">12.6 哪些场景适合</h2>
+<p>同时满足下列三项时，Deep Research 才值得引入：</p>
+<pre class="mermaid">flowchart TB
+    Q1{"问题是否开放到<br/>需要多轮搜索和动态调整方向?"}
+    Q1 -->|一次权威检索就能回答| N1["不用<br/>复杂研究流程只会增加成本"]
+    Q1 -->|是| Q2{"能否拆出相对独立的子课题?"}
+    Q2 -->|不能| N2["不用<br/>并行 Researcher 会频繁等待和交换状态"]
+    Q2 -->|能| Q3{"报告价值能否覆盖<br/>多轮模型与搜索成本?"}
+    Q3 -->|不能| N3["不用"]
+    Q3 -->|能| Y["适合 Deep Research"]
+
+    style Y fill:#e6f4ea
+</pre>
+
+<p><strong>典型场景</strong>：竞品分析、技术路线调研、文献综述、供应商尽调、政策影响研究，以及企业内部资料与公开信息的联合分析。</p>
+<p><strong>不适合的情形</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>情形</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>只查一个容易核验的实时事实</td>
+<td><strong>一次权威搜索更快、更便宜</strong></td>
+</tr>
+<tr>
+<td>多个子任务必须严格共享中间状态</td>
+<td><strong>强行并行只会增加冲突</strong></td>
+</tr>
+<tr>
+<td>数据源本身不可靠或没有访问权限</td>
+<td><strong>研究 Agent 也无法凭空得到正确答案</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="127">12.7 常见错误</h2>
+<h3 id="1271-deep-research">12.7.1 把 Deep Research 理解成「搜索很多次」</h3>
+<p>重点在于动态决定搜什么、能否并行、证据够不够、何时停止。</p>
+<h3 id="1272-langchain">12.7.2 把它当成 LangChain 核心包里的一个开关</h3>
+<p><strong>它是一类研究型 Agent 架构</strong>，参考实现和通用框架定位不同。</p>
+<h3 id="1273">12.7.3 跳过范围澄清直接开搜</h3>
+<p><strong>Brief 不明确，后续所有搜索都可能跑偏。</strong></p>
+<h3 id="1274">12.7.4 把有依赖关系的子课题也并行</h3>
+<p><strong>后一个依赖前一个结论时必须串行。</strong></p>
+<h3 id="1275-supervisor">12.7.5 把网页原文全部塞回 Supervisor</h3>
+<p><strong>应该压缩成带出处的关键证据</strong>，否则上下文很快被占满。</p>
+<h3 id="1276-agent">12.7.6 让子 Agent 分别写报告章节</h3>
+<p><strong>会重复背景、口径不一、结论冲突</strong>，应并行搜证据、统一写报告。</p>
+<h3 id="1277">12.7.7 用链接数量当交叉验证</h3>
+<p><strong>多篇转载可能都来自同一篇文章。</strong></p>
+<h3 id="1278">12.7.8 遇到冲突挑一个最符合预期的答案</h3>
+<p><strong>要追查发布时间、统计口径和原始出处。</strong></p>
+<h3 id="1279">12.7.9 只控制单分支迭代不设总预算</h3>
+<p><strong>整项任务还要有总 Token、搜索费用和超时上限。</strong></p>
+<h3 id="12710">12.7.10 把网页内容当可信输入</h3>
+<p><strong>提示词注入可能诱导泄露密钥或执行危险操作</strong>，研究工具应优先只读。</p>
+<h3 id="12711">12.7.11 因为报告有引用就取消专家复核</h3>
+<p><strong>金融、医疗、法律和安全决策它只能辅助。</strong></p>
+<h3 id="12712-benchmark">12.7.12 只用通用 Benchmark 评测</h3>
+<p><strong>不能代替企业自己的业务数据集。</strong></p>
+<h3 id="12713-deep-agents">12.7.13 把 Deep Agents 当成默认隔离环境</h3>
+<p>文件工具和 <code>execute</code> 的权限由 backend 决定；<code>LocalShellBackend</code> 直接操作宿主机。对不可信输入或自主代码执行，应选 sandbox，并单独约束凭证、网络、挂载和资源。</p>
+<h2 id="128">12.8 本章总结</h2>
+<ol>
+<li><strong>Deep Research 是一类研究型 Agent 架构</strong>，不是核心包中的一个开关；</li>
+<li><strong>它建立在 LangChain 的模型/工具/Agent 与 LangGraph 的状态与编排能力之上</strong>；</li>
+<li><strong>六步流程</strong>：明确范围 → 生成 Brief → 拆分子课题 → 并行检索核验 → 压缩证据查缺 → 统一写作；</li>
+<li><strong>Research Brief 是稳定的成功标准</strong>，缺了它搜索必然跑偏；</li>
+<li><strong>只有独立子课题适合并行</strong>，有依赖就串行；</li>
+<li><strong>子 Agent 的第一目的是隔离上下文</strong>，并行是隔离之后的自然结果；</li>
+<li><strong>并行搜证据、统一写报告</strong>，避免章节重复与结论冲突；</li>
+<li><strong>质量沿「来源 → 证据 → 结论」反向追查</strong>，链接多不等于交叉验证；</li>
+<li><strong>评测既看答案也看轨迹、覆盖率、引用正确性、耗时和成本</strong>；</li>
+<li><strong>成本受宽度和深度双重影响</strong>，单分支上限之外还要有总预算和取消策略；</li>
+<li><strong>外部文档是不可信输入</strong>：工具只读、最小权限、密钥隔离、高风险人工审批；</li>
+<li><strong>三项条件都成立才值得用</strong>：问题足够开放、子课题可独立、报告价值覆盖成本。</li>
+<li><strong>Deep Agents 是 SDK/harness 而非安全或正确性承诺</strong>：文件、持久化和 shell 权限取决于 backend；不可信代码要在受限 sandbox 中执行。</li>
+</ol>
+<blockquote>
+<p>可以把它理解为：把一个没有固定路径的研究任务，拆成「Supervisor 规划补缺 + Researcher 隔离上下文并行搜证 + 统一写作」的有状态流程；能否上线，还取决于宽度、深度、预算、来源可信度和提示词注入风险是否被一起控制。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://blog.langchain.com/open-deep-research/">LangChain 官方博客：Open Deep Research</a></li>
+<li><a href="https://github.com/langchain-ai/open_deep_research">open_deep_research 官方仓库</a></li>
+<li><a href="https://docs.langchain.com/oss/python/deepagents/overview">Deep Agents 概览</a></li>
+<li><a href="https://docs.langchain.com/oss/python/deepagents/backends">Deep Agents Backends</a></li>
+<li><a href="https://docs.langchain.com/oss/python/deepagents/sandboxes">Deep Agents Sandboxes</a></li>
+<li><a href="https://github.com/langchain-ai/deepagents">deepagents 官方仓库</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+<li><a href="https://docs.langchain.com/langsmith/evaluation">LangSmith Evaluation 文档</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

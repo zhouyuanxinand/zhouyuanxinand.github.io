@@ -1,0 +1,85 @@
+/* Awesome AI Roadmap 转载区样式（基于主站蓝图风扩展） */
+.rm-nav { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.rm-shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 40px;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 32px 24px 80px;
+}
+.rm-side {
+  position: sticky; top: 76px; align-self: start;
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  padding-right: 8px;
+  font-size: 13.5px;
+}
+.rm-side::-webkit-scrollbar { width: 4px; }
+.rm-side::-webkit-scrollbar-thumb { background: var(--line); }
+.rm-side-head {
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.18em;
+  color: var(--ink-faint); margin-bottom: 14px;
+}
+.rm-tree, .rm-tree ul { list-style: none; padding-left: 0; }
+.rm-tree ul { padding-left: 14px; border-left: 1px solid var(--line); margin: 2px 0 2px 4px; }
+.rm-tree li { margin: 1px 0; }
+.rm-tree a {
+  display: block; padding: 4px 8px; color: var(--ink-soft);
+  text-decoration: none; border-radius: 4px; line-height: 1.5;
+}
+.rm-tree a:hover { color: var(--accent); background: var(--accent-soft); }
+.rm-tree a.active { color: var(--accent); background: var(--accent-soft); font-weight: 600; }
+.rm-tree .group > span {
+  display: block; padding: 8px 8px 4px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  color: var(--ink-faint);
+}
+.rm-tree > .group > span { font-size: 12px; color: var(--ink); font-weight: 600; padding-top: 12px; }
+.rm-attr-side { margin-top: 20px; font-size: 11.5px; color: var(--ink-faint); line-height: 1.6; }
+.rm-attr-side a { color: var(--ink-faint); }
+
+.rm-crumb { font-family: var(--mono); font-size: 12px; color: var(--ink-faint); margin-bottom: 14px; }
+.rm-crumb span + span::before { content: ""; }
+.rm-crumb span:not(:first-child)::before { content: " / "; color: var(--line); }
+.rm-attr {
+  font-size: 13px; color: var(--ink-soft);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  padding: 10px 14px; border-radius: 0 8px 8px 0;
+  margin-bottom: 28px;
+}
+.rm-attr a { color: var(--accent); }
+
+.rm-body { padding: 0; }
+.rm-body h1 { font-family: var(--serif); font-size: 32px; margin-bottom: 0.6em; line-height: 1.35; }
+.rm-body h2 { margin-top: 1.8em; }
+.rm-body h3 { font-size: 17px; margin: 1.6em 0 0.6em; }
+.rm-body table { width: 100%; border-collapse: collapse; margin-bottom: 1.4em; font-size: 14px; }
+.rm-body th, .rm-body td { border: 1px solid var(--line); padding: 8px 12px; text-align: left; }
+.rm-body th { background: var(--bg-raised); font-weight: 600; }
+.rm-body pre {
+  background: var(--bg-raised); border: 1px solid var(--line);
+  border-radius: 8px; padding: 14px 16px; overflow-x: auto;
+  font-size: 13px; line-height: 1.7; margin-bottom: 1.4em;
+}
+.rm-body pre code { background: none; padding: 0; }
+.rm-body img { max-width: 100%; }
+.rm-body .mermaid { display: flex; justify-content: center; background: var(--bg-raised); border: 1px solid var(--line); border-radius: 8px; padding: 16px; }
+
+.rm-lead { font-size: 17px; color: var(--ink-soft); }
+.rm-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; margin: 28px 0; }
+.rm-card {
+  display: flex; flex-direction: column; gap: 6px;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 16px 18px; text-decoration: none; color: inherit;
+  background: var(--bg-raised); transition: border-color 0.2s;
+}
+.rm-card:hover { border-color: var(--accent); }
+.rm-card b { font-size: 15px; }
+.rm-card span { font-family: var(--mono); font-size: 11px; color: var(--ink-faint); }
+
+@media (max-width: 860px) {
+  .rm-shell { grid-template-columns: 1fr; }
+  .rm-side { position: static; max-height: none; border-bottom: 1px solid var(--line); padding-bottom: 16px; margin-bottom: 8px; }
+}

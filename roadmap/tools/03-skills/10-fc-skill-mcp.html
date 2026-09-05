@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Function Calling、MCP、Skill · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Function Calling、MCP、Skill — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Skills</span> / <span>Function Calling、MCP、Skill</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="function-callingmcpskill">第十章：Function Calling、MCP、Skill 三者关系</h1>
+<h2 id="101">10.1 为什么会有三个概念</h2>
+<p>最典型的误解是把这三个当成「不同厂商在不同时期推出的竞争方案，选一个用就行」。</p>
+<p>实际上它们是<strong>从底到顶的三层</strong>，每一层建立在下一层之上。</p>
+<p>可以先看<strong>每句话的主语是谁</strong>：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>谁在说话</th>
+<th>说什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Function Calling</strong></td>
+<td>模型</td>
+<td>「我要调这个函数，参数是这些」</td>
+</tr>
+<tr>
+<td><strong>MCP</strong></td>
+<td>工具服务</td>
+<td>「我能提供这些函数」</td>
+</tr>
+<tr>
+<td><strong>Skill</strong></td>
+<td>操作手册</td>
+<td>「用这些工具，按这个流程做」</td>
+</tr>
+</tbody>
+</table>
+<p>主语不同、对话对象不同、粒度不同——这就是三者的本质差异。</p>
+<h3 id="1011">10.1.1 时间线解释了这个分层</h3>
+<pre class="mermaid">timeline
+    title 三层能力的演进
+    2023 : Function Calling : 问题「模型只会生成文本<br/>怎么让它触发外部调用」
+    2024 : MCP : 问题「每个应用都在重复<br/>写对接各种工具的代码」
+    2025 : Agent Skill : 问题「工具有了<br/>但 Agent 不知道该按什么流程用」
+</pre>
+
+<p>每一层都是在<strong>上一层普及之后暴露出的新痛点</strong>上诞生的：</p>
+<ul>
+<li>Function Calling 解决<strong>调用协议</strong>问题：模型和程序之间需要一套结构化的表达方式；</li>
+<li>它普及后，重复对接的痛点浮现——每个应用都要给数据库写一套、文件系统写一套、API 再写一套。MCP 把工具接入<strong>标准化</strong>，一次实现到处复用；</li>
+<li>工具有了、接入也标准化了，新问题是 Agent 面对复杂任务不知道该按什么流程用这些工具。Skill 解决<strong>知识与流程复用</strong>。</li>
+</ul>
+<h2 id="102">10.2 从「谁和谁通信」定位三者</h2>
+<pre class="mermaid">flowchart TB
+    subgraph L3["第三层 · Skill"]
+        direction LR
+        AGENT[Agent] <-->|"扫描 / 加载"| KM["知识模块<br/>SKILL.md + 脚本 + 模板"]
+    end
+
+    subgraph L2["第二层 · MCP"]
+        direction LR
+        CLIENT[MCP Client] <-->|"JSON-RPC<br/>tools/list · tools/call"| SERVER[MCP Server]
+    end
+
+    subgraph L1["第一层 · Function Calling"]
+        direction LR
+        MODEL[模型] <-->|"tool_calls JSON<br/>tool 消息回填"| HOST[宿主程序]
+    end
+
+    L3 -->|"流程中需要调工具"| L2
+    L2 -->|"工具定义转成 FC 格式<br/>调用结果回传"| L1
+
+    style L3 fill:#e6f4ea
+    style L2 fill:#e8f0fe
+    style L1 fill:#fef7e0
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>发生在哪两个角色之间</th>
+<th>本质</th>
+<th>粒度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Function Calling</td>
+<td>模型 ↔ 宿主程序</td>
+<td>单次调用的格式规范</td>
+<td>一次函数调用</td>
+</tr>
+<tr>
+<td>MCP</td>
+<td>MCP Client ↔ MCP Server</td>
+<td>工具的标准化封装与发现</td>
+<td>一个工具 / 一组工具</td>
+</tr>
+<tr>
+<td>Skill</td>
+<td>Agent ↔ 知识模块</td>
+<td>流程与标准的可复用封装</td>
+<td>一类完整任务</td>
+</tr>
+</tbody>
+</table>
+<p>注意粒度的跨度：「查询订单表」是一个 <strong>MCP 工具</strong>，「代码审查」「数据分析报告」是一个 <strong>Skill</strong>——一个 Skill 内部可能有好几个步骤，每步可调用多个 MCP 工具；由 LLM 驱动时，常以 Function Calling 或结构化输出表达调用意图。</p>
+<h2 id="103">10.3 层级依赖是单向的</h2>
+<p>三者不只是「分层」，而且有<strong>明确的依赖方向</strong>：</p>
+<pre class="mermaid">flowchart TB
+    S["Skill<br/>定义流程"] -->|依赖| M["MCP<br/>提供工具"]
+    M -->|依赖| F["Function Calling<br/>触发调用"]
+    F -->|依赖| LLM["模型的工具调用能力"]
+
+    style S fill:#e6f4ea
+    style M fill:#e8f0fe
+    style F fill:#fef7e0
+</pre>
+
+<p>为什么是这个方向：</p>
+<ul>
+<li><strong>Function Calling 在最底层</strong>，因为它是模型触发调用的「语言」。没有它，模型无法告诉外部「我要调什么、传什么参数」，上层一切能力都无从谈起；</li>
+<li><strong>MCP 可与 Function Calling 配合</strong>：许多 Host 会把 MCP Tool 转成模型 schema，但 MCP 不强制这条适配路径。<a href="../02-mcp/06-mcp-vs-function-calling.html">第六章</a> 详细拆过这条时序链；</li>
+<li><strong>Skill 依赖可执行能力而非特定协议</strong>：执行中可使用 MCP、内嵌函数或其他受控集成。</li>
+</ul>
+<p>反过来则不成立：<strong>只有 Function Calling 也能工作</strong>（把工具定义硬编码在应用里），<strong>只有 FC + MCP 也能工作</strong>（模型自己临场决定怎么用工具）。Skill 是最上层的增强，不是必需品。</p>
+<h2 id="104">10.4 做菜类比</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>类比</th>
+<th>缺了它会怎样</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Function Calling</strong></td>
+<td>你的<strong>手</strong></td>
+<td>站在厨房里拿着菜谱，连刀都拿不起来</td>
+</tr>
+<tr>
+<td><strong>MCP</strong></td>
+<td>你的<strong>厨房</strong></td>
+<td>有手有菜谱，但家里什么厨具食材都没有</td>
+</tr>
+<tr>
+<td><strong>Skill</strong></td>
+<td>那份<strong>菜谱</strong></td>
+<td>有手有厨具，但面对一桌食材不知道先切什么后炒什么</td>
+</tr>
+</tbody>
+</table>
+<p>这个类比也说明了<strong>为什么它们不能互相替代</strong>：手不能变成厨房，厨房也不能代替菜谱。</p>
+<h2 id="105">10.5 一个完整场景串起三层</h2>
+<p>用户说：<strong>「帮我分析最近三个月的销售数据，找出下滑的产品线，给改进建议。」</strong></p>
+<pre class="mermaid">sequenceDiagram
+    participant U as 用户
+    participant A as Agent
+    participant SK as Skill 层
+    participant MC as MCP Client
+    participant MS as MCP Servers
+    participant M as 模型
+
+    U->>A: 分析销售数据并给建议
+    A->>SK: 扫描 Skill 元数据
+    SK-->>A: 匹配到「数据分析报告」Skill
+    A->>SK: 加载 SKILL.md 正文
+    SK-->>A: 流程：取数 → 趋势分析 → 按模板成文
+
+    Note over A,MS: 第一步：取数
+    A->>M: 任务 + 流程 + 可用工具定义
+    M-->>A: tool_calls: query_database(sql=...)
+    A->>MC: 路由调用
+    MC->>MS: tools/call → 数据库 Server
+    MS-->>MC: 查询结果
+    MC-->>A: 结果
+    A->>M: tool 消息回填
+
+    Note over A,MS: 第二步：趋势分析
+    M-->>A: tool_calls: run_python(code=...)
+    A->>MC: 路由调用
+    MC->>MS: tools/call → Python 执行器 Server
+    MS-->>MC: 分析结果
+    MC-->>A: 结果
+    A->>M: tool 消息回填
+
+    Note over A,SK: 第三步：按 Skill 模板成文
+    M-->>A: 结构化分析报告
+    A-->>U: 返回报告
+</pre>
+
+<p>放到这个流程里看，三层分工分别是：</p>
+<ul>
+<li><strong>Skill 做流程编排</strong>——决定「先取数、再分析、最后按模板成文」，以及每步的标准（比如「下滑幅度超过 15% 才算显著」）；</li>
+<li><strong>MCP 做工具管理</strong>——Client 已经连着数据库 Server 和 Python 执行器 Server，工具列表自动可见，不需要在应用里写死；</li>
+<li><strong>Function Calling 做模型与工具的通信</strong>——每一次 <code>tool_calls</code> 输出和 <code>tool</code> 消息回填。</li>
+</ul>
+<h2 id="106">10.6 常见错误</h2>
+<h3 id="1061">10.6.1 当成三个竞争方案</h3>
+<p>这是最常见的误解。它们是三层架构，同一个系统里通常三者同时存在。</p>
+<h3 id="1062">10.6.2 说不清依赖方向</h3>
+<p>更准确的关系是：Skill 编排能力；MCP 标准化一部分能力接入；Function Calling 是模型选择工具时常见的表达层。三者可组合，不构成强制的单向依赖。</p>
+<h3 id="1063">10.6.3 认为三者缺一不可</h3>
+<p>上一节的类比容易造成这个印象，但<strong>只有 Function Calling 完全可以工作</strong>——工具定义硬编码在应用里就行。MCP 解决的是复用成本，Skill 解决的是流程稳定性，都是随规模增长才出现的问题。小项目直接用 FC 是合理选择。</p>
+<h3 id="1064">10.6.4 混淆粒度</h3>
+<p>一个 Skill ≠ 一个工具。Skill 的粒度是「一类完整任务」，内部会调用多个工具、经历多轮 Function Calling。</p>
+<h3 id="1065-mcp-anthropic-function-calling">10.6.5 把 MCP 说成「Anthropic 版的 Function Calling」</h3>
+<p>MCP 不是 FC 的替代实现，也不建立在 FC 之上。同一个 MCP Server 可以服务不同 Host；当 Host 使用模型工具接口时，可将工具定义翻译成各家的 FC schema，也可采用其他调用路径。</p>
+<h3 id="1066">10.6.6 只背概念不讲协作</h3>
+<p>如果要向别人解释这三者，拿一个具体场景把三层串起来，通常比分别背三段定义更能说明问题。</p>
+<h2 id="107">10.7 本章总结</h2>
+<ol>
+<li><strong>三者是从底到顶的三层，不是竞争方案</strong>；</li>
+<li><strong>主语法可以快速区分</strong>：模型说「我要调」、服务说「我能提供」、手册说「按这个流程做」；</li>
+<li><strong>演进逻辑清晰</strong>：调用协议 → 接入标准化 → 流程复用，每层都是上一层普及后的新痛点；</li>
+<li><strong>可组合而非强制依赖</strong>：Skill 可编排 MCP 或其他能力；MCP Tool 可由 Function Calling、结构化输出或确定性流程触发；</li>
+<li><strong>粒度跨度大</strong>：一次调用 / 一个工具 / 一类完整任务；</li>
+<li><strong>不是缺一不可</strong>：只有 FC 也能工作，MCP 和 Skill 解决的是规模化之后的成本与稳定性问题；</li>
+<li><strong>答题要用完整场景串三层</strong>，比分别给三段定义有说服力得多。</li>
+</ol>
+<blockquote>
+<p><strong>可以把它们记成三层：Function Calling 是语言，MCP 是工具箱，Skill 是操作手册；能不能调用、能调用什么、该怎么调用，分别落在这三层。</strong></p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://platform.openai.com/docs/guides/function-calling">OpenAI: Function Calling 指南</a></li>
+<li><a href="https://modelcontextprotocol.io/docs/getting-started/intro">Model Context Protocol 官方文档</a></li>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28">MCP 规范 2026-07-28</a></li>
+<li><a href="https://www.anthropic.com/news/skills">Anthropic: Introducing Agent Skills</a></li>
+<li><a href="https://agentskills.io/specification">Agent Skills 规范</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

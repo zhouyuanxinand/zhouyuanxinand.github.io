@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模型选型实践 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模型选型实践 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>评测与选型</span> / <span>模型选型实践</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第二十二章：模型选型实践</h1>
+<h2 id="221">22.1 为什么不能盯着排行榜无脑选</h2>
+<p><strong>跑分高，不代表在你的特定业务里表现好。</strong> 常见的三个翻车点：</p>
+<table>
+<thead>
+<tr>
+<th>翻车点</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>合规卡死</strong></td>
+<td>海外标杆模型在多模态、代码、复杂推理上通常很强，但 <strong>API 成本、数据出境、网络访问、企业合同支持</strong>都可能卡住国内 ToB 项目</td>
+</tr>
+<tr>
+<td><strong>业务场景不匹配</strong></td>
+<td>榜单漂亮，但在你的<strong>财报格式、行业黑话、内部接口调用</strong>上不一定稳定</td>
+</tr>
+<tr>
+<td><strong>成本失控</strong></td>
+<td>系统里有大量高频的 Agent 内部循环调用时，<strong>硬上最贵的标杆模型，可能一个月就把项目预算烧穿</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>选型看的是「合规、成本、延迟、能力特征」四个维度和业务需求的匹配，不是跑分。</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    B["业务需求"] --> C1["① 合规<br/>数据分类分级、出境、审批"]
+    B --> C2["② 成本<br/>token 单价 × 调用频次"]
+    B --> C3["③ 延迟<br/>用户可感知路径 vs 内部步骤"]
+    B --> C4["④ 能力特征<br/>推理 / 结构化输出 / 长上下文 / 工具调用"]
+    C1 --> S["选型决策"]
+    C2 --> S
+    C3 --> S
+    C4 --> S
+
+    style C1 fill:#fdecea
+</pre>
+
+<p>先看合规，因为它是<strong>一票否决项</strong>，另外三个才是权衡项。</p>
+<h2 id="222">22.2 主流模型横向盘点</h2>
+<blockquote>
+<p><strong>模型名和版本迭代很快，不要把具体型号当成固定答案。</strong> 重要的是<strong>讲清选型逻辑</strong>和<strong>每家模型的能力特征</strong>。</p>
+</blockquote>
+<h3 id="2221">22.2.1 国内生产候选（实际落地优先看）</h3>
+<table>
+<thead>
+<tr>
+<th>系列</th>
+<th>特征</th>
+<th>适合放在哪些节点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>DeepSeek</strong></td>
+<td><strong>推理能力和性价比突出</strong></td>
+<td>高频分析、代码辅助、长链路推理等<strong>成本敏感</strong>的节点。选通用系列还是推理系列，看任务偏生成还是偏推理</td>
+</tr>
+<tr>
+<td><strong>Qwen（通义千问）</strong></td>
+<td><strong>中文语境、工具调用、结构化输出、长上下文</strong></td>
+<td>主调度、文档理解、RAG 汇总等<strong>要求稳定性</strong>的节点</td>
+</tr>
+<tr>
+<td><strong>豆包 / 火山引擎</strong></td>
+<td><strong>工程生态、并发能力、中文产品化体验</strong></td>
+<td>高频文本处理、客服、内容生成、批量分类等<strong>吞吐优先</strong>的场景</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2222">22.2.2 海外能力标杆（评测与非敏感兜底）</h3>
+<table>
+<thead>
+<tr>
+<th>系列</th>
+<th>特征</th>
+<th>使用注意</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GPT / o 系列</strong></td>
+<td>复杂推理、代码、多模态的<strong>能力标杆</strong></td>
+<td>国内企业项目里<strong>要谨慎放到核心链路</strong>，重点评估数据出境、合规审批、网络稳定性和成本</td>
+</tr>
+<tr>
+<td><strong>Claude 系列</strong></td>
+<td><strong>长文本、代码、Agent 调度</strong>能力很强</td>
+<td>常被用来做<strong>评测基准或兜底模型</strong>，同样要先过合规、成本、可用性三关</td>
+</tr>
+</tbody>
+</table>
+<p>多模态需求不能只看“支持图片/音频”的产品标签。应按 OCR、小目标、图表、视频时序、ASR、延迟和安全分别评测；底层架构与评测维度见 <a href="../06-multimodal/23-multimodal-models.html">多模态模型</a>。</p>
+<h2 id="223-model-routing">22.3 落地思路：模型路由（Model Routing）</h2>
+<p><strong>真实项目往往不死磕单一模型，而是按节点特性分配模型。</strong></p>
+<h3 id="2231">22.3.1 一个具体场景</h3>
+<p>企业级多智能体 RAG 问答系统，链路是：</p>
+<pre><code>解析长篇企业财报
+  → 多个 Agent 规划拆解任务
+    → 频繁调用公司内部数据库与搜索引擎
+      → 汇总生成中文报告
+</code></pre>
+<h3 id="2232">22.3.2 按节点分配</h3>
+<pre class="mermaid">flowchart TB
+    subgraph N1["主调度节点 / 格式严格的节点"]
+        A1["需求：结构化输出稳定<br/>Tool Use 准确率高<br/>长上下文指令遵循好"]
+        A2["原因：Agent 频繁调用内部 API<br/>JSON、函数参数、字段名都不能乱"]
+        A3["→ 『稳定』比『榜单第一』更重要"]
+    end
+    subgraph N2["逻辑推理 / 高频数据清洗节点"]
+        B1["需求：推理能力和 token 单价均衡"]
+        B2["原因：多数调用不是面向用户的最终回答<br/>而是 Agent 内部中间步骤"]
+        B3["→ 最怕成本失控，要把便宜且够用的模型用起来"]
+    end
+    subgraph N3["敏感数据链路"]
+        C1["合规底线：敏感商业数据<br/>尽量留在合规可控的链路里"]
+    end
+
+    style A3 fill:#e6f4ea
+    style B3 fill:#e6f4ea
+    style C1 fill:#fdecea
+</pre>
+
+<h3 id="2233">22.3.3 合规边界</h3>
+<blockquote>
+<p><strong>海外模型不是绝对不能用</strong>，但必须先过：<strong>数据分类分级 → 客户合同 → 监管要求 → 企业审批</strong>。</p>
+<p><strong>只要这几关过不了，再强的模型也只能做离线评测，不能进核心生产链路。</strong></p>
+</blockquote>
+<h2 id="224">22.4 选型的落地检查清单</h2>
+<table>
+<thead>
+<tr>
+<th>步骤</th>
+<th>要做的事</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>① 先划合规边界</strong></td>
+<td>哪些数据能出境、哪些必须留在内网。<strong>这一步先做，能直接砍掉一半候选</strong></td>
+</tr>
+<tr>
+<td><strong>② 拆解链路节点</strong></td>
+<td>区分「面向用户的最终输出」和「Agent 内部中间步骤」——两者对延迟和成本的敏感度完全不同</td>
+</tr>
+<tr>
+<td><strong>③ 按节点列能力需求</strong></td>
+<td>结构化输出 / 工具调用 / 长上下文 / 推理深度 / 中文质量</td>
+</tr>
+<tr>
+<td><strong>④ 用自己的业务测试集评测</strong></td>
+<td>不看公开榜单，用 <a href="21-evaluation-metrics.html">第二十一章</a> 的黄金测试集方法</td>
+</tr>
+<tr>
+<td><strong>⑤ 算总账</strong></td>
+<td>token 单价 × 预估调用频次，特别注意 Agent 循环调用的放大效应</td>
+</tr>
+<tr>
+<td><strong>⑥ 留兜底方案</strong></td>
+<td>主模型不可用时的降级路径</td>
+</tr>
+</tbody>
+</table>
+<h2 id="225">22.5 常见错误</h2>
+<h3 id="2251">22.5.1 盯着排行榜第一名选</h3>
+<p>跑分不等于在你的业务里表现好，还存在数据污染（见 <a href="21-evaluation-metrics.html">第二十一章</a>）。</p>
+<h3 id="2252">22.5.2 忽略合规是一票否决项</h3>
+<p>国内 ToB 项目里数据出境是死线，<strong>再强的海外模型过不了这关也进不了核心链路</strong>。</p>
+<h3 id="2253">22.5.3 全链路只用一个模型</h3>
+<p><strong>模型路由才是常见做法</strong>——不同节点对稳定性、成本、推理深度的要求完全不同。</p>
+<h3 id="2254-agent">22.5.4 在 Agent 内部循环节点用最贵的模型</h3>
+<p>那些调用不面向用户，<strong>是成本放大最快的地方</strong>。</p>
+<h3 id="2255">22.5.5 在格式严格的调度节点只看推理分数</h3>
+<p>调度节点最需要的是<strong>结构化输出稳定和 Tool Use 准确</strong>，JSON 字段名乱了整条链路就崩了。</p>
+<h3 id="2256">22.5.6 没有兜底方案</h3>
+<p>主模型限流或不可用时整个系统直接挂掉。</p>
+<h3 id="2257">22.5.7 把具体模型型号当成标准答案</h3>
+<p>版本迭代很快，<strong>能讲清选型逻辑比背型号有价值得多</strong>。</p>
+<h2 id="226">22.6 本章总结</h2>
+<ol>
+<li><strong>选型不是看排行榜</strong>，是看合规、成本、延迟、能力特征四个维度与业务的匹配；</li>
+<li><strong>合规是一票否决项</strong>，另外三个是权衡项；</li>
+<li><strong>三个翻车点</strong>：合规卡死、业务场景不匹配、Agent 循环调用导致成本失控；</li>
+<li><strong>国内候选各有特长</strong>：DeepSeek 推理与性价比、Qwen 中文与结构化输出、豆包工程生态与并发；</li>
+<li><strong>海外标杆适合做能力基准和非敏感兜底</strong>，进核心链路前要过数据出境、审批、网络稳定性、成本四关；</li>
+<li><strong>落地做法是模型路由</strong>：按节点特性分配不同模型，而不是死磕单一模型；</li>
+<li><strong>调度和格式严格的节点要「稳」</strong>：结构化输出、Tool Use 准确率、长上下文指令遵循；</li>
+<li><strong>高频内部推理节点要「省」</strong>：这些调用不面向用户，最怕成本失控；</li>
+<li><strong>评测要用自己的业务测试集</strong>，不看公开榜单；</li>
+<li><strong>要留兜底降级路径</strong>；</li>
+<li><strong>具体型号会变，选型逻辑不变</strong>。</li>
+</ol>
+<blockquote>
+<p>选型通常先排掉不合规的候选，再按链路节点比能力、延迟和成本，最后用自己的测试集做决定；排行榜最多只能当参考。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2211.09110">Holistic Evaluation of Language Models（HELM）</a></li>
+<li><a href="https://arxiv.org/abs/2306.05685">Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</a></li>
+<li><a href="https://arxiv.org/abs/2412.19437">DeepSeek-V3 Technical Report</a></li>
+<li><a href="https://arxiv.org/abs/2505.09388">Qwen3 Technical Report</a></li>
+<li><a href="https://arxiv.org/abs/2406.12045">tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains</a></li>
+<li><a href="https://arxiv.org/abs/2406.18665">RouteLLM: Learning to Route LLMs with Preference Data</a></li>
+<li><a href="https://arxiv.org/abs/2305.05176">FrugalGPT: How to Use Large Language Models While Reducing Cost and Improving Performance</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

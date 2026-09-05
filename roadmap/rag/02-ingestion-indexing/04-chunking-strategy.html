@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chunking 策略 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Chunking 策略 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>摄取与索引</span> / <span>Chunking 策略</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="chunking">第四章：Chunking 策略与粒度选择</h1>
+<h2 id="41">4.1 为什么必须切分</h2>
+<p>切分通常有三个直接原因：</p>
+<table>
+<thead>
+<tr>
+<th>理由</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>窗口限制</td>
+<td>一篇长文档可能远超模型上下文预算，无法整篇塞入</td>
+</tr>
+<tr>
+<td>检索精度</td>
+<td>整篇文档的向量是全文语义的平均，会把具体细节稀释掉</td>
+</tr>
+<tr>
+<td>成本与延迟</td>
+<td>只把相关片段送进 Prompt，而不是整本手册</td>
+</tr>
+</tbody>
+</table>
+<p>其中更直接影响检索质量的是第二条。</p>
+<p>一个 Embedding 向量的表达能力是有限的。把一篇涵盖十个主题的长文压成一个向量，得到的是这十个主题的"平均语义"——它对任何一个具体问题都不够相似。</p>
+<blockquote>
+<p><strong>切分的目的，不只是为了装得下，而是为了让每个向量表达一个足够聚焦的语义单元。</strong></p>
+</blockquote>
+<h2 id="42">4.2 粒度的核心矛盾</h2>
+<pre class="mermaid">flowchart TB
+    G[chunk 粒度] --> S[切得太小]
+    G --> L[切得太大]
+
+    S --> S1[语义聚焦 检索精准]
+    S --> S2[上下文缺失<br/>指代不明 结论没有前提]
+
+    L --> L1[上下文完整]
+    L --> L2[语义被稀释<br/>混入无关内容 检索不准]
+</pre>
+
+<p>这是一个<strong>无法被完全消除的矛盾</strong>，只能被缓解——第五章的方法都是围绕这组权衡展开的。</p>
+<h3 id="421">4.2.1 切得太小会发生什么</h3>
+<p>一个 100 字的片段可能长这样：</p>
+<blockquote>
+<p>「该比例不得超过前款规定的上限。」</p>
+</blockquote>
+<p>这段话单独存在时<strong>毫无检索价值</strong>：「该比例」是什么？「前款」是哪一款？向量化之后它既不像任何一个真实问题，命中了也无法支撑回答。</p>
+<p>这就是<strong>语义碎片化</strong>。</p>
+<h3 id="422">4.2.2 切得太大会发生什么</h3>
+<p>一个 5000 字的片段可能同时包含请假制度、报销制度和考勤制度。用户问报销时：</p>
+<ul>
+<li>这个片段的向量因为混了另外两个主题，与问题的相似度下降，<strong>可能根本召不回来</strong>；</li>
+<li>就算召回了，也把两段无关内容塞进了 Prompt，<strong>按第二章 2.4.2 节的结论，这会主动损害生成质量</strong>。</li>
+</ul>
+<h2 id="43">4.3 一个反直觉但重要的实证结论</h2>
+<p>常见做法是先上语义切分，认为「切分算法越聪明，效果越好」。</p>
+<p><strong>但系统性的对比实验给出了不同的结论：</strong></p>
+<blockquote>
+<p><strong>chunk 的大小和重叠量，对最终效果的影响远大于切分算法的选择。</strong></p>
+</blockquote>
+<p>在多个数据集上的对比中，复杂的语义切分方法（先算句子向量、再找语义断点）相比简单的固定大小切分，<strong>增加了显著的计算成本，却没有带来稳定的效果提升</strong>。</p>
+<p>这个结论在工程上的含义很直接：</p>
+<ol>
+<li><strong>先把 chunk size 和 overlap 调好</strong>，这是投入产出比最高的动作；</li>
+<li><strong>不要默认先上语义切分</strong>，它的复杂度和收益不成正比；</li>
+<li>如果要用更聪明的方法，<strong>优先考虑基于结构的切分</strong>（按标题层级），它几乎零成本且效果稳定。</li>
+</ol>
+<p>这里说的语义切分，主要指「用 Embedding 相似度找语义断点」这一类方法。而<strong>基于 LLM 的命题化切分</strong>（把段落改写成一组独立自足的陈述句）是另一回事，它在实体密集的问答任务上有明确收益——但成本高得多（第五章展开）。</p>
+<h2 id="44">4.4 常见切分策略</h2>
+<pre class="mermaid">flowchart TB
+    C[切分策略] --> F[固定大小 + 重叠]
+    C --> R[递归分隔符]
+    C --> ST[结构化 按标题层级]
+    C --> SE[语义切分]
+    C --> SP[特殊内容专门处理]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>策略</th>
+<th>做法</th>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>固定大小 + 重叠</td>
+<td>按固定 Token 数切，相邻片段重叠一部分</td>
+<td>简单、可预测、效果稳定</td>
+<td>可能在句中截断</td>
+</tr>
+<tr>
+<td>递归分隔符</td>
+<td>依次按段落、句子、词尝试分隔，直到满足大小</td>
+<td>尽量不破坏自然边界</td>
+<td>对无明显分隔的文本退化为固定切分</td>
+</tr>
+<tr>
+<td>结构化切分</td>
+<td>按 Markdown 标题层级或文档章节切</td>
+<td><strong>保留文档天然语义边界，性价比最高</strong></td>
+<td>依赖前一步保留了结构信息</td>
+</tr>
+<tr>
+<td>语义切分</td>
+<td>计算相邻句子向量相似度，在低谷处切断</td>
+<td>理论上贴合语义</td>
+<td>成本高、收益不稳定</td>
+</tr>
+<tr>
+<td>特殊内容处理</td>
+<td>表格、代码、公式整体不切</td>
+<td>避免破坏强结构内容</td>
+<td>需要先识别出这些内容</td>
+</tr>
+</tbody>
+</table>
+<p><strong>工程上的推荐组合</strong>：<strong>结构化切分为主</strong>（有标题层级时按章节切），<strong>固定大小 + 重叠兜底</strong>（章节过长时二次切分），<strong>特殊内容单独处理</strong>（表格和代码块整体保留）。</p>
+<h2 id="45">4.5 参数怎么定</h2>
+<h3 id="451-chunk-size">4.5.1 chunk size</h3>
+<p>一个常用的<strong>起点</strong>是 <strong>500–1000 Token</strong>。但这只是起点，不是答案。单独给一个数字意义不大，关键是说明调整方向：</p>
+<table>
+<thead>
+<tr>
+<th>情况</th>
+<th>调整方向</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>事实型问答（FAQ、参数查询）</td>
+<td><strong>偏小</strong>（200–500）</td>
+<td>答案集中在一两句话里，小片段更精准</td>
+</tr>
+<tr>
+<td>需要推理和综合的问答</td>
+<td><strong>偏大</strong>（800–1500）</td>
+<td>需要完整论证链，切碎后逻辑断裂</td>
+</tr>
+<tr>
+<td>法律、合同类文档</td>
+<td>按条款切</td>
+<td>条款是天然的语义单元</td>
+</tr>
+<tr>
+<td>技术文档、API 手册</td>
+<td>按小节切</td>
+<td>结构清晰，一节一主题</td>
+</tr>
+<tr>
+<td>对话记录</td>
+<td>按轮次或话题切</td>
+<td>单轮太碎，整段太杂</td>
+</tr>
+</tbody>
+</table>
+<p><strong>另一个约束是 Embedding 模型本身</strong>：多数模型有最大输入长度限制（常见 512 Token），超出部分会被<strong>静默截断</strong>。如果 chunk 大小超过模型上限，超出的内容根本没有进入向量——<strong>这是一个不报错的严重 bug</strong>，务必检查。</p>
+<h3 id="452-overlap">4.5.2 overlap</h3>
+<p>重叠的作用是<strong>兜底</strong>：万一在关键位置切断了，重叠部分能让被切开的内容在相邻片段中至少完整出现一次。</p>
+<p>常用值是 <strong>chunk size 的 10%–20%</strong>。</p>
+<ul>
+<li><strong>太小</strong>：起不到兜底作用；</li>
+<li><strong>太大</strong>：存储和计算成本上升，且同一内容多次命中会挤占 Top-K 名额，<strong>降低召回结果的多样性</strong>。</li>
+</ul>
+<p>最后一点是重叠过大的隐性代价，容易被忽略。</p>
+<h3 id="453">4.5.3 怎么确定最终值</h3>
+<p>最终值要靠评测确定。流程是：</p>
+<ol>
+<li>构造一个有标注答案的评测集（几十到几百条真实问题）；</li>
+<li>用不同的 chunk size / overlap 组合建库；</li>
+<li>测检索层指标（Hit@K、MRR）和端到端答案质量；</li>
+<li>选择效果与成本的平衡点。</li>
+</ol>
+<p><strong>关键提醒</strong>：<strong>检索指标好不等于最终答案好</strong>。必须同时看端到端指标（详见第十八章）。</p>
+<h2 id="46">4.6 粒度与后续环节的联动</h2>
+<p>chunk 粒度不是孤立决策，它会影响下游多个环节：</p>
+<table>
+<thead>
+<tr>
+<th>影响的环节</th>
+<th>影响方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Top-K 取值</td>
+<td>片段越小，需要的 K 越大才能覆盖同等信息量</td>
+</tr>
+<tr>
+<td>Prompt 预算</td>
+<td>K × chunk size 决定了送进模型的 Token 量</td>
+</tr>
+<tr>
+<td>Rerank 成本</td>
+<td>候选数越多，精排成本越高</td>
+</tr>
+<tr>
+<td>引用溯源粒度</td>
+<td>片段越小，引用定位越精确</td>
+</tr>
+<tr>
+<td>更新成本</td>
+<td>片段越小，文档变更时重建的片段越多</td>
+</tr>
+</tbody>
+</table>
+<p><strong>所以「chunk 调大一点」不是一个局部改动</strong>，它会连锁改变 Top-K、Prompt 预算和成本结构。调参时应该整体评估，而不是只看检索指标。</p>
+<h2 id="47">4.7 常见错误</h2>
+<h3 id="471">4.7.1 死记一个数字</h3>
+<p>「500 Token」是起点不是答案。不说明调整依据，等于没回答。</p>
+<h3 id="472">4.7.2 一上来就上语义切分</h3>
+<p>有实证表明它成本高、收益不稳定。应该先把 size 和 overlap 调好。</p>
+<h3 id="473-chunk-embedding">4.7.3 chunk 超过 Embedding 模型输入上限</h3>
+<p>超出部分被静默截断，不报错，排查极其困难。</p>
+<h3 id="474">4.7.4 所有文档类型用同一套参数</h3>
+<p>合同、代码、对话记录的天然语义单元完全不同。</p>
+<h3 id="475">4.7.5 把表格和代码块按字符数硬切</h3>
+<p>强结构内容被切开后基本失去价值，应该整体保留或专门处理。</p>
+<h3 id="476">4.7.6 只看检索指标不看端到端效果</h3>
+<p>召回率提升但答案变差的情况是真实存在的（例如召回了更多但更杂的内容）。</p>
+<h3 id="477">4.7.7 忽略重叠过大的副作用</h3>
+<p>同一内容在 Top-K 里重复出现，会挤占其他有效片段的名额。</p>
+<h2 id="48">4.8 本章总结</h2>
+<ol>
+<li><strong>切分的目的，是让每个向量表达一个聚焦的语义单元</strong>，而不只是为了装得下；</li>
+<li><strong>核心矛盾</strong>：切小了语义碎片化，切大了语义被稀释——只能缓解，无法消除；</li>
+<li><strong>实证结论</strong>：chunk size 和 overlap 的影响远大于切分算法；<strong>语义切分性价比不高</strong>；</li>
+<li><strong>推荐组合</strong>：结构化切分为主 + 固定大小重叠兜底 + 特殊内容单独处理；</li>
+<li><strong>参数起点</strong> 500–1000 Token、重叠 10%–20%，但<strong>必须按文档类型和问题类型调整</strong>；</li>
+<li><strong>硬性检查</strong>：chunk 不能超过 Embedding 模型的输入上限，否则被静默截断；</li>
+<li><strong>粒度是全局决策</strong>，会连锁影响 Top-K、Prompt 预算、Rerank 成本和更新成本；</li>
+<li><strong>必须用评测集实测</strong>，且检索指标和端到端指标都要看。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2312.06648">Dense X Retrieval: What Retrieval Granularity Should We Use?</a></li>
+<li><a href="https://www.anthropic.com/engineering/contextual-retrieval">Anthropic: Introducing Contextual Retrieval</a></li>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

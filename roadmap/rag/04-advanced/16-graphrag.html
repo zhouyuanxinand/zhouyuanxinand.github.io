@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GraphRAG 与图检索 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="GraphRAG 与图检索 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>高级与多模态</span> / <span>GraphRAG 与图检索</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="graphrag">第十六章：GraphRAG 与图检索</h1>
+<h2 id="161">16.1 向量检索的结构性局限</h2>
+<p>先看一个具体的失败案例。</p>
+<p><strong>问题</strong>：「A 公司的最大供应商的主要竞争对手是谁？」</p>
+<p>这个问题需要三步：</p>
+<ol>
+<li>查出 A 公司的最大供应商是 B 公司；</li>
+<li>查出 B 公司的主要竞争对手是 C 公司；</li>
+<li>回答 C。</li>
+</ol>
+<p><strong>单次向量检索的困难</strong>：它通常把 Query 编码为一个向量，返回最相似的片段；若没有片段同时提到 A、B、C，单次召回未必能给出完整关系链。这个限制不等于向量方法“做不到”多跳：查询分解、多轮检索、实体扩展、后期交互或 Agent 都可以组合多个证据，只是需要额外的控制逻辑与验证。</p>
+<pre class="mermaid">flowchart LR
+    subgraph 向量检索
+        Q1[整个问题一个向量] --> M1[找最相似的片段]
+        M1 --> F1[找不到<br/>因为没有片段同时包含三者]
+    end
+    subgraph 图检索
+        Q2[识别实体 A] --> N1[节点 A]
+        N1 -->|供应关系| N2[节点 B]
+        N2 -->|竞争关系| N3[节点 C]
+    end
+</pre>
+
+<blockquote>
+<p><strong>标准的单轮向量召回不显式表示图拓扑，也不会自行沿关系边遍历。</strong> 对关系链问题，它更适合作为找到证据入口的一环，而非完整推理器。</p>
+</blockquote>
+<p>加大 Top-K、换模型或 rerank 有时能改善证据覆盖，但不能替代显式的多步检索、关系建模和答案验证；是否需要这些能力必须在任务集上验证。</p>
+<p><strong>另一类单轮局部检索较难覆盖的问题</strong>：全局性、主题性的问题。</p>
+<p>「这一千份客户反馈的主要抱怨集中在哪几类？」——这需要<strong>综合整个语料</strong>，而不是找出最相关的几个片段。</p>
+<h2 id="162-graphrag">16.2 GraphRAG 的思路</h2>
+<p>GraphRAG 的做法，是把非结构化文本转成结构化的知识图谱，再在图上做检索。</p>
+<h3 id="1621">16.2.1 构建阶段</h3>
+<pre class="mermaid">flowchart TB
+    D[文档] --> C[切分]
+    C --> E[LLM 抽取实体与关系]
+    E --> G[构建知识图谱]
+    G --> COM[社区检测<br/>把强关联节点聚成社区]
+    COM --> SUM[为每个社区生成摘要]
+    SUM --> IDX[(图 + 社区摘要索引)]
+</pre>
+
+<p>关键在于<strong>社区摘要</strong>这一步：把图划分成若干个紧密关联的子图（社区），为每个社区生成一段摘要。<strong>这些摘要就是回答全局性问题的素材。</strong></p>
+<h3 id="1622">16.2.2 检索阶段</h3>
+<table>
+<thead>
+<tr>
+<th>检索模式</th>
+<th>做法</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>局部检索</strong></td>
+<td>定位问题涉及的实体节点，沿关系边扩展邻居，收集相关文本</td>
+<td>具体实体的多跳问题</td>
+</tr>
+<tr>
+<td><strong>全局检索</strong></td>
+<td>用社区摘要作为素材，逐层汇总回答</td>
+<td>主题性、全局性问题</td>
+</tr>
+</tbody>
+</table>
+<p><strong>局部检索的典型流程</strong>是「<strong>向量定位入口 + 图遍历接力</strong>」：先用向量检索找到问题涉及的实体节点，再沿着关系边走 1–3 跳收集关联信息。</p>
+<p><strong>这个混合思路很重要</strong>：向量负责「从文本世界跳进图世界」，图负责「在结构化世界里走关系」。</p>
+<h2 id="163">16.3 必须诚实说明的代价</h2>
+<p>只讲 GraphRAG 的优点而不谈代价，往往不足以支撑实际选型。</p>
+<h3 id="1631">16.3.1 事实查找未必值得使用</h3>
+<p>微软的原始研究和官方文档都明确指出：</p>
+<blockquote>
+<p><strong>对具体事实查找，基础 RAG 往往已经足够，GraphRAG 的额外抽取和上下文可能不划算。</strong></p>
+</blockquote>
+<p>原因不难理解：事实查找只需要找到那一个包含答案的片段，而图检索绕了一大圈的实体和关系，反而引入了噪音。</p>
+<p>这是任务与实现相关的经验结论，不应泛化为所有 GraphRAG 都一定更差；应以同一数据集、预算和时延约束下的对照实验决定。</p>
+<h3 id="1632">16.3.2 索引成本很高</h3>
+<p>构建阶段需要<strong>对每个 chunk 调用 LLM 抽取实体和关系</strong>，再对每个社区生成摘要。</p>
+<p>参考量级：<strong>百万 Token 规模的语料，索引成本在几十到几百美元</strong>，且随语料规模线性增长。</p>
+<p><strong>对比一下</strong>：普通向量索引的成本是几美分。<strong>这是两三个数量级的差距。</strong></p>
+<h3 id="1633">16.3.3 更新极其困难</h3>
+<p>新增一份文档，可能改变实体之间的关系，进而改变社区划分，进而使<strong>大量社区摘要失效</strong>。</p>
+<p>原始的 GraphRAG 方案基本上<strong>需要重建</strong>。后续的一些改进方案（如 LightRAG）专门针对这一点做了增量更新支持，<strong>在动态语料上更实用</strong>。</p>
+<h3 id="1634">16.3.4 抽取质量决定一切</h3>
+<p>实体和关系是<strong>用 LLM 抽出来的</strong>，这意味着：</p>
+<ul>
+<li><strong>实体消歧问题</strong>：「张三」「张总」「张经理」可能是同一个人，也可能不是；</li>
+<li><strong>关系抽取错误</strong>会被固化进图里，且<strong>比文本错误更难发现</strong>——文本错了还能人工看出来，图里的一条错误的边是隐形的；</li>
+<li><strong>抽取的一致性差</strong>：同样的关系在不同文档里可能被抽成不同的关系类型。</li>
+</ul>
+<blockquote>
+<p><strong>图的质量上限，等于 LLM 抽取的质量上限。</strong> 而这一层通常没有任何校验。</p>
+</blockquote>
+<h2 id="164">16.4 相关方案对比</h2>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>特点</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>GraphRAG</strong>（微软）</td>
+<td>社区检测 + 分层摘要，全局问题能力强</td>
+<td>主题分析、全局综合</td>
+</tr>
+<tr>
+<td><strong>LightRAG</strong></td>
+<td>更轻量，<strong>支持增量更新</strong></td>
+<td>语料频繁变化的场景</td>
+</tr>
+<tr>
+<td><strong>HippoRAG</strong></td>
+<td>借鉴海马体索引理论，用个性化 PageRank 做图遍历</td>
+<td><strong>多跳问答</strong></td>
+</tr>
+<tr>
+<td><strong>PathRAG</strong></td>
+<td>关注图上的关键路径，减少冗余信息</td>
+<td>路径推理类问题</td>
+</tr>
+</tbody>
+</table>
+<p>原始 GraphRAG 更新困难，而 LightRAG 专门补这一点；这也是两者最值得区分的地方之一。</p>
+<h2 id="165">16.5 什么时候值得用</h2>
+<pre class="mermaid">flowchart TB
+    S{问题类型} -->|具体事实查找| NO[先以基础 RAG 为基线<br/>再做对照评测]
+    S -->|需要多跳关系推理| M{关系是否<br/>本身就重要?}
+    S -->|需要全局主题综合| G{语料规模与<br/>预算允许吗?}
+    M -->|是| YES1[考虑图检索]
+    M -->|否| ALT[先试 Agentic RAG<br/>多轮检索也能做多跳]
+    G -->|是| YES2[考虑 GraphRAG]
+    G -->|否| ALT2[考虑 RAPTOR<br/>成本更低]
+</pre>
+
+<p><strong>值得用的信号</strong>：</p>
+<ul>
+<li>领域<strong>本身就是关系密集的</strong>：组织架构、供应链、知识产权、金融关联、代码依赖；</li>
+<li>大量真实问题是<strong>多跳的</strong>；</li>
+<li>需要<strong>全局主题分析</strong>，且预算允许；</li>
+<li>语料<strong>相对稳定</strong>，更新不频繁。</li>
+</ul>
+<p><strong>不值得用的信号</strong>：</p>
+<ul>
+<li>问题以事实查找为主；</li>
+<li>语料<strong>高频更新</strong>；</li>
+<li>预算敏感；</li>
+<li>基础 RAG 还没调好。</li>
+</ul>
+<p><strong>一个重要的替代方案</strong>：<strong>多跳问题也可以用 Agentic RAG 做</strong>——让 Agent 分多轮检索，第一轮查出 B，第二轮查 B 的竞争对手。</p>
+<table>
+<thead>
+<tr>
+<th>对比</th>
+<th>GraphRAG</th>
+<th>Agentic 多轮检索</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>索引成本</td>
+<td><strong>很高</strong></td>
+<td>与普通 RAG 相同</td>
+</tr>
+<tr>
+<td>查询成本</td>
+<td>中</td>
+<td><strong>高</strong>（多轮 LLM 调用）</td>
+</tr>
+<tr>
+<td>更新成本</td>
+<td><strong>很高</strong></td>
+<td>与普通 RAG 相同</td>
+</tr>
+<tr>
+<td>全局问题能力</td>
+<td><strong>强</strong></td>
+<td>弱</td>
+</tr>
+<tr>
+<td>多跳能力</td>
+<td>强</td>
+<td>强</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>结论：多跳不自动意味着需要 GraphRAG。</strong> 先比较查询分解/Agentic 多轮检索、显式关系表与图检索的质量、成本、延迟和更新代价；社区摘要在全局综合中可能有价值，但也不是唯一选择。</p>
+</blockquote>
+<h2 id="166">16.6 一个务实的中间方案</h2>
+<p>不一定非要上完整的知识图谱。<strong>很多多跳需求可以用更轻的手段满足</strong>：</p>
+<ul>
+<li><strong>在元数据里存实体标签</strong>，检索时按实体做过滤和关联；</li>
+<li><strong>建立文档之间的显式引用关系</strong>（「本条参见第 X 条」），检索时自动带出被引用内容；</li>
+<li><strong>对结构化程度高的部分单独建关系表</strong>，用 SQL 查询，与向量检索结果合并。</li>
+</ul>
+<p><strong>这类方案的成本远低于完整 GraphRAG，却能覆盖相当一部分需求。</strong> 在多跳需求不重、语料更新频繁时，这类折中方案往往更容易落地。</p>
+<h2 id="167">16.7 常见错误</h2>
+<h3 id="1671-graphrag">16.7.1 只讲 GraphRAG 的优点</h3>
+<p>如果省略事实查找的对照结果、索引成本和更新困难，就很难完成实际选型。</p>
+<h3 id="1672">16.7.2 把向量检索绝对化为“做不到多跳”</h3>
+<p>单轮向量召回不显式遍历关系，但查询分解、多轮检索、实体扩展和 Agent 能组合证据。关键是比较这些路径与图检索是否满足任务要求。</p>
+<h3 id="1673">16.7.3 忽略抽取质量的风险</h3>
+<p>图里的错误边是隐形的，比文本错误更难发现。</p>
+<h3 id="1674-graphrag">16.7.4 不知道 GraphRAG 更新困难</h3>
+<p>这在动态语料场景里是决定性的劣势。</p>
+<h3 id="1675-graphrag">16.7.5 认为 GraphRAG 是通用升级</h3>
+<p>它针对特定问题类型；对事实查找应先以基础 RAG 为基线比较成本与质量。</p>
+<h3 id="1676">16.7.6 不知道多跳还有更便宜的做法</h3>
+<p>Agentic 多轮检索、元数据实体关联都能覆盖部分需求。</p>
+<h2 id="168">16.8 本章总结</h2>
+<ol>
+<li><strong>单轮向量召回不显式遍历关系图</strong>：对多跳问题常需查询分解、多轮检索、实体扩展或图结构；它不是“绝对做不到”；</li>
+<li><strong>较难覆盖的任务</strong>：多跳关系推理、全局主题综合；是否需要图取决于实测；</li>
+<li><strong>GraphRAG 的思路</strong>：LLM 抽取实体关系构图 → 社区检测 → 社区摘要；检索分<strong>局部</strong>（向量定位 + 图遍历）和<strong>全局</strong>（社区摘要汇总）；</li>
+<li><strong>必须说明的四个代价</strong>：事实查找可能不如基础 RAG 划算、索引成本高、更新困难、抽取质量会限制上限且错误隐形；这些都要用对照实验确认；</li>
+<li><strong>相关方案</strong>：LightRAG 支持增量更新，HippoRAG 专长多跳，PathRAG 关注关键路径；</li>
+<li><strong>只需要多跳时，应比较 Agentic 多轮检索、结构化查询与图检索</strong>；全局综合也应以任务评测而非“不可替代”判断；</li>
+<li><strong>务实的中间方案</strong>：元数据实体标签、显式引用关系、结构化部分单独建表。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2404.16130">From Local to Global: A Graph RAG Approach to Query-Focused Summarization</a></li>
+<li><a href="https://microsoft.github.io/graphrag/">Microsoft GraphRAG 官方文档</a></li>
+<li><a href="https://arxiv.org/abs/2410.05779">LightRAG: Simple and Fast Retrieval-Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2405.14831">HippoRAG: Neurobiologically Inspired Long-Term Memory for Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2502.14902">PathRAG: Pruning Graph-based Retrieval Augmented Generation with Relational Paths</a></li>
+<li><a href="https://arxiv.org/abs/2501.09136">Agentic Retrieval-Augmented Generation: A Survey on Agentic RAG</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

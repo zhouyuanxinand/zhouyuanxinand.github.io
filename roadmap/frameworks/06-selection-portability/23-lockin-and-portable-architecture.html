@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lock-in 与迁移策略 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Lock-in 与迁移策略 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>选型与可移植架构</span> / <span>Lock-in 与迁移策略</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="lock-in">第二十三章：Lock-in 识别、可移植架构与迁移策略</h1>
+<h2 id="231-lock-in">23.1 Lock-in 的三个主要来源</h2>
+<p>「框架锁定」经常被当作一个模糊的风险提示，但拆开看，它总是来自三个具体来源之一：</p>
+<ol>
+<li><strong>状态格式锁定</strong>：业务的中间状态被序列化成框架私有的格式（比如 LangGraph 的 <code>Checkpointer</code> 快照结构、LlamaIndex Workflows 的 <code>Context</code> 序列化格式），换框架意味着这些历史状态无法直接迁移；</li>
+<li><strong>工具契约与编排逻辑锁定</strong>：工具定义本身通常可移植（见 <a href="22-cross-framework-technical-taxonomy.html">第二十二章 22.4 节</a>），但「谁来决定调用哪个工具、调用失败怎么办」这类编排逻辑往往深度耦合在框架的执行引擎里；</li>
+<li><strong>可观测性与运维锁定</strong>：Trace 数据格式、告警规则、评测 Dataset 如果绑定在框架自带的私有工具链上（而不是开放标准），换框架意味着这套运维资产需要重建。</li>
+</ol>
+<pre class="mermaid">flowchart TB
+    L["Lock-in 风险"] --> L1["状态格式锁定<br/>私有序列化结构"]
+    L --> L2["编排逻辑锁定<br/>调用顺序/失败处理耦合执行引擎"]
+    L --> L3["运维资产锁定<br/>私有 Trace 格式、私有评测工具链"]
+</pre>
+
+<p>识别 lock-in 时，先要判断「如果今天切换框架，这三类资产里哪一类迁移成本最高」。很多团队直觉上担心的是「代码要重写」，但实践中真正昂贵的往往是<strong>历史状态数据</strong>和<strong>运维资产</strong>的迁移，而不是业务逻辑代码本身。</p>
+<h2 id="232">23.2 可移植架构：用适配器分离业务逻辑和框架细节</h2>
+<p>解决 lock-in 的通用架构模式借用了软件工程里熟悉的<strong>六边形架构（Hexagonal Architecture）/端口适配器模式</strong>：把业务核心逻辑放在一个不依赖任何具体框架的内核里，框架特定的代码全部收缩到「适配器」层。</p>
+<pre class="mermaid">flowchart TB
+    subgraph Core["业务核心（框架无关）"]
+        BL["领域逻辑：任务定义、业务规则、评测标准"]
+    end
+    subgraph Adapters["适配器层"]
+        A1["LangGraph 适配器"]
+        A2["Semantic Kernel 适配器"]
+        A3["AutoGen 适配器"]
+    end
+    Core --> A1
+    Core --> A2
+    Core --> A3
+    A1 --> R1["运行时 1"]
+    A2 --> R2["运行时 2"]
+    A3 --> R3["运行时 3"]
+</pre>
+
+<p>具体到 Agent 系统的落地，这意味着：</p>
+<ul>
+<li><strong>工具定义放在核心层</strong>：因为第二十二章已经指出，基于标准类型注解的工具 Schema 本身可移植性较好，值得作为核心资产维护，各框架的适配器只负责把这些工具「注册」进各自的运行时；</li>
+<li><strong>评测标准放在核心层</strong>：评测指标、Golden Dataset 应该独立于任何框架的 Trace 格式存在（比如用普通的输入输出对存成结构化文件），这样即使换了编排框架，历史积累的评测能力依然可以复用；</li>
+<li><strong>编排逻辑允许适配器层有差异</strong>：不强求「一套编排代码到处跑」，而是明确接受「编排细节是框架特定的，核心业务规则和评测标准才是需要跨框架保护的资产」。</li>
+</ul>
+<p>这并不意味着所有项目都该从一开始就搭完整的适配器层。对于短生命周期、试验性质的项目，直接绑定单一框架通常更高效。适配器架构的投入应该和系统预期生命周期、未来更换框架的概率一起评估，过度设计同样是一种成本。</p>
+<h2 id="233">23.3 框架选型决策流程</h2>
+<p>结合前面的分析，选型可以归纳成一个决策流程：</p>
+<pre class="mermaid">flowchart TB
+    Q1{"团队技术栈是否强制约束<br/>（如企业只用 .NET）？"}
+    Q1 -->|"是"| SK["优先评估 Semantic Kernel"]
+    Q1 -->|"否"| Q2{"核心难题是私有数据质量<br/>还是模型/工具编排？"}
+    Q2 -->|"数据质量"| LI["优先评估 LlamaIndex"]
+    Q2 -->|"模型/工具编排"| Q3{"是否需要长时间运行、<br/>人工审批、精细状态恢复？"}
+    Q3 -->|"是"| LG["优先评估 LangGraph"]
+    Q3 -->|"否"| Q4{"是否需要多个专精 Agent 协作？"}
+    Q4 -->|"是，且需要分布式/研究级灵活性"| AG["评估 AutoGen"]
+    Q4 -->|"是，且需要快速搭建角色化协作"| CR["评估 CrewAI"]
+    Q4 -->|"否，单 Agent 但要求严格类型安全"| PA["评估 PydanticAI"]
+    Q4 -->|"否，简单原型阶段"| LC["直接用 LangChain create_agent"]
+    Q5{"Prompt 有明确评估指标，<br/>且需要跨模型迁移？"}
+    LC -.可选叠加.-> Q5
+    Q5 -->|"是"| DS["叠加评估 DSPy 做子任务编译优化"]
+</pre>
+
+<p>这张图不是唯一答案，而是把本主题讨论过的判断标准串成一条路径。真实项目往往需要同时满足多个条件，例如既要长时间运行又要多智能体协作；这种情况下更常见的是<strong>组合而非二选一</strong>：用 LangGraph 做整体状态编排，在某个节点内部再调用 AutoGen 或 CrewAI 完成一段多智能体协作子任务。这和 <a href="../01-langchain/03-ecosystem/07-langchain-vs-llamaindex.html">LangChain 生态 · 第七章</a> 展示的「用 Tool 做边界」是同一种思路。</p>
+<h2 id="234">23.4 迁移策略：从单一框架到可移植架构</h2>
+<p>如果现有系统已经深度绑定某个框架，想要降低 lock-in 或迁移到另一个框架，直接「推倒重写」风险很高。更稳妥的路径借鉴了传统系统迁移里的成熟模式：</p>
+<ol>
+<li><strong>契约测试先行</strong>：在动手迁移代码之前，先把现有系统的输入输出行为固化成一套与框架无关的测试用例（沿用 23.2 节提到的、框架无关的评测 Dataset），确保迁移前后行为可对比；</li>
+<li><strong>Strangler Fig（绞杀者模式）</strong>：不追求一次性整体切换，而是先把新流量中的一小部分路由到新框架实现的等价功能，旧实现继续处理其余流量，通过灰度比例的逐步提升完成迁移，而不是设置一个「大爆炸」式的切换时间点；</li>
+<li><strong>双运行期的可观测性对齐</strong>：迁移期间新旧两套实现并行运行时，需要用统一的评测标准（而不是各自框架自带的 Trace UI）比较两者的输出质量和性能，这也是 23.2 节强调「评测标准放在核心层」的直接价值体现；</li>
+<li><strong>状态迁移单独立项</strong>：如果旧系统有大量依赖框架私有格式持久化的历史状态（比如未完成的长时间运行任务），应该单独设计一次性的状态转换脚本，而不是假设新框架能直接读取旧框架的持久化数据。</li>
+</ol>
+<pre class="mermaid">flowchart LR
+    A["旧框架实现<br/>处理全部流量"] --> B["契约测试固化行为基线"]
+    B --> C["新框架实现<br/>灰度处理一小部分流量"]
+    C --> D["双运行期用统一评测标准对比"]
+    D --> E["逐步提升灰度比例"]
+    E --> F["旧实现下线<br/>历史状态单独迁移"]
+</pre>
+
+<h2 id="235">23.5 常见错误</h2>
+<h3 id="2351">23.5.1 把「框架无关的适配器架构」当成所有项目的默认起点</h3>
+<p>对生命周期短、需求不确定的试验性项目，提前搭建完整的适配器层是过度设计，会拖慢原型验证速度，应该先绑定单一框架快速验证，等系统证明有长期价值后再考虑投入可移植性建设。</p>
+<h3 id="2352">23.5.2 迁移时只关注代码，忽视历史状态数据</h3>
+<p>代码逻辑可以重写，但线上还在运行的长时间任务、审批流程的历史状态，往往是迁移成本里最容易被低估的部分。</p>
+<h3 id="2353">23.5.3 双运行期用两套不同的评测标准比较新旧实现</h3>
+<p>如果新旧实现分别用各自框架自带的评测工具打分，得到的分数不可比较，必须统一到一套框架无关的评测标准上才有意义。</p>
+<h3 id="2354">23.5.4 认为「大爆炸」式切换比灰度迁移更简单</h3>
+<p>一次性整体切换看似省事，但把所有迁移风险集中在一个时间点爆发，出问题后也没有「旧实现兜底」的回退路径，实际风险远高于渐进式的 Strangler Fig 迁移。</p>
+<h2 id="236">23.6 本章总结</h2>
+<ol>
+<li><strong>Lock-in 来自三个具体来源</strong>：状态格式锁定、编排逻辑锁定、可观测性与运维资产锁定，识别风险要具体拆到这三类，而不是笼统地担心「被框架绑定」；</li>
+<li><strong>可移植架构的核心是把业务核心（工具定义、评测标准）和框架细节（编排执行引擎）分层</strong>，用适配器隔离框架特定代码，但这层投入应该和系统预期生命周期成正比，不是所有项目都需要；</li>
+<li><strong>框架选型可以归纳成一套决策流程</strong>：先看技术栈约束，再看核心难题是数据还是编排，再看是否需要长时间运行和多智能体协作，真实项目常常需要组合多个框架而不是二选一；</li>
+<li><strong>迁移应该走契约测试 + Strangler Fig 灰度切换的路径</strong>，避免大爆炸式重写，历史状态数据需要单独设计迁移方案；</li>
+<li><strong>选型时最终仍要回到同一组技术维度</strong>：不要按框架名字和功能清单做决策，而要按状态模型、持久化粒度、工具契约可移植性、评测与可观测性这些维度，结合项目自身的生命周期和团队约束做判断。</li>
+</ol>
+<blockquote>
+<p>长期可移植性依赖于资产分层管理：把工具定义、评测标准和业务规则独立出来，用灰度迁移替代大爆炸式重写，这样更换框架才会是一项可控的工程工作。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence">LangGraph: Persistence 概念</a></li>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/frameworks/process/process-framework">Semantic Kernel: Process Framework</a></li>
+<li><a href="https://github.com/open-telemetry/semantic-conventions-genai">OpenTelemetry Generative AI 语义约定仓库</a></li>
+<li><a href="https://martinfowler.com/bliki/StranglerFigApplication.html">Martin Fowler: StranglerFigApplication</a></li>
+<li><a href="https://alistair.cockburn.us/hexagonal-architecture/">Alistair Cockburn: Hexagonal Architecture</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

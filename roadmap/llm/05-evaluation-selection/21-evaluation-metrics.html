@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>能力评测指标 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="能力评测指标 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>评测与选型</span> / <span>能力评测指标</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第二十一章：能力评测指标</h1>
+<h2 id="211">21.1 为什么需要评测指标</h2>
+<p>大模型的能力是多维度的，「<strong>感觉用起来还不错</strong>」不足以支撑工程决策。</p>
+<p>当你要从一个模型换到另一个、决定是否微调、衡量 Prompt 优化的效果，都需要量化指标。</p>
+<blockquote>
+<p><strong>评测指标的价值在于把「主观感受」转化成「可比较的数字」。</strong></p>
+</blockquote>
+<p>但<strong>评测模型远比评测传统软件难</strong>——语言生成是开放性任务，「正确答案」的边界往往是模糊的。这也是为什么这个领域同时存在多种不同侧重的 Benchmark。</p>
+<h2 id="212-benchmark">21.2 主流学术 Benchmark</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Benchmark</th>
+<th>考查什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>综合知识与推理</strong></td>
+<td><strong>MMLU / MMLU-Pro</strong></td>
+<td>57 个学科（高中数学、历史、法律、医学、CS），四选一单选。<strong>一套超全面的「文化水平考试」</strong>。MMLU-Pro 难度更高、选项更多、更强调推理</td>
+</tr>
+<tr>
+<td><strong>代码能力</strong></td>
+<td><strong>HumanEval / MBPP</strong></td>
+<td>HumanEval 有 164 道题，给函数签名和 docstring，生成实现后用隐藏测试用例验证</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>SWE-bench Verified</strong></td>
+<td><strong>更接近真实软件工程</strong>——让模型修真实 GitHub issue，评估代码理解、修改和测试能力</td>
+</tr>
+<tr>
+<td><strong>数学与科学推理</strong></td>
+<td><strong>GSM8K</strong></td>
+<td>小学数学应用题，考基础四则运算和逻辑推理</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>MATH</strong></td>
+<td>竞赛数学：代数、几何、组合数学</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>GPQA</strong></td>
+<td>研究生级别科学问答，需要物理/化学/生物专业知识和多步推理</td>
+</tr>
+<tr>
+<td><strong>对话与 Agent</strong></td>
+<td><strong>MT-Bench</strong></td>
+<td>多轮交互场景，用 <strong>LLM-as-Judge</strong> 打分</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>Chatbot Arena</strong></td>
+<td>用户真实偏好投票</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>τ-bench</strong></td>
+<td>工具调用、多轮状态管理、业务流程表现，<strong>更贴近 Agent 应用</strong></td>
+</tr>
+<tr>
+<td><strong>综合 / 新型</strong></td>
+<td><strong>HELM</strong></td>
+<td>覆盖准确率、鲁棒性、公平性、有害性等多个维度</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>LiveBench</strong></td>
+<td><strong>持续更新题目，降低数据污染</strong></td>
+</tr>
+<tr>
+<td></td>
+<td><strong>Humanity's Last Exam</strong></td>
+<td>主打更难、更广的综合知识和推理</td>
+</tr>
+</tbody>
+</table>
+<h3 id="2121-passk">21.2.1 Pass@k</h3>
+<p>代码评测的常见指标：<strong>生成 $k$ 个候选代码，至少 1 个能通过所有测试的比例</strong>。</p>
+<p>$k=1$ 衡量一次就对的能力，$k=10$ 衡量「多试几次能不能做出来」。</p>
+<h2 id="213-benchmark">21.3 Benchmark 的系统性缺陷：数据污染</h2>
+<pre class="mermaid">flowchart TB
+    A["现在的模型训练数据规模极大<br/>覆盖互联网大部分公开内容"] --> B["MMLU、GSM8K 这些题目<br/>也在互联网上公开流传"]
+    B --> C["模型预训练时可能已经『见过』这些题的答案"]
+    C --> D["测试成绩虚高<br/>不真正反映泛化能力"]
+    D --> E["有些模型排行榜名列前茅<br/>实际用起来不如名次更低的竞品<br/>—— 它们可能是『背过题』的"]
+
+    style E fill:#fdecea
+</pre>
+
+<blockquote>
+<p><strong>这是不能完全相信学术 Benchmark 的根本原因。</strong></p>
+</blockquote>
+<h3 id="2131">21.3.1 三个应对方向</h3>
+<ol>
+<li><strong>避免用公开 Benchmark 直接当训练集</strong>；</li>
+<li><strong>用 LiveBench 这类持续更新题库的评测</strong>；</li>
+<li><strong>用业务真实数据做评测</strong>——这是最可靠的一条。</li>
+</ol>
+<h2 id="214">21.4 建自己的业务评估集</h2>
+<p><strong>面对 Benchmark 的局限，最务实的做法是建任务特定测试集。</strong></p>
+<pre class="mermaid">flowchart LR
+    A["从真实用户请求里采样"] --> B["人工标注期望答案"]
+    B --> C["形成 50-200 条<br/>有代表性的『黄金测试集』"]
+    C --> D["每次迭代模型或 Prompt<br/>都在上面跑一遍"]
+    D --> E["计算通过率或质量分"]
+    E --> D
+
+    style C fill:#e6f4ea
+</pre>
+
+<h3 id="2141">21.4.1 两类任务的评分方式</h3>
+<table>
+<thead>
+<tr>
+<th>任务类型</th>
+<th>评分方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>客观任务</strong>（信息提取、分类、代码）</td>
+<td><strong>程序自动验证</strong>——有确定的正确答案</td>
+</tr>
+<tr>
+<td><strong>主观任务</strong>（摘要、问答质量）</td>
+<td><strong>LLM-as-Judge</strong>——让一个更强的模型按给定标准打分</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>关键一步：人工抽查 10–20% 的样本来校准 LLM-Judge 是否可信。</strong> 不校准就无法判断裁判本身是不是在乱打分。</p>
+</blockquote>
+<p><strong>这套方法是工业界做 LLM 项目的标配。</strong></p>
+<h2 id="215">21.5 离线评估 + 线上指标的闭环</h2>
+<p><strong>只有离线测试集还不够</strong>，生产环境还要监控实际的用户体验指标。</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>指标</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>离线评估</strong></td>
+<td>黄金测试集通过率、质量分</td>
+<td><strong>帮你找问题、快速迭代</strong></td>
+</tr>
+<tr>
+<td><strong>线上指标</strong></td>
+<td>用户满意度（明确的点赞/踩、隐式的追问行为）<br/>任务完成率（用户是否实现目标）<br/>会话放弃率（中途退出说明体验差）</td>
+<td><strong>告诉你优化是否真正改善了用户体验</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p>离线评估用来筛方案、定位问题，线上指标才说明用户体验有没有真的变好；两边少一边都容易误判。</p>
+</blockquote>
+<h2 id="216">21.6 常见错误</h2>
+<h3 id="2161-benchmark">21.6.1 只会报 Benchmark 名字说不出它测什么</h3>
+<p>MMLU 测知识广度、HumanEval 测代码、GSM8K 测数学推理、MT-Bench 测多轮对话、τ-bench 测工具调用。<strong>各一句话就能区分。</strong></p>
+<h3 id="2162">21.6.2 完全相信学术排行榜</h3>
+<p><strong>数据污染让分数虚高</strong>，排名高的模型实际体验未必更好。</p>
+<h3 id="2163">21.6.3 不建业务测试集，靠「感觉变好了」判断</h3>
+<p>50–200 条黄金测试集是最低成本、最高收益的工程投入。</p>
+<h3 id="2164">21.6.4 对主观任务硬套自动指标</h3>
+<p>摘要、问答质量这类任务用 LLM-as-Judge 更合适。</p>
+<h3 id="2165-llm-as-judge">21.6.5 用了 LLM-as-Judge 但不做人工校准</h3>
+<p><strong>必须抽查 10–20% 的样本</strong>，否则不知道裁判本身准不准。</p>
+<h3 id="2166">21.6.6 只做离线评估不看线上指标</h3>
+<p>离线通过率提升不等于用户体验改善。<strong>要看满意度、任务完成率、会话放弃率。</strong></p>
+<h3 id="2167-benchmark">21.6.7 把公开 Benchmark 直接拿来当训练数据</h3>
+<p>这会直接制造数据污染，让自己的评测彻底失效。</p>
+<h2 id="217">21.7 本章总结</h2>
+<ol>
+<li><strong>评测的价值是把主观感受变成可比较的数字</strong>，但语言生成是开放任务，评测天然比传统软件难；</li>
+<li><strong>MMLU / MMLU-Pro</strong> 测综合知识广度与推理；</li>
+<li><strong>HumanEval / MBPP / SWE-bench Verified</strong> 测代码，SWE-bench 最接近真实工程；</li>
+<li><strong>GSM8K / MATH / GPQA</strong> 分别对应小学应用题、竞赛数学、研究生级科学推理；</li>
+<li><strong>MT-Bench / Arena / τ-bench</strong> 测对话、真实偏好和工具调用；</li>
+<li><strong>HELM / LiveBench / Humanity's Last Exam</strong> 是更综合或更新型的评测；</li>
+<li><strong>Pass@k 是代码评测的常见指标</strong>：生成 $k$ 个候选至少 1 个通过的比例；</li>
+<li><strong>数据污染是学术 Benchmark 的系统性缺陷</strong>，导致排行榜与实际体验脱节；</li>
+<li><strong>最务实的做法是建 50–200 条黄金业务测试集</strong>，每次迭代都跑一遍；</li>
+<li><strong>客观任务程序验证，主观任务用 LLM-as-Judge，但必须人工抽查 10–20% 校准</strong>；</li>
+<li><strong>完整体系 = 离线评估找问题 + 线上指标验证真实收益</strong>。</li>
+</ol>
+<blockquote>
+<p>公开 Benchmark 适合看模型大致区间，真正决定上线的还是你自己的测试集和线上指标。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2009.03300">Measuring Massive Multitask Language Understanding（MMLU）</a></li>
+<li><a href="https://arxiv.org/abs/2406.01574">MMLU-Pro: A More Robust and Challenging Multi-Task Language Understanding Benchmark</a></li>
+<li><a href="https://arxiv.org/abs/2107.03374">Evaluating Large Language Models Trained on Code（HumanEval / Pass@k）</a></li>
+<li><a href="https://arxiv.org/abs/2310.06770">SWE-bench: Can Language Models Resolve Real-World GitHub Issues?</a></li>
+<li><a href="https://arxiv.org/abs/2110.14168">Training Verifiers to Solve Math Word Problems（GSM8K）</a></li>
+<li><a href="https://arxiv.org/abs/2103.03874">Measuring Mathematical Problem Solving With the MATH Dataset</a></li>
+<li><a href="https://arxiv.org/abs/2311.12022">GPQA: A Graduate-Level Google-Proof Q&amp;A Benchmark</a></li>
+<li><a href="https://arxiv.org/abs/2306.05685">Judging LLM-as-a-Judge with MT-Bench and Chatbot Arena</a></li>
+<li><a href="https://arxiv.org/abs/2211.09110">Holistic Evaluation of Language Models（HELM）</a></li>
+<li><a href="https://arxiv.org/abs/2406.19314">LiveBench: A Challenging, Contamination-Limited LLM Benchmark</a></li>
+<li><a href="https://arxiv.org/abs/2406.12045">tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

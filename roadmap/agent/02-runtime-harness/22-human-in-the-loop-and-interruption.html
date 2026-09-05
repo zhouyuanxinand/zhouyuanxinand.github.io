@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Human-in-the-loop 与中断 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Human-in-the-loop 与中断 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>Runtime 与 Harness</span> / <span>Human-in-the-loop 与中断</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="human-in-the-loop">第二十二章：Human-in-the-loop、审批与可中断执行</h1>
+<h2 id="221">22.1 本章边界：中断是设计出来的控制点，不是异常</h2>
+<p>第 21 章讨论的"恢复"针对的是非预期的中断（崩溃、超时、网络故障）。本章讨论的是<strong>预期之内、由设计者主动引入</strong>的中断：在 Agent Loop 跑到某个关键节点时，主动暂停下来等待人类确认，确认之后再继续。这类中断和异常恢复共享同一套底层机制——都需要 checkpoint（第 21 章）保存状态、都需要能从保存点继续——但触发原因和产品语义完全不同：异常中断是"出了问题"，人在环中断是"到了应该问一下人类的地方"。第 20 章 20.2 节权限判定链中的 "Ask 规则" 和 "canUseTool 回调" 正是触发这类中断的入口。</p>
+<h2 id="222">22.2 为什么需要人在环</h2>
+<p>MCP 规范在工具调用的"用户交互模型"一节明确写道："出于信任与安全考虑，应当始终有人类在环、能够拒绝工具调用……应用应当提供清晰标识哪些工具正暴露给模型的界面、在工具被调用时插入清晰的可视化指示、为操作向用户提供确认提示以确保有人在环"(<a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools">Model Context Protocol: Tools</a>)。这不只是安全要求，也会直接影响执行策略。Simon Willison 观察到，coding agent 默认对几乎每个命令都请求批准，虽然"有点繁琐，但更重要的是它显著降低了 agent 通过暴力尝试解决问题的效率"。换句话说，人在环天然是在效率和安全之间做权衡：完全自动化（他称之为 "YOLO 模式"）能提升任务吞吐，但也会同步放大坏指令、数据泄露、被当作攻击跳板这三类风险(<a href="https://simonwillison.net/2025/Sep/30/designing-agentic-loops/">Simon Willison: Designing agentic loops</a>)。因此，人在环机制更像一个分级阀门：不是要消除自动化，而是让 harness 能在"完全自动"和"每步都问"之间按操作风险选择合适的运行方式。</p>
+<h2 id="223">22.3 中断点的设计：在哪里暂停</h2>
+<p>不是所有节点都适合作为中断点。生产系统通常在这几类位置设置人在环检查点：</p>
+<ul>
+<li><strong>不可逆或高影响的操作之前</strong>：发送外部通信、执行资金操作、删除数据、合并到主分支——这类操作一旦执行就无法简单撤销。</li>
+<li><strong>权限判定链命中 Ask 规则或需要用户交互的工具</strong>（第 20 章 20.2、20.3 节）——工具本身或组织策略声明了"这个操作永远需要确认"。</li>
+<li><strong>模型对自己的判断置信度不足时</strong>——例如反思机制（第十二章）判定任务存在重大不确定性,主动请求人工输入方向,而不是自行猜测继续执行。</li>
+<li><strong>多 Agent 协作中的关键节点</strong>——比如某个子任务的产出需要在被下游 Agent 使用前经过人工审核。</li>
+</ul>
+<p>中断点选得太少会让高风险操作缺乏审查；选得太多会退化成"每一步都要问"，把 17.4 节讨论的效率优势完全抵消。</p>
+<h2 id="224">22.4 中断的实现机制：从异常到显式状态</h2>
+<p>工程实现上，人在环中断通常有两种落地方式：</p>
+<ul>
+<li><strong>回调式</strong>：harness 在权限判定链的某一步（第 20 章 20.2 节的 <code>canUseTool</code> 回调）同步或异步地调用一个外部函数，等待其返回批准/拒绝结果,再决定是否继续执行——这种方式适合"暂停时间较短、调用方能同步等待"的场景。</li>
+<li><strong>显式挂起状态</strong>：把"等待审批"变成状态机的一个显式状态（第 17 章 17.3 节图中的 <code>Interrupted</code>），把当前状态写入 checkpoint 后完全释放执行资源，等审批到达时再从 checkpoint 恢复——这种方式适合"审批可能要等几分钟到几天"的场景，不能让进程一直占着资源空转等待。LangGraph 的 <code>interrupt()</code> 就是这种显式挂起模式的实现：暂停执行、把状态持久化,等待外部输入后从暂停点恢复,这里有一个容易踩的坑——<strong>恢复不是从 <code>interrupt()</code> 那一行代码继续</strong>,而是从最近一次 checkpoint 对应的节点边界重新进入(<a href="../../frameworks/01-langchain/04-langgraph/10-langgraph-advantages.html">LangGraph 第十章 10.5、10.11.6 节</a>)，这与第 21 章 21.7 节 "恢复重新进入的是状态机某个明确状态,而不是恢复到任意程序位置" 是同一个原则的体现。</li>
+</ul>
+<h2 id="225">22.5 审批载荷的设计</h2>
+<p>一次审批请求至少需要向人类呈现三样东西：<strong>要执行什么操作</strong>（工具名和参数的可读化描述，而不是原始 JSON）、<strong>为什么要执行</strong>（模型当前的推理/计划上下文）、<strong>批准和拒绝分别会发生什么</strong>（拒绝后 Agent 会如何调整，还是直接终止任务）。审批的结果不应该被简单地解析成一个布尔值——LangGraph 章节 10.11.7 节已指出"用 <code>bool()</code> 解析审批载荷"是常见错误，因为真实的审批结果往往需要携带额外信息（比如"批准，但把参数改成这样"），单纯的布尔值会丢失这些信息。审批本身应被当作一份结构化的、带版本和来源的记录写入 checkpoint，而不是一个转瞬即逝的临时变量。</p>
+<h2 id="226">22.6 恢复执行：从中断点继续,而不是重新开始</h2>
+<p>审批通过后，状态机需要带着审批结果，从 <code>Interrupted</code> 状态转移回正常的执行流程（第 17 章 17.3 节状态图），而不是重新触发一次完整的模型调用重新规划——后者不仅浪费 token，还可能因为模型重新推理而给出与之前不同的方案，让人类的审批变得没有意义（人类批准的是"具体这个操作"，而不是"大致这个方向"）。这要求 checkpoint 保存的状态足够精细，能够在审批结果到达后精确地"补上"那一次被暂停的工具调用，而不是回退到更早的状态重新决策。</p>
+<h2 id="227">22.7 异步审批与长时间等待</h2>
+<p>如果审批可能需要等待几小时甚至几天（比如需要经理审批的高风险变更），harness 就不能让整个会话进程一直挂起等待。更稳妥的做法是写入 checkpoint 后释放资源，再通过消息队列、Webhook、工单系统等外部通知机制把审批请求发出去；等审批返回，再触发独立的恢复流程重新加载 checkpoint。这样做，本质上是把 22.4 节的"显式挂起状态"和第 21 章的持久化/恢复机制接到一起。人在环只是恢复流程的一种触发原因，底层恢复逻辑与处理非预期中断时并没有本质区别。</p>
+<h2 id="228">22.8 人在环的成本与效率权衡</h2>
+<p>人在环要付出等待成本：每一次中断都会增加延迟，过度使用会让 Agent 的吞吐量接近人工操作。因此中断点最好做成可配置、可分级的策略，而不是写死。"自动批准的操作范围"可以随着任务风险、用户信任度、历史执行记录动态调整。第 20 章 20.2 节提到的权限模式（<code>acceptEdits</code>、<code>plan</code>、<code>bypassPermissions</code> 等档位），本质上就是在"审批频率"和"执行效率"之间选择不同的运行点。</p>
+<h2 id="229">22.9 常见错误</h2>
+<ul>
+<li><strong>把中断当作异常处理，用 try/catch 兜底实现。</strong> 中断应该是状态机的一等公民（<code>Interrupted</code> 状态），而不是异常路径的副产品，否则容易丢失恢复所需的完整上下文。</li>
+<li><strong>审批载荷只传一个操作摘要,不传原始参数和推理上下文。</strong> 会让人类审批者失去判断依据,退化成"无脑点批准"。</li>
+<li><strong>把审批结果简单解析为布尔值。</strong> 丢失了"批准但需要调整参数"这类更丰富的人类反馈。</li>
+<li><strong>同步阻塞等待长时间审批。</strong> 会占用不必要的计算资源，长时间等待的审批应该走 22.7 节的异步释放-恢复模式。</li>
+<li><strong>恢复时重新触发完整的模型重新规划。</strong> 违背了人类审批"批准的是具体这个操作"的语义，也造成 token 浪费。</li>
+<li><strong>中断点设置过多，退化为每步都问。</strong> 会抵消自动化的效率优势，应按 22.3 节的风险分级设计中断点。</li>
+</ul>
+<h2 id="2210">22.10 本章总结</h2>
+<p>人在环中断是主动设计的控制点，常见触发场景包括不可逆操作、显式要求审批的工具、模型置信度不足，以及多 Agent 协作中的关键节点。实现上通常有两种模式：回调式同步等待，或写入 checkpoint 后释放资源的显式挂起状态；审批时间一长，后者更稳妥。审批载荷应保留结构化上下文，恢复时也应精确补上被暂停的那次操作，而不是回退后让模型重新规划。中断点怎么布，实质上是在审批频率和执行效率之间做取舍，适合做成可配置的分级策略。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools">Model Context Protocol: Tools</a></li>
+<li><a href="https://simonwillison.net/2025/Sep/30/designing-agentic-loops/">Simon Willison: Designing agentic loops</a></li>
+<li><a href="https://code.claude.com/docs/en/agent-sdk/permissions">Claude Agent SDK: Configure permissions</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/interrupts">LangGraph: Human-in-the-loop</a></li>
+<li><a href="../../frameworks/01-langchain/04-langgraph/10-langgraph-advantages.html">LangGraph 第十章：LangGraph 的核心优势</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  
+</body>
+</html>

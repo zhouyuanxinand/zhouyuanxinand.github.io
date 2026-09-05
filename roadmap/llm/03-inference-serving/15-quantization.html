@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模型量化 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模型量化 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>推理与部署</span> / <span>模型量化</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十五章：模型量化</h1>
+<h2 id="151">15.1 量化是什么，何时值得做</h2>
+<p>模型参数本质就是一堆数字。训练时用 FP32 或 FP16 存储，因为浮点数值范围广、精度高，对梯度计算友好。</p>
+<p><strong>但部署时 FP16 就显得很奢侈了：</strong></p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>FP16 显存</th>
+<th>INT4 显存</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>7B</td>
+<td>$7 \times 10^9 \times 2 = 14$ GB</td>
+<td>$7 \times 10^9 \times 0.5 = 3.5$ GB</td>
+</tr>
+<tr>
+<td>70B</td>
+<td>$70 \times 10^9 \times 2 = 140$ GB</td>
+<td>$70 \times 10^9 \times 0.5 = 35$ GB</td>
+</tr>
+</tbody>
+</table>
+<p>70B 光权重就要 140GB，加上 KV Cache 和激活值，至少 4 张 A100 80GB 才跑得起来。</p>
+<p><strong>降到 INT4 后</strong>：7B 一张 4090 就能轻松跑，70B 一张 A100 80GB 也够用了。</p>
+<h3 id="1511">15.1.1 第二个收益：速度</h3>
+<p>低比特权重可降低权重访存量（4-bit 相对 16-bit 为四分之一），但端到端速度取决于硬件是否有匹配 kernel、反量化开销、batch 与是否受 KV Cache 限制，不能从位宽直接推导固定加速比。</p>
+<h3 id="1512">15.1.2 但不是免费午餐</h3>
+<p>把连续权重映射到有限表示会引入表示误差；端到端任务质量是否下降、下降多少，取决于格式、校准、模型和任务。整个量化算法要回答的核心问题是：</p>
+<blockquote>
+<p><strong>如何在最小的精度损失下，把高精度数压到低精度数？</strong></p>
+</blockquote>
+<h2 id="152">15.2 核心机制：连续到离散的映射</h2>
+<p>量化应先明确整数范围。以<strong>非对称 4-bit 无符号量化</strong>为例，$q_{\min}=0$、$q_{\max}=15$，对校准范围 $[x_{\min},x_{\max}]$：</p>
+<p>$$
+s = \frac{x_{\max}-x_{\min}}{q_{\max}-q_{\min}},\qquad
+z = \mathrm{clip}!\left(q_{\min}-\mathrm{round}!\left(\frac{x_{\min}}s\right),q_{\min},q_{\max}\right)
+$$</p>
+<p>$$
+q=\mathrm{clip}!\left(\mathrm{round}!\left(\frac{x}{s}\right)+z,q_{\min},q_{\max}\right),\qquad
+\hat{x}=s(q-z)
+$$</p>
+<p>若范围为 $[-2.5,2.5]$，则 $s=5/15\approx0.333$、$z=8$。对 $x=0.7$，$q=\mathrm{round}(0.7/0.333)+8=10$，$\hat{x}=0.333(10-8)\approx0.666$，误差约 $0.034$。</p>
+<p>常见的<strong>对称有符号 INT4</strong>则取 $q\in[-8,7]$，通常令 $s=\max(|x_{\min}|,|x_{\max}|)/7$、$q=\mathrm{clip}(\mathrm{round}(x/s),-8,7)$、$\hat{x}=sq$。具体范围、分组粒度和舍入规则由格式与 kernel 决定。</p>
+<p><strong>不同算法的差别在于</strong>：怎么算 scale 和 zero_point、怎么处理 outlier、怎么补偿量化误差。</p>
+<h3 id="1521">15.2.1 对称与非对称</h3>
+<table>
+<thead>
+<tr>
+<th>风格</th>
+<th>假设</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>对称量化</strong></td>
+<td>用 0 为中心的整数范围，通常令 $z=0$，公式更简单</td>
+<td>常见于权重</td>
+</tr>
+<tr>
+<td><strong>非对称量化</strong></td>
+<td>用 scale 与 zero point 对齐非对称范围</td>
+<td>常见于激活值，也可用于权重</td>
+</tr>
+</tbody>
+</table>
+<h2 id="153">15.3 各位数的精度边界</h2>
+<table>
+<thead>
+<tr>
+<th>量化位数</th>
+<th>7B 权重的理想裸存储</th>
+<th>质量风险</th>
+<th>实用性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>FP16</td>
+<td>14 GB</td>
+<td>基线</td>
+<td>训练用</td>
+</tr>
+<tr>
+<td><strong>INT8</strong></td>
+<td>7 GB</td>
+<td>通常较低，仍需验证</td>
+<td>常见折中</td>
+</tr>
+<tr>
+<td><strong>INT4</strong></td>
+<td>3.5 GB</td>
+<td>对格式和任务更敏感</td>
+<td>常见部署选择</td>
+</tr>
+<tr>
+<td>INT3</td>
+<td>2.6 GB</td>
+<td>风险更高</td>
+<td>资源受限时评估</td>
+</tr>
+<tr>
+<td>INT2</td>
+<td>1.75 GB</td>
+<td>风险很高</td>
+<td>仅在专门验证后使用</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1531">15.3.1 损失曲线是「先平后陡」</h3>
+<p><strong>不是线性的</strong>：INT8 → INT4 损失增加不大，但 <strong>INT4 → INT3 突然增加很多</strong>，再到 INT2 基本不能用。</p>
+<pre class="mermaid">flowchart LR
+    A["FP16<br/>基线"] --> B["INT8<br/>几乎无损"] --> C["INT4<br/>可接受"] --> D["INT3<br/>明显退化"] --> E["INT2<br/>基本不可用"]
+
+    style C fill:#e6f4ea
+    style E fill:#fdecea
+</pre>
+
+<blockquote>
+<p>INT8 常被叫做「接近免费的午餐」，<strong>但别说成绝对无损</strong>——涉及数学、代码、长上下文、工具调用时，还是要在自己的业务集上评测。</p>
+</blockquote>
+<h3 id="1532">15.3.2 平均精度损失掩盖了任务差异</h3>
+<p><strong>精度损失不是均匀分布的。</strong></p>
+<table>
+<thead>
+<tr>
+<th>任务类型</th>
+<th>常见风险</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>简单分类、抽取</td>
+<td>可能较小，但与校准集相关</td>
+</tr>
+<tr>
+<td>通用对话</td>
+<td>需要质量与风格回归测试</td>
+</tr>
+<tr>
+<td><strong>数学推理</strong></td>
+<td>对误差、格式和长链推理可能更敏感</td>
+</tr>
+<tr>
+<td><strong>长链路代码生成</strong></td>
+<td>应测编译、测试通过率与长上下文退化</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这就是为什么后来出现了 GPTQ 和 AWQ 这种更精细的算法。</strong></p>
+<h2 id="154-gptq">15.4 GPTQ：基于误差补偿的逐层量化</h2>
+<p>朴素量化的问题是：<strong>每层独立量化，误差逐层累积</strong>，最终输出偏离原模型很远。</p>
+<p>GPTQ 的洞见是——<strong>量化误差可以被补偿到后面还没量化的权重里</strong>。</p>
+<h3 id="1541">15.4.1 流程</h3>
+<pre class="mermaid">flowchart TB
+    S1["① 准备校准数据<br/>典型 128 条文本，几万 token"]
+    S1 --> S2["② FP16 跑一遍<br/>记录每层的输入激活值"]
+    S2 --> S3["③ 逐层量化<br/>用 Hessian 估计每个权重的敏感度<br/>优先量化重要性低的权重"]
+    S3 --> S4["④ 误差反向修正<br/>把量化产生的误差补偿到<br/>后面还没量化的权重上"]
+    S4 --> S3
+
+    style S4 fill:#e8f0fe
+</pre>
+
+<h3 id="1542">15.4.2 优缺点</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>数学严谨</strong>：基于 Optimal Brain Surgeon 的二阶优化理论</td>
+<td><strong>量化耗时长</strong>：7B 要几个小时（算 Hessian + 逐层补偿）</td>
+</tr>
+<tr>
+<td><strong>支持极端低位</strong>：能做 INT3 甚至 INT2，靠误差补偿消化损失</td>
+<td><strong>依赖校准数据</strong>：选错效果变差</td>
+</tr>
+<tr>
+<td>不依赖模型结构，纯权重量化</td>
+<td><strong>激活值仍是 FP16</strong>，推理时混合精度计算，速度提升不如 AWQ</td>
+</tr>
+</tbody>
+</table>
+<p>主要用在<strong>追求精度的离线量化场景</strong>。AutoGPTQ、Optimum 都集成了它，是开源社区最早普及的量化方案。</p>
+<h2 id="155-awq">15.5 AWQ：激活感知的权重保护</h2>
+<p>MIT 提出的思路很直接：先找出真正需要保护的权重。</p>
+<h3 id="1551-1-99">15.5.1 洞见：1% 的权重承担 99% 的输出贡献</h3>
+<p>研究者观察到模型里约 <strong>1% 的权重是 Salient Weights（显著权重）</strong>。<strong>保护好这 1%，其他 99% 激进量化到 INT4，效果几乎不掉。</strong></p>
+<h3 id="1552-1">15.5.2 怎么找到这 1%：看激活值</h3>
+<p><strong>直觉</strong>：权重 $W$ 的输出贡献 $= W \times$ 激活值 $X$。</p>
+<p>如果某些输入位置的 $X$ 特别大（比如是其他位置的 100 倍），<strong>对应的权重列就是重要权重</strong>，量化时要小心保护。</p>
+<p><strong>技术上</strong>：AWQ 通过一个<strong>逐通道缩放</strong>操作，把重要权重通道的数值扩大——这样量化时它们占据更宽的整数范围，损失更小；不重要的不动。</p>
+<blockquote>
+<p><strong>关键</strong>：这个缩放是<strong>数学等价变换</strong>，不改变模型输出，只是让量化更友好。</p>
+</blockquote>
+<h3 id="1553">15.5.3 优缺点</h3>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>缺点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>可使用高效 kernel</strong>：权重布局可针对目标硬件优化</td>
+<td><strong>极端低位的表现要实测</strong>；不同模型与实现结论可能相反</td>
+</tr>
+<tr>
+<td><strong>激活感知缩放</strong>：可改善部分模型的低比特质量</td>
+<td>同样需要校准数据</td>
+</tr>
+<tr>
+<td><strong>量化耗时短</strong>：不用算 Hessian，7B 只要几十分钟</td>
+<td></td>
+</tr>
+</tbody>
+</table>
+<p>AWQ 在「精度 + 速度 + 量化耗时」三维上比较均衡，是很常见的生产选择。</p>
+<blockquote>
+<p><strong>但现在框架支持的量化路线越来越多</strong>（GPTQ、bitsandbytes、FP8、Marlin/CUTLASS kernel、GGUF），<strong>选型时一定要看目标框架和目标 GPU 上哪条路径最成熟</strong>。</p>
+</blockquote>
+<h2 id="156-qlora-nf4-gpu">15.6 QLoRA 与 NF4：让消费级 GPU 微调成为可能</h2>
+<p>GPTQ 和 AWQ 解决的是<strong>部署时</strong>的量化。QLoRA 回答的是更激进的问题：<strong>4-bit 量化的模型能不能继续微调？</strong></p>
+<h3 id="1561-nf4">15.6.1 NF4 是非均匀量化</h3>
+<p>普通 INT4 是<strong>均匀分隔</strong>（16 个值平均分布）。</p>
+<p>NF4 利用了一个事实：<strong>模型权重的分布近似均值为 0 的正态分布</strong>。所以它把 16 个量化值的分布也设计成正态分布形状——<strong>密集区域（0 附近）刻度多，稀疏区域刻度少</strong>。</p>
+<p>这样量化误差更小。</p>
+<h3 id="1562">15.6.2 另外两个优化</h3>
+<table>
+<thead>
+<tr>
+<th>优化</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>双重量化</strong></td>
+<td>连量化用的 scale 常数也再量化一次，进一步省显存</td>
+</tr>
+<tr>
+<td><strong>分页优化器</strong></td>
+<td>用统一内存把优化器状态溢出到 CPU，避免显存峰值溢出</td>
+</tr>
+</tbody>
+</table>
+<p><strong>最终效果</strong>：一张 24GB 4090 可以微调 7B，48GB 卡能微调 13B、33B。详见 <a href="../02-training-alignment/08-finetuning.html">第八章</a>。</p>
+<p>QLoRA 也证明了「<strong>INT4 量化的模型不是死模型，还能继续学习</strong>」。</p>
+<h2 id="157">15.7 怎么选</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐方案</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>生产部署，看重速度</strong></td>
+<td>AWQ / GPTQ / FP8 / 框架原生 INT4</td>
+<td><strong>看目标框架和 GPU kernel 支持，不能只背一个名字</strong></td>
+</tr>
+<tr>
+<td><strong>生产部署，追求最高精度</strong></td>
+<td>FP16 / INT8 / GPTQ INT4</td>
+<td>精度无妥协；显存吃紧再降位</td>
+</tr>
+<tr>
+<td><strong>个人微调，消费级 GPU</strong></td>
+<td>QLoRA NF4</td>
+<td>让 4090 也能微调 7B–13B</td>
+</tr>
+<tr>
+<td><strong>边缘部署（手机 / 笔记本）</strong></td>
+<td>GGUF Q4_K_M / INT3 GPTQ</td>
+<td>极致压缩</td>
+</tr>
+<tr>
+<td><strong>CPU 部署</strong></td>
+<td>llama.cpp + GGUF</td>
+<td>无 GPU 也能跑</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1571">15.7.1 三个关键提示</h3>
+<p><strong>① AWQ vs GPTQ 怎么选</strong></p>
+<p>大多数线上部署可以<strong>先试 AWQ 或框架推荐的 INT4 路线</strong>，推理 kernel 和量化耗时通常更友好。GPTQ 在追求精度、已有 GPTQ 权重、校准数据更匹配时也很常见。</p>
+<blockquote>
+<p><strong>不要脱离框架支持谈算法好坏。</strong> 最后跑得快不快，取决于<strong>量化格式和推理 kernel 是否匹配</strong>。</p>
+</blockquote>
+<p><strong>② INT4 vs INT8 怎么选</strong></p>
+<p>显存够、质量要求高 → 优先 INT8 / FP8 或直接 FP16；显存不够、吞吐敏感 → 再上 INT4。70B 这种大模型 INT4 经常是性价比最高的，但具体还看硬件、并发和上下文长度。</p>
+<p><strong>③ GGUF 是什么</strong></p>
+<blockquote>
+<p><strong>GGUF 不是量化算法，是 llama.cpp 用的文件格式。</strong></p>
+</blockquote>
+<p>它内部可以存各种量化方案的权重（Q4_K_M、Q5_K_M、Q8_0 等），<strong>是一个容器</strong>。这跟 AWQ/GPTQ 这种「算法」不是一个层级——<strong>混淆这两者是很常见的错误</strong>。</p>
+<h2 id="158">15.8 四个副作用与陷阱</h2>
+<h3 id="1581-outlier">15.8.1 Outlier 异常值问题</h3>
+<p>权重里偶尔有「极端大」的值（绝对值是其他的几十倍），<strong>它们会把量化范围拉得很宽，导致大部分普通权重的量化精度被严重稀释</strong>。</p>
+<p><strong>应对</strong>：AWQ 的逐通道缩放就是专门处理这个的；GPTQ 的 Hessian 也能识别 outlier 优先保护。但极端情况仍会出错。</p>
+<h3 id="1582-kv-cache">15.8.2 KV Cache 量化的挑战</h3>
+<p>权重量化已经很成熟，但 <strong>KV Cache 量化才刚起步</strong>。</p>
+<p>KV Cache 在长上下文下占用比权重还大（见 <a href="14-kv-cache.html">第十四章</a>），量化它能省更多显存，<strong>但精度损失对长链路推理特别敏感</strong>。这仍是研究热点。</p>
+<h3 id="1583">15.8.3 不同任务的敏感度差异巨大</h3>
+<p>不存在可迁移的“INT4 平均损失”。<strong>部署量化模型前必须在自己的业务场景下做评测，不能直接套用论文或他人的平均数。</strong></p>
+<h3 id="1584">15.8.4 与其他优化的兼容性</h3>
+<p>量化要和 Flash Attention、KV Cache、Speculative Decoding 同时使用，<strong>不同框架支持度差别很大</strong>。</p>
+<p><strong>选量化方案前先看部署框架支持哪些，再用自己的业务集压测质量和吞吐。</strong></p>
+<h2 id="159">15.9 常见错误</h2>
+<h3 id="1591">15.9.1 说不出量化的基本机制</h3>
+<p>scale + zero_point 的线性映射。说不出这个就是只知道「压缩了」。</p>
+<h3 id="1592">15.9.2 认为精度损失是线性的</h3>
+<p>是「先平后陡」：INT8→INT4 还好，INT4→INT3 陡增。</p>
+<h3 id="1593-int4">15.9.3 给 INT4 套用统一精度损失</h3>
+<p>数学推理与长链代码等任务可能更敏感；必须在自己的业务集实测。</p>
+<h3 id="1594-gptq-awq">15.9.4 说不出 GPTQ 和 AWQ 的核心创新</h3>
+<p>GPTQ 是<strong>逐层量化 + 误差补偿</strong>，AWQ 是<strong>激活感知 + 保护 1% 显著权重</strong>。各一句话就能区分开。</p>
+<h3 id="1595-gguf">15.9.5 把 GGUF 当成量化算法</h3>
+<p>它是文件格式、是容器，跟 AWQ/GPTQ 不是一个层级。<strong>这是最容易露怯的错误。</strong></p>
+<h3 id="1596-gpu">15.9.6 脱离框架和 GPU 谈算法好坏</h3>
+<p>跑得快不快取决于量化格式与推理 kernel 是否匹配。</p>
+<h3 id="1597-outlier">15.9.7 忽略 outlier 问题</h3>
+<p>极端权重会稀释所有普通权重的量化精度，是 AWQ 逐通道缩放存在的理由。</p>
+<h3 id="1598">15.9.8 认为量化模型不能再训练</h3>
+<p>QLoRA 已经证明可以——4-bit 基座上套 LoRA 照样微调。</p>
+<h2 id="1510">15.10 本章总结</h2>
+<ol>
+<li><strong>线性整数均匀量化</strong>常用 scale + zero point 映射；NF4 等非均匀格式使用 codebook，不能一概而论；</li>
+<li><strong>两个潜在收益</strong>：4-bit 权重裸存储与权重访存量可降至 FP16 的四分之一；端到端速度取决于 kernel 和工作负载；</li>
+<li><strong>对称量化常用于权重，非对称量化常用于激活，但不是硬规则</strong>；应以格式、kernel、校准数据和任务评测为准；</li>
+<li><strong>位宽越低通常越需谨慎评测</strong>；INT8、INT4、INT3 的实际边界不能脱离模型、格式与任务；</li>
+<li><strong>平均损失掩盖了任务差异</strong>：数学推理和长链路代码生成敏感得多；</li>
+<li><strong>GPTQ = 逐层量化 + 误差补偿</strong>，数学严谨、支持极端低位，但耗时长且激活仍是 FP16；</li>
+<li><strong>AWQ = 激活感知保护 1% 显著权重</strong>，逐通道缩放是等价变换，速度快、量化耗时短；</li>
+<li><strong>QLoRA 的 NF4 是非均匀量化</strong>，按权重的正态分布设计刻度，配合双重量化和分页优化器让 4090 能微调 7B；</li>
+<li><strong>GGUF 是文件格式不是算法</strong>，是最容易混淆的一点；</li>
+<li><strong>选型不能脱离框架和 GPU kernel</strong>，最终性能取决于格式与 kernel 是否匹配；</li>
+<li><strong>四个陷阱</strong>：outlier 稀释精度、KV Cache 量化尚不成熟、任务敏感度差异、与其他优化的兼容性。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2210.17323">GPTQ: Accurate Post-Training Quantization for Generative Pre-trained Transformers</a></li>
+<li><a href="https://arxiv.org/abs/2306.00978">AWQ: Activation-aware Weight Quantization for LLM Compression and Acceleration</a></li>
+<li><a href="https://arxiv.org/abs/2305.14314">QLoRA: Efficient Finetuning of Quantized LLMs（NF4）</a></li>
+<li><a href="https://arxiv.org/abs/2208.07339">LLM.int8(): 8-bit Matrix Multiplication for Transformers at Scale</a></li>
+<li><a href="https://arxiv.org/abs/2211.10438">SmoothQuant: Accurate and Efficient Post-Training Quantization for Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2208.11580">Optimal Brain Compression: A Framework for Accurate Post-Training Quantization and Pruning</a></li>
+<li><a href="https://github.com/ggml-org/llama.cpp">llama.cpp / GGUF</a></li>
+<li><a href="https://github.com/casper-hansen/AutoAWQ">AutoAWQ</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

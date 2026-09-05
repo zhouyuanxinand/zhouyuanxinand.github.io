@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tool Registry 与执行管线 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Tool Registry 与执行管线 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>Runtime 与 Harness</span> / <span>Tool Registry 与执行管线</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="tool-registry">第十九章：Tool Registry、调用契约与执行管线</h1>
+<h2 id="191-harness">19.1 本章边界：Harness 侧的工具执行基础设施</h2>
+<p>第三章 3.3、3.4 节定义了 Tool 是什么（最小可执行能力、Schema、Tool Call 与 Tool Execution 的区别）以及 MCP 如何标准化工具连接；Tools 主题的 <a href="../../tools/02-mcp/05-mcp-components.html">MCP 组件</a> 一章讲的是协议本身。本章讲的是这些概念落到 harness 内部之后，需要哪些具体的运行时基础设施才能可靠地工作：工具从哪里被发现和注册、一次调用请求到返回结果之间要经过哪些阶段、并发和超时怎么控制、失败怎么回传给模型。这一层是第 17 章状态机图中 <code>ToolExecution</code> 状态展开后的内部结构。</p>
+<h2 id="192-tool-registry">19.2 Tool Registry：注册、发现与去重</h2>
+<p>Registry 是 harness 维护的"当前会话可用工具"的单一事实来源，至少要解决三个问题：</p>
+<ul>
+<li><strong>多来源合并</strong>：内置工具（文件读写、命令执行）、MCP Server 暴露的工具、用户在 Skill 中定义的工具，来自不同来源，Registry 需要把它们合并成模型看到的同一份工具列表。</li>
+<li><strong>命名冲突与去重</strong>：多个 MCP Server 可能提供同名工具（例如两个不同的 <code>search</code>），Registry 需要用命名空间前缀或显式路由规则消除歧义。</li>
+<li><strong>动态变化</strong>：MCP 协议允许服务器在会话中途更新工具列表并通过 <code>listChanged</code> 能力声明来通知客户端（<a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools">Model Context Protocol: Tools</a>），Registry 需要处理"工具集合在会话进行中发生变化"这件事，而不是假设工具列表在会话开始时就固定不变。</li>
+</ul>
+<p>MCP 规范同时要求"服务器应当以确定的顺序返回工具"，这条要求直接服务于 Registry 的可缓存性——确定的顺序才能让 Registry 判断"工具列表是否真的变了"，而不用每次都做全量 diff。</p>
+<h2 id="193-tool-call-tool-result">19.3 调用契约：从 Tool Call 到 Tool Result 的接口</h2>
+<p>第三章 3.3.4 节已经强调"Tool Call 不等于 Tool Execution"；本节把这个区分落实成一个具体的接口契约。一次工具调用在 harness 内部至少包含四个字段：调用 ID（用于结果配对）、工具名、参数（模型生成的、需要校验的 JSON）、以及执行状态。执行完成后必须产出与调用 ID 严格对应的结果对象，包含结果内容和成功/失败标记。这个契约的核心约束是<strong>调用 ID 的双向可追溯</strong>——18.6 节提到的"工具调用与工具结果必须严格配对"正是这个契约在装配层的体现；一旦某次调用因为超时或异常没有对应结果被写回，装配管线在下一轮请求时就会因为消息序列不合法而被模型 API 拒绝。</p>
+<h2 id="194">19.4 执行管线的五个阶段</h2>
+<p>一次工具调用从被模型请求到结果写回上下文，要经过五个明确的阶段：</p>
+<pre class="mermaid">flowchart LR
+    A["1. 解析<br/>从模型输出提取<br/>调用 ID + 参数"] --> B["2. 校验<br/>按 Schema 验证参数"]
+    B --> C["3. 权限判定<br/>见第 20 章"]
+    C --> D["4. 调度执行<br/>并发/串行/超时"]
+    D --> E["5. 结果回写<br/>序列化 + 与调用 ID 绑定"]
+</pre>
+
+<ul>
+<li><strong>解析</strong>：流式场景下需要等待参数 JSON 片段被完整拼接（呼应 17.5 节），提前解析会得到无效 JSON。</li>
+<li><strong>校验</strong>：按工具声明的 <code>inputSchema</code> 校验参数类型、必填字段、取值范围，未通过校验的调用不应该进入执行阶段，而是直接构造一条"参数无效"的结果喂回模型，让模型有机会修正参数重试。</li>
+<li><strong>权限判定</strong>：第 20 章的核心内容，决定这次调用是自动放行、需要人工审批还是直接拒绝。</li>
+<li><strong>调度执行</strong>：真正运行工具逻辑，需要考虑并发度、超时和资源限制（19.5 节）。</li>
+<li><strong>结果回写</strong>：把执行结果（或错误信息）序列化成模型能理解的格式，绑定回原调用 ID。</li>
+</ul>
+<h2 id="195">19.5 调度执行：并发、串行与超时</h2>
+<p>模型一次输出可能同时请求多个工具调用，harness 需要显式决定调度策略，而不是隐式地"能并发就并发"：</p>
+<ul>
+<li><strong>只读工具</strong>（搜索、查询）通常可以安全并发执行；</li>
+<li><strong>有副作用且互相依赖的工具</strong>（连续编辑同一个文件）需要串行执行，或者由 harness 检测到目标资源冲突后自动降级为串行；</li>
+<li><strong>每个工具调用应有独立的超时预算</strong>，且这个超时应该嵌套在整个 Turn 乃至整个会话的更大预算之内（第 21 章 21.5 节展开分层超时的设计）；超时触发时应产出一个明确的"超时"错误结果，而不是让调用无限期挂起阻塞整个状态机。</li>
+</ul>
+<p>OpenAI Agents SDK 的 Guardrails 机制提供了另一个视角的调度控制：Guardrails 可以挂在工具级别，"对每一次自定义 function-tool 调用生效，输入 guardrail 在执行前运行、输出 guardrail 在执行后运行"(<a href="https://openai.github.io/openai-agents-python/guardrails/">OpenAI Agents SDK: Guardrails</a>)，这提供了一种在校验和权限判定之外、额外插入业务规则检查的调度点。</p>
+<h2 id="196">19.6 结果回写与错误的一等公民地位</h2>
+<p>工具执行失败（网络错误、命令非零退出、超时）不应该让整个状态机崩溃，而应该被当作一条正常的结果消息写回给模型，由模型决定下一步——这是第 17 章 17.8 节已经强调过的原则，本节从工具管线的角度补充：结果回写时<strong>必须明确标记这是成功结果还是错误结果</strong>，并尽量保留结构化的失败原因（错误码、堆栈摘要），而不是把所有失败都压缩成一句"execution failed"。结构化的失败信息能让模型更准确地判断"要不要用同样的参数重试""要不要换一种工具"，这也是第 21 章判断"哪些失败可以安全重试"的信息来源。</p>
+<h2 id="197">19.7 动态工具集：降低固定开销的三种机制</h2>
+<p>第 18 章 18.5 节指出工具定义是每轮都要重复支付的固定开销。工程上有三类机制降低这项开销：</p>
+<ul>
+<li><strong>渐进式披露</strong>：第三章 3.5.3 节已讨论 Skill 的渐进式披露；工具层面的对应做法是只把当前任务相关的工具子集纳入本轮请求，其余工具保持"已注册但未装配"的状态，需要时再动态加入。</li>
+<li><strong>Code Execution with MCP</strong>：让模型生成代码去调用工具，而不是把每个工具的完整 Schema 都塞进上下文——模型只需要知道有一个代码执行环境和一份 API 索引，具体的参数细节可以在执行时才按需读取（<a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic: Code execution with MCP</a>；<a href="https://blog.cloudflare.com/code-mode/">Cloudflare: Code Mode</a> 是同一思路的另一实现）。</li>
+<li><strong>检索式工具选择</strong>：当工具数量达到成百上千时，用检索而不是全量枚举来决定本轮暴露哪些工具，<a href="https://arxiv.org/abs/2505.03275">RAG-MCP</a> 描述了这种思路应对"工具过多导致 Prompt 膨胀"问题的效果。</li>
+</ul>
+<p>这三种机制的共同点是把"要不要把某个工具的完整定义放进这一轮上下文"从静态决策变成动态决策，本质上是第 18 章装配管线的一个可插拔组件。</p>
+<h2 id="198">19.8 常见错误</h2>
+<ul>
+<li><strong>参数校验和权限判定顺序颠倒。</strong> 应该先做 Schema 校验、再做权限判定——用无效参数去做权限检查没有意义，而且可能因为校验逻辑本身有副作用而放大攻击面。</li>
+<li><strong>结果回写时丢弃调用 ID 关联。</strong> 在并发执行多个工具调用后，如果结果没有和原始调用 ID 严格绑定，就可能出现"结果对应错了工具调用"的错乱，这是第 17 章状态机能否正确推进的前提条件。</li>
+<li><strong>超时只设置在整个 Turn 层面，不设置到单个工具调用。</strong> 会导致一个卡死的工具调用拖垮整个会话的响应时间，必须按 19.5 节做分层超时预算。</li>
+<li><strong>把所有工具调用都视为可以无脑并发。</strong> 忽视资源竞争会引入第十三章 13.16 节讨论过的并发写入问题的单 Agent 版本。</li>
+<li><strong>工具数量增长后不引入动态工具集机制。</strong> 会持续推高每轮的固定 token 开销，最终显著降低 Prompt Cache 命中率和响应速度。</li>
+</ul>
+<h2 id="199">19.9 本章总结</h2>
+<p>Tool Registry 负责把多来源的工具合并、去重、并处理会话中途的动态变更；调用契约的核心是调用 ID 与结果的双向可追溯；执行管线分五个阶段——解析、校验、权限判定、调度执行、结果回写；调度执行需要区分只读并发和有副作用串行，并为每个调用设置独立且分层的超时；失败结果应作为结构化消息一等公民地回写给模型，而不是让状态机崩溃；工具数量增长带来的固定开销可以用渐进式披露、Code Execution with MCP、检索式工具选择三类机制缓解。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://modelcontextprotocol.io/specification/2026-07-28/server/tools">Model Context Protocol: Tools</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/guardrails/">OpenAI Agents SDK: Guardrails</a></li>
+<li><a href="https://www.anthropic.com/engineering/code-execution-with-mcp">Anthropic: Code execution with MCP</a></li>
+<li><a href="https://blog.cloudflare.com/code-mode/">Cloudflare: Code Mode — the better way to use MCP</a></li>
+<li><a href="https://arxiv.org/abs/2505.03275">RAG-MCP: Mitigating Prompt Bloat in LLM Tool Selection via Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

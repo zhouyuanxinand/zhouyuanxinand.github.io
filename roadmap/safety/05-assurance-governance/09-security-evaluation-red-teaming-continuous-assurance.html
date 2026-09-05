@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>安全评测、红队与持续保障 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="安全评测、红队与持续保障 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI 安全与治理</span> / <span>评测、治理与保障</span> / <span>安全评测、红队与持续保障</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第九章：安全评测、红队与持续保障</h1>
+<h2 id="91">9.1 安全评测为什么不能只是一次性的上线检查</h2>
+<p>前面章节多次提到"某类攻击在标准评测中不可见""对齐是概率性缓解"——这意味着 AI 系统的安全水位不是一次测试能确定的常量，而是随模型版本、Prompt 变化、新工具接入、新越狱手法公开而持续波动的变量。<a href="../../agent/05-production/15-agent-security.html">Agent 安全 15.13</a> 和 <a href="../../rag/06-operations-security/20-rag-challenges-security.html">RAG 安全 20.4</a> 已经给出了单个应用场景下"ASR（攻击成功率）与 Utility（效用）必须成对报告"的评测原则；放到组织里，就得把它变成红队方法论、自动化工具链和持续保障流程。</p>
+<pre class="mermaid">flowchart LR
+    A[上线前红队] --> B[持续自动化评测]
+    B --> C[生产监控与事件响应]
+    C --> D[反馈进新一轮评测集]
+    D --> B
+</pre>
+
+<h2 id="92">9.2 红队方法论</h2>
+<h3 id="921">9.2.1 人工红队与自动化红队的分工</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>优势</th>
+<th>局限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>人工红队</td>
+<td>能发现开放式、需要创造性组合的新攻击路径；擅长针对具体业务场景构造有说服力的社会工程式载荷</td>
+<td>成本高、覆盖面有限、结果难以自动化回归</td>
+</tr>
+<tr>
+<td>自动化红队</td>
+<td>可大规模、可重复运行已知攻击模式库；适合做持续回归</td>
+<td>难以发现全新的攻击手法，容易被过拟合到已知模式</td>
+</tr>
+</tbody>
+</table>
+<p>生产级流程通常是"人工红队发现新模式 → 沉淀为自动化用例 → 自动化持续回归 → 人工红队专注于探索自动化覆盖不到的新场景"的闭环，而不是二选一。</p>
+<h3 id="922">9.2.2 红队覆盖的层面</h3>
+<p>红队不应该只测"模型会不会说脏话"，而应对照第一章的攻击面图谱，覆盖：</p>
+<ul>
+<li><strong>模型层</strong>：越狱、系统提示泄漏（第二章）；</li>
+<li><strong>数据层</strong>：已知触发器模式的探测、训练数据记忆化抽取测试（第四、六章）；</li>
+<li><strong>供应链层</strong>：模拟依赖投毒、恶意模型加载路径（第五章）；</li>
+<li><strong>应用层</strong>：间接注入、工具滥用、confused deputy 路径（第七章、<a href="../../tools/02-mcp/15-tool-protocol-security.html">Tool Protocol 安全</a>）；</li>
+<li><strong>执行环境层</strong>：沙箱逃逸尝试、网络出口绕过（第八章）；</li>
+<li><strong>端到端场景</strong>：模拟真实攻击者从初始接触到达成目标的完整路径，而不是孤立测试单点。</li>
+</ul>
+<h3 id="923">9.2.3 红队的角色与独立性</h3>
+<p>红队应保持相对于研发团队的独立性——由同一批人既写防御又测防御，容易产生盲区。较成熟的组织会引入外部红队或独立安全团队定期评估，并明确红队发现问题后的分级响应流程和修复时限（SLA），而不是把红队报告当作可选参考。</p>
+<h2 id="93">9.3 自动化评测工具与基准</h2>
+<table>
+<thead>
+<tr>
+<th>工具/基准类别</th>
+<th>定位</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>通用红队框架（如 garak）</td>
+<td>针对 LLM 的自动化漏洞扫描器，内置大量已知的越狱、注入、数据泄漏探测插件，适合作为持续回归的基础工具</td>
+</tr>
+<tr>
+<td>编排式红队框架（如 PyRIT）</td>
+<td>提供攻击策略编排能力，支持组合多轮攻击、自动变异 Prompt，适合模拟更复杂的攻击链路</td>
+</tr>
+<tr>
+<td>危害性基准（如 HarmBench）</td>
+<td>标准化的有害行为评测集，用于跨模型、跨版本做可比较的安全水位评估</td>
+</tr>
+<tr>
+<td>护栏/审核模型评测</td>
+<td>专门评测输入输出护栏模型自身的漏报率和误报率，护栏模型本身也需要被评测，而不是假设它天然可靠</td>
+</tr>
+<tr>
+<td>供应链扫描工具</td>
+<td>覆盖第五章提到的模型文件恶意对象扫描、依赖漏洞扫描</td>
+</tr>
+</tbody>
+</table>
+<p><strong>使用建议</strong>：自动化工具的结果应作为"下限保证"（至少不应该在这些已知模式上失守），而不是安全水位的全部证明——真正的红队价值往往在工具覆盖不到的新场景。</p>
+<h2 id="94">9.4 持续保障：把安全评测嵌进研发流程</h2>
+<pre class="mermaid">flowchart TB
+    C1[代码/Prompt/工具变更] --> G1{CI 安全门禁}
+    G1 -->|通过| C2[部署到预发布]
+    G1 -->|不通过| BLOCK[阻断并反馈]
+    C2 --> G2{预发布回归评测}
+    G2 -->|通过| PROD[生产发布]
+    G2 -->|不通过| BLOCK
+    PROD --> MON[生产监控]
+    MON -->|发现新攻击模式| NEWCASE[沉淀为新回归用例]
+    NEWCASE --> G1
+</pre>
+
+<ul>
+<li><strong>CI 安全门禁</strong>：任何 System Prompt、工具授权范围、模型版本的变更都触发一轮自动化安全回归，而不只是功能测试；</li>
+<li><strong>分级评测集</strong>：参照 <a href="../../rag/06-operations-security/20-rag-challenges-security.html">RAG 安全上线检查清单</a> 的 Smoke/Regression/Full 三档思路，安全评测同样应分层——每次提交跑最小冒烟集，合并前跑完整回归集，定期跑覆盖新披露攻击手法的全量集；</li>
+<li><strong>生产监控闭环</strong>：线上真实触发的异常请求、护栏拦截记录应定期回流为新的评测用例，而不是只在事故发生时临时处理；</li>
+<li><strong>版本变更的特别关注</strong>：模型供应商发布新版本时，历史上被验证有效的防御可能失效（对齐行为改变）或护栏出现新的误报模式，模型切换必须重新跑一遍完整安全回归，不能假设"新版本只会更安全"。</li>
+</ul>
+<h2 id="95">9.5 指标体系</h2>
+<p>除了 <a href="../../agent/05-production/15-agent-security.html">Agent 安全 15.13.1</a> 已经强调的 ASR 与 Utility 成对报告原则外，组织级的持续保障还需要跟踪：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>平均检测到修复时长（MTTD/MTTR）</td>
+<td>从新攻击模式被发现到防御上线生效的时间</td>
+</tr>
+<tr>
+<td>护栏误报率</td>
+<td>护栏拦截正常请求的比例，直接影响业务可用性</td>
+</tr>
+<tr>
+<td>回归用例覆盖的攻击类型数</td>
+<td>衡量评测集对第一章攻击面图谱的覆盖广度，而非用例总数</td>
+</tr>
+<tr>
+<td>红队发现问题的修复 SLA 达成率</td>
+<td>衡量安全发现能否转化为实际修复，而不是停留在报告里</td>
+</tr>
+</tbody>
+</table>
+<h2 id="96">9.6 常见错误</h2>
+<h3 id="961">9.6.1 只做一次上线前红队测试</h3>
+<p>模型、Prompt、工具集持续变化，安全水位必须持续评测，一次性测试只能反映测试当时的状态。</p>
+<h3 id="962">9.6.2 只依赖自动化工具，不做人工红队</h3>
+<p>自动化工具擅长回归已知模式，难以发现全新的攻击路径，两者需要形成闭环而非互相替代。</p>
+<h3 id="963">9.6.3 模型版本升级时跳过安全回归</h3>
+<p>新版本可能改变对齐行为或护栏的误报/漏报模式，"应该只会更好"是没有依据的假设。</p>
+<h3 id="964">9.6.4 只统计回归用例数量，不衡量攻击面覆盖广度</h3>
+<p>大量重复相似的用例无法反映真实的安全水位，评测集设计应对照攻击面图谱有意识地补齐薄弱环节。</p>
+<h2 id="97">9.7 本章总结</h2>
+<ol>
+<li>安全评测必须是持续过程而非一次性检查，因为模型、Prompt、工具集和已知攻击手法都在持续变化；</li>
+<li>人工红队与自动化红队应形成"发现新模式 → 沉淀为自动化用例 → 持续回归 → 探索新场景"的闭环，而非互相替代；</li>
+<li>红队覆盖范围应对照第一章的攻击面图谱，覆盖模型、数据、供应链、应用、执行环境和端到端场景，而不只是测试模型会不会说不当内容；</li>
+<li>CI 安全门禁、分级评测集和生产监控闭环应把安全评测嵌入日常研发流程，模型版本变更必须触发完整回归；</li>
+<li>指标体系除 ASR/Utility 外，还应跟踪 MTTD/MTTR、护栏误报率、攻击面覆盖广度和红队问题修复 SLA 达成率。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://www.nist.gov/itl/ai-risk-management-framework">NIST AI RMF: Measure Function</a></li>
+<li><a href="https://github.com/leondz/garak">garak: LLM Vulnerability Scanner</a></li>
+<li><a href="https://github.com/Azure/PyRIT">PyRIT: Python Risk Identification Tool for generative AI</a></li>
+<li><a href="https://arxiv.org/abs/2402.04249">HarmBench: A Standardized Evaluation Framework for Automated Red Teaming</a></li>
+<li><a href="https://arxiv.org/abs/2202.03286">Red Teaming Language Models with Language Models</a></li>
+<li><a href="https://genai.owasp.org/resource/llm-ai-cybersecurity-governance-checklist/">OWASP LLM Applications Cybersecurity and Governance Checklist</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

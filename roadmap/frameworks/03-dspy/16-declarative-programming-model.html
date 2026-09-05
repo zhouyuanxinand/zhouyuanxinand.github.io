@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>声明式编程模型 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="声明式编程模型 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>DSPy</span> / <span>声明式编程模型</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="dspy-signaturemodule-program">第十六章：DSPy 的声明式编程模型：Signature、Module 与 Program</h1>
+<h2 id="161-prompt">16.1 命令式 Prompt 工程的天花板</h2>
+<p><a href="../01-langchain/">LangChain 生态</a> 和 <a href="../02-llamaindex/">LlamaIndex 生态</a> 在常见用法里，Prompt 往往还是<strong>字符串常量</strong>：写一段模板，塞进变量，调用模型，看输出是否符合预期，再手工改字符串。这个循环有一个结构性问题：<strong>Prompt 的「意图」和「具体措辞」被绑在一起</strong>，换一个模型、换一个任务分布，之前调好的措辞可能立刻失效，而工程上也缺少系统化的方法判断该往哪个方向调整。</p>
+<p>DSPy（Declarative Self-improving Python）的出发点是把这两件事拆开：<strong>先声明「输入是什么、输出是什么、任务目标是什么」，再让编译器决定「具体用什么措辞、要不要加示例、要不要拆成多步」</strong>。</p>
+<pre class="mermaid">flowchart TB
+    subgraph Old["命令式 Prompt 工程"]
+        O1["手写 Prompt 字符串"] --> O2["跑一遍看效果"] --> O3["人工猜测怎么改措辞"] --> O1
+    end
+    subgraph New["DSPy 声明式编程"]
+        N1["声明 Signature：输入/输出契约"] --> N2["选择 Module：Predict / CoT / ReAct"]
+        N2 --> N3["Optimizer 编译：自动搜索最优实现"]
+    end
+</pre>
+
+<h2 id="162-signature">16.2 Signature：只声明契约，不声明措辞</h2>
+<p><code>Signature</code> 是 DSPy 里最基础的声明式单元，它只描述「输入字段、输出字段、任务描述」，不包含任何具体的 Prompt 文本：</p>
+<pre><code class="language-python">import dspy
+
+class ExtractEvent(dspy.Signature):
+    &quot;&quot;&quot;从邮件正文中抽取会议事件的关键信息。&quot;&quot;&quot;
+
+    email: str = dspy.InputField()
+    event_name: str = dspy.OutputField()
+    date: str = dspy.OutputField(desc=&quot;ISO 8601 格式&quot;)
+</code></pre>
+<p>这段代码没有手写提示词模板；<code>docstring</code> 只是任务的自然语言描述，真正发给模型的 Prompt 由后面 16.3 节的 <code>Module</code> 在运行时动态生成，具体格式会随编译结果变化。</p>
+<blockquote>
+<p><strong>对照 LangChain 的结构化输出</strong>：<code>create_agent</code> 也支持用 Pydantic 模型声明输出 Schema，但那只约束「输出长什么样」；DSPy 的 Signature 同时约束输入契约和输出契约，并且这份契约会被优化器当作搜索空间的一部分，而不只是一次性的解析校验。</p>
+</blockquote>
+<h2 id="163-module-signature">16.3 Module：把 Signature 变成可执行策略</h2>
+<p><code>Signature</code> 只是契约，<code>Module</code> 才决定「怎么让模型完成这个契约」。DSPy 内置了几种典型策略：</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>策略</th>
+<th>适合场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>dspy.Predict</code></td>
+<td>直接根据 Signature 生成一次输出</td>
+<td>简单抽取、分类</td>
+</tr>
+<tr>
+<td><code>dspy.ChainOfThought</code></td>
+<td>先生成推理过程，再给出结构化输出</td>
+<td>需要多步推理的问题</td>
+</tr>
+<tr>
+<td><code>dspy.ReAct</code></td>
+<td>交替生成「推理 - 行动 - 观察」，可调用工具</td>
+<td>需要外部工具辅助的任务（工具契约与 <a href="../../tools/">Tools 主题</a> 的 Function Calling 一致）</td>
+</tr>
+<tr>
+<td><code>dspy.ProgramOfThought</code></td>
+<td>生成可执行代码而不是自然语言答案</td>
+<td>数值计算、结构化数据处理</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-python">extract = dspy.ChainOfThought(ExtractEvent)
+result = extract(email=inbox_message)
+print(result.event_name, result.date)
+</code></pre>
+<p>同一个 <code>Signature</code> 换一个 <code>Module</code>，任务契约不变，但底层生成策略完全不同——<strong>这是「关注点分离」在 DSPy 里的第一层体现</strong>：契约和策略解耦。</p>
+<h2 id="164-programmodule">16.4 Program：Module 的组合与状态</h2>
+<p>多个 <code>Module</code> 可以组合成一个 <code>Program</code>（在 DSPy 中体现为一个继承 <code>dspy.Module</code> 的类），组合方式和普通 Python 类完全一致：</p>
+<pre><code class="language-python">class ResearchAgent(dspy.Module):
+    def __init__(self):
+        super().__init__()
+        self.retrieve = dspy.Retrieve(k=5)
+        self.generate_answer = dspy.ChainOfThought(&quot;context, question -&gt; answer&quot;)
+
+    def forward(self, question):
+        context = self.retrieve(question).passages
+        return self.generate_answer(context=context, question=question)
+</code></pre>
+<p><strong><code>forward</code> 里写的是普通 Python 控制流</strong>——条件分支、循环、异常处理都可以直接用语言原生语法表达，DSPy 不要求你把控制流塞进一个专门的图 DSL。这一点和 <a href="../01-langchain/04-langgraph/">LangGraph</a> 形成鲜明对比：LangGraph 用显式节点和边表达控制流以换取可视化和细粒度持久化，DSPy 用普通函数调用表达控制流以换取和 Python 生态的无缝集成，但代价是<strong>编译器只能优化它能静态发现的 <code>Module</code> 调用点，<code>forward</code> 里手写的 if/else 分支逻辑本身不在优化范围内</strong>。</p>
+<h2 id="165">16.5 常见错误</h2>
+<h3 id="1651-signature-docstring-prompt">16.5.1 把 Signature 的 docstring 当作最终 Prompt</h3>
+<p><code>docstring</code> 只是任务描述的起点，实际发给模型的文本由 <code>Module</code> 和编译结果决定；直接在 <code>docstring</code> 里堆砌措辞技巧，既不会被编译器利用，也违背了声明式设计的初衷。</p>
+<h3 id="1652-module">16.5.2 认为换个 Module 就能免费获得推理能力</h3>
+<p><code>ChainOfThought</code> 会让模型「生成推理过程」，但推理质量仍然取决于底层模型能力和任务本身的可分解程度；把一个模型做不好的任务简单套上 <code>ChainOfThought</code>，不一定能解决准确率问题。</p>
+<h3 id="1653-forward">16.5.3 在 <code>forward</code> 里塞入大量不可复用的胶水逻辑</h3>
+<p><code>forward</code> 支持任意 Python 控制流是优点，但如果把大段业务逻辑和多个模型调用硬编码在一起，会导致优化器很难定位到可复用的 <code>Module</code> 边界，间接削弱后续第十七章优化器的效果。</p>
+<h3 id="1654">16.5.4 混淆「声明式」和「不需要写代码」</h3>
+<p>DSPy 依然需要开发者用 Python 组织 <code>Module</code>、管理数据流，声明式指的是「Prompt 措辞不需要手写」，不是「零代码」。</p>
+<h2 id="166">16.6 本章总结</h2>
+<ol>
+<li><strong>DSPy 把「任务契约」和「实现策略」拆开</strong>：<code>Signature</code> 声明输入输出契约，<code>Module</code> 决定具体的生成策略，同一契约可以自由切换策略；</li>
+<li><strong><code>Signature</code> 的 docstring 只是任务描述，不是最终 Prompt</strong>——真正的 Prompt 由 <code>Module</code> 在运行时动态生成，且会被后续的编译器优化；</li>
+<li><strong><code>Predict</code>、<code>ChainOfThought</code>、<code>ReAct</code>、<code>ProgramOfThought</code> 是四种典型的内置策略</strong>，分别对应直接生成、显式推理、工具调用、代码生成四类任务形态；</li>
+<li><strong><code>Program</code> 用普通 Python 类和函数组合 <code>Module</code></strong>，控制流写法贴近原生代码，换来了和 Python 生态的无缝集成，代价是手写控制流本身不在编译器的优化范围内；</li>
+<li><strong>这种关注点分离是第十七章「编译与优化」得以自动化的前提</strong>——只有契约和策略解耦，优化器才能在不改变任务语义的前提下搜索更优的具体实现。</li>
+</ol>
+<p>因此，DSPy 不是换一种 Prompt 写法，而是把 Prompt 工程从手工改字符串，转成「契约声明 + 策略选择 + 自动编译」的程序优化问题。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://dspy.ai/">DSPy 官方文档</a></li>
+<li><a href="https://dspy.ai/learn/programming/signatures/">DSPy: Programming——Signatures 与 Modules</a></li>
+<li><a href="https://dspy.ai/learn/programming/modules/">DSPy: Modules 概念</a></li>
+<li><a href="https://arxiv.org/abs/2310.03714">DSPy 论文：Khattab et al., "DSPy: Compiling Declarative Language Model Calls into Self-Improving Pipelines"</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

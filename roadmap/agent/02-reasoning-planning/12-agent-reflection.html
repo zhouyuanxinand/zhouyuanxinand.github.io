@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>反思、验证与自我改进 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="反思、验证与自我改进 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>推理、规划与反思</span> / <span>反思、验证与自我改进</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="agent">第十二章：Agent 的反思、验证与自我改进</h1>
+<h2 id="121-agent-reflection">12.1 什么是 Agent Reflection</h2>
+<p>Agent Reflection 更接近一套反馈驱动的控制机制，而不是抽象的“自省”：</p>
+<blockquote>
+<p><strong>生成或执行 → 评价 → 定位问题 → 定向修订 → 再验证</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    G[Generate / Execute] --> E[Evaluate]
+    E --> D{满足标准?}
+    D -->|是| DONE[Finish]
+    D -->|否| F[Structured Feedback]
+    F --> R[Refine / Retry / Replan]
+    R --> G
+</pre>
+
+<p>反思要起作用，前提是系统拿到了新的反馈。反馈可以来自：</p>
+<ul>
+<li>Tool Result；</li>
+<li>编译器；</li>
+<li>单元测试；</li>
+<li>Schema；</li>
+<li>规则；</li>
+<li>模拟器；</li>
+<li>权威数据；</li>
+<li>人工审核；</li>
+<li>Critic Model；</li>
+<li>LLM-as-a-Judge。</li>
+</ul>
+<p>如果没有新的证据或评价标准，让同一个模型重复生成可能只会得到另一个同样不可靠的答案。</p>
+<h2 id="122">12.2 为什么需要反思</h2>
+<h3 id="1221">12.2.1 发现生成阶段遗漏的问题</h3>
+<p>模型生成内容时主要关注“完成任务”，不一定同时覆盖：</p>
+<ul>
+<li>事实正确性；</li>
+<li>约束完整性；</li>
+<li>引用一致性；</li>
+<li>安全要求；</li>
+<li>输出格式；</li>
+<li>边界条件。</li>
+</ul>
+<p>单独评价阶段可以把注意力集中到这些维度。</p>
+<h3 id="1222">12.2.2 阻止错误继续传播</h3>
+<p>在强依赖任务中，早期错误可能成为后续步骤的输入：</p>
+<pre class="mermaid">flowchart LR
+    A[错误搜索词] --> B[错误资料]
+    B --> C[错误分析]
+    C --> D[错误结论]
+</pre>
+
+<p>如果在关键节点验证：</p>
+<pre class="mermaid">flowchart LR
+    A[搜索结果] --> V{来源与相关性通过?}
+    V -->|是| B[继续分析]
+    V -->|否| R[修改查询并重试]
+</pre>
+
+<p>就能降低错误复合。</p>
+<h3 id="1223">12.2.3 改善一次难以完成的高质量输出</h3>
+<p>适合：</p>
+<ul>
+<li>代码生成；</li>
+<li>研究报告；</li>
+<li>翻译；</li>
+<li>法律或商业文本；</li>
+<li>复杂数据分析；</li>
+<li>有明确评分标准的内容生成。</li>
+</ul>
+<h3 id="1224">12.2.4 将失败转化为可复用经验</h3>
+<p>经过验证的失败原因可以：</p>
+<ul>
+<li>改善当前重试；</li>
+<li>更新当前任务计划；</li>
+<li>形成 Episode；</li>
+<li>晋升为长期记忆；</li>
+<li>转化为 Skill、规则或测试。</li>
+</ul>
+<p>未经验证的反思不应直接成为长期规则。</p>
+<h2 id="123-reflection-verification">12.3 Reflection 与 Verification 的区别</h2>
+<table>
+<thead>
+<tr>
+<th>Reflection</th>
+<th>Verification</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>解释哪里可能有问题及如何改</td>
+<td>判断是否满足明确标准</td>
+</tr>
+<tr>
+<td>通常由模型生成反馈</td>
+<td>可以由程序、规则、环境或人执行</td>
+</tr>
+<tr>
+<td>可能具有主观性</td>
+<td>越接近真实环境越客观</td>
+</tr>
+<tr>
+<td>用于指导修订</td>
+<td>用于接受、拒绝或阻止</td>
+</tr>
+</tbody>
+</table>
+<p>更稳妥的做法是让 Verification 判断问题是否成立，再由 Reflection 把这些问题转成可执行的修订动作。</p>
+<p>例如：</p>
+<ul>
+<li>单元测试指出函数在空输入时失败；</li>
+<li>Critic 将失败归纳为“缺少空输入分支”；</li>
+<li>Refiner 修改代码；</li>
+<li>测试再次验证。</li>
+</ul>
+<h2 id="124-verifier">12.4 Verifier 的优先级</h2>
+<p>当多种反馈可用时，通常优先：</p>
+<ol>
+<li>真实环境结果；</li>
+<li>编译器、测试和约束求解器；</li>
+<li>Schema 与确定性规则；</li>
+<li>权威数据源；</li>
+<li>人工审核；</li>
+<li>专用 Reward Model；</li>
+<li>独立 LLM Judge；</li>
+<li>同一模型自我评价。</li>
+</ol>
+<pre class="mermaid">flowchart TB
+    RESULT[Candidate Result] --> DET[Deterministic Verifier]
+    DET -->|可验证| DECISION[Pass / Fail]
+    DET -->|无法完全验证| HUMAN[Human or Domain Review]
+    HUMAN -->|仍需辅助| JUDGE[LLM Judge]
+</pre>
+
+<p>语言模型评价适合处理难以完全形式化的质量维度，但不应替代可用的客观验证。</p>
+<h2 id="125">12.5 反思的四种触发粒度</h2>
+<p>除了步骤级和任务级，还可以加入里程碑级与跨任务 Consolidation。</p>
+<pre class="mermaid">flowchart TB
+    R[Reflection Granularity] --> S[Step-level]
+    R --> M[Milestone-level]
+    R --> T[Task-level]
+    R --> C[Cross-task Consolidation]
+</pre>
+
+<h2 id="126-step-level-reflection">12.6 Step-level Reflection</h2>
+<p>Step-level Reflection 在 Tool Call、推理步骤或状态转移后检查结果。</p>
+<pre class="mermaid">flowchart LR
+    S[Execute Step] --> O[Observation]
+    O --> V{Step Valid?}
+    V -->|是| N[Next Step]
+    V -->|否| F[Feedback]
+    F --> R[Retry or Replan]
+    R --> S
+</pre>
+
+<h3 id="1261">12.6.1 适用场景</h3>
+<ul>
+<li>步骤之间强依赖；</li>
+<li>早期错误会影响大量后续工作；</li>
+<li>Tool 结果容易验证；</li>
+<li>操作具有高风险或副作用；</li>
+<li>局部重试成本较低。</li>
+</ul>
+<p>例如：</p>
+<ul>
+<li>搜索结果是否与问题相关；</li>
+<li>API 是否返回成功状态；</li>
+<li>代码是否通过编译；</li>
+<li>数据是否满足 Schema；</li>
+<li>高风险操作是否经过审批。</li>
+</ul>
+<h3 id="1262">12.6.2 优势</h3>
+<ul>
+<li>错误发现早；</li>
+<li>失败影响范围小；</li>
+<li>可以局部重试；</li>
+<li>状态更容易保持正确；</li>
+<li>适合强依赖任务。</li>
+</ul>
+<h3 id="1263">12.6.3 代价</h3>
+<ul>
+<li>增加验证延迟；</li>
+<li>增加模型或 Tool 调用；</li>
+<li>可能过度检查低风险步骤；</li>
+<li>Critic 可能不断提出非关键修改；</li>
+<li>任务吞吐下降。</li>
+</ul>
+<h3 id="1264-llm">12.6.4 不一定每步增加一次 LLM 调用</h3>
+<p>“十步任务加步骤级反思就需要二十次 LLM 调用”不是必然规律。</p>
+<p>步骤验证可以由：</p>
+<ul>
+<li>Tool 自身状态码；</li>
+<li>Schema Validator；</li>
+<li>单元测试；</li>
+<li>规则引擎；</li>
+<li>当前 Agent 的下一轮决策；</li>
+<li>批量 Critic；</li>
+<li>只在异常时触发的模型评价。</li>
+</ul>
+<p>只有在每个步骤都单独调用 LLM Critic 时，调用次数才可能接近翻倍。</p>
+<h2 id="127-milestone-level-reflection">12.7 Milestone-level Reflection</h2>
+<p>Milestone-level Reflection 在一个阶段完成后评价，而不是检查每个微步骤。</p>
+<pre class="mermaid">flowchart LR
+    S1[Stage Steps] --> M[Milestone Artifact]
+    M --> V{Milestone Valid?}
+    V -->|是| NEXT[Next Milestone]
+    V -->|否| FIX[Repair Affected Stage]
+</pre>
+
+<p>这种做法的成本低于逐步检查，也比只看最终结果更容易尽早发现偏差。</p>
+<p>适合：</p>
+<ul>
+<li>一个阶段内部步骤较多；</li>
+<li>阶段能产生独立 Artifact；</li>
+<li>每步验证过于昂贵；</li>
+<li>阶段之间依赖明显。</li>
+</ul>
+<p>例如：</p>
+<ul>
+<li>资料收集完成后统一检查来源覆盖；</li>
+<li>功能实现完成后运行整组测试；</li>
+<li>报告提纲完成后检查结构。</li>
+</ul>
+<h2 id="128-task-level-reflection">12.8 Task-level Reflection</h2>
+<p>Task-level Reflection 在完整任务结束后进行整体评价。</p>
+<pre class="mermaid">flowchart LR
+    TASK[Complete Task] --> OUT[Final Candidate]
+    OUT --> E[Holistic Evaluation]
+    E --> D{Pass?}
+    D -->|是| DONE[Deliver]
+    D -->|否| R[Revise Result or Replan]
+</pre>
+
+<h3 id="1281">12.8.1 适用场景</h3>
+<ul>
+<li>步骤相对独立；</li>
+<li>单步错误影响有限；</li>
+<li>更关注整体一致性；</li>
+<li>最终结果容易统一评价；</li>
+<li>中间验证成本较高。</li>
+</ul>
+<p>例如：</p>
+<ul>
+<li>报告结构和结论是否一致；</li>
+<li>文案风格是否统一；</li>
+<li>多章节是否重复或矛盾；</li>
+<li>最终方案是否满足全部要求。</li>
+</ul>
+<h3 id="1282">12.8.2 优势</h3>
+<ul>
+<li>额外调用较少；</li>
+<li>能观察全局一致性；</li>
+<li>适合发现跨部分问题；</li>
+<li>实现简单。</li>
+</ul>
+<h3 id="1283">12.8.3 代价</h3>
+<ul>
+<li>错误发现晚；</li>
+<li>可能浪费前期执行成本；</li>
+<li>很难只修复一个局部；</li>
+<li>根因可能被最终输出掩盖。</li>
+</ul>
+<h2 id="129-cross-task-consolidation">12.9 Cross-task Consolidation</h2>
+<p>跨任务反思更像一次复盘，重点是总结：</p>
+<ul>
+<li>哪种策略有效；</li>
+<li>哪种错误反复出现；</li>
+<li>哪些规则值得长期保留；</li>
+<li>哪些 Tool 或 Prompt 需要改进。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    T1[Task 1] --> C[Consolidation]
+    T2[Task 2] --> C
+    T3[Task N] --> C
+    C --> M[Validated Memory]
+    C --> S[Skill / Workflow Update]
+    C --> E[Evaluation Set]
+</pre>
+
+<p>跨任务经验必须经过验证、去重和适用范围检查，不能把模型的一次自我评价自动提升为永久规则。</p>
+<h2 id="1210">12.10 如何选择反思粒度</h2>
+<table>
+<thead>
+<tr>
+<th>任务特征</th>
+<th>推荐粒度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>强依赖、错误会层层传播</td>
+<td>Step-level</td>
+</tr>
+<tr>
+<td>阶段有独立输出</td>
+<td>Milestone-level</td>
+</tr>
+<tr>
+<td>各步骤相对独立，关注整体质量</td>
+<td>Task-level</td>
+</tr>
+<tr>
+<td>需要积累重复任务经验</td>
+<td>Cross-task Consolidation</td>
+</tr>
+<tr>
+<td>高风险动作</td>
+<td>Step-level + Human Gate</td>
+</tr>
+<tr>
+<td>成本敏感</td>
+<td>Triggered Milestone / Task-level</td>
+</tr>
+</tbody>
+</table>
+<p>生产系统通常混合使用：</p>
+<pre class="mermaid">flowchart TB
+    STEP[Low-risk Steps] --> MILESTONE[Milestone Verification]
+    RISK[High-risk Step] --> IMMEDIATE[Immediate Verification]
+    MILESTONE --> TASK[Task-level Review]
+    IMMEDIATE --> TASK
+    TASK --> CONS[Optional Consolidation]
+</pre>
+
+<h2 id="1211-adaptive-reflection">12.11 Adaptive Reflection</h2>
+<p>不必在每一步都反思。可以根据风险和异常动态触发。</p>
+<p>触发信号包括：</p>
+<ul>
+<li>Tool 返回错误；</li>
+<li>输出不符合 Schema；</li>
+<li>置信度低；</li>
+<li>多个来源冲突；</li>
+<li>重复调用同一 Tool；</li>
+<li>计划偏离目标；</li>
+<li>即将执行高风险动作；</li>
+<li>阶段耗时或成本异常；</li>
+<li>Verifier 分数低。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    O[Observation] --> R[Risk / Anomaly Detector]
+    R -->|正常| NEXT[Continue]
+    R -->|异常| REFLECT[Reflect / Verify]
+    REFLECT --> FIX[Repair / Replan]
+</pre>
+
+<p>相比固定“每一步一次 Critic”，自适应触发通常更容易把成本控制住。</p>
+<h2 id="1212">12.12 反思系统的基本组件</h2>
+<p>一个完整实现通常包含：</p>
+<ol>
+<li>Generator / Executor；</li>
+<li>Verifier / Critic；</li>
+<li>Feedback Formatter；</li>
+<li>Refiner；</li>
+<li>Stop Controller；</li>
+<li>Optional Memory Writer。</li>
+</ol>
+<pre class="mermaid">flowchart TB
+    G[Generator / Executor] --> A[Artifact + Trace]
+    A --> V[Verifier / Critic]
+    V --> F[Structured Feedback]
+    F --> R[Refiner]
+    R --> G
+    V --> S[Stop Controller]
+    S -->|Pass| DONE[Finish]
+    S -->|Budget Exhausted| PARTIAL[Report Incomplete]
+    F --> MW[Optional Memory Writer]
+</pre>
+
+<h2 id="1213-evaluate-refine">12.13 Evaluate 与 Refine 必须职责分离</h2>
+<p>反思至少需要两个逻辑阶段：</p>
+<h3 id="12131-evaluate">12.13.1 Evaluate</h3>
+<p>只负责：</p>
+<ul>
+<li>对照标准检查；</li>
+<li>找出具体问题；</li>
+<li>提供证据；</li>
+<li>判断严重程度；</li>
+<li>给出可操作建议。</li>
+</ul>
+<h3 id="12132-refine">12.13.2 Refine</h3>
+<p>负责：</p>
+<ul>
+<li>读取原始任务；</li>
+<li>读取原始输出；</li>
+<li>读取结构化反馈；</li>
+<li>定向修改；</li>
+<li>保留正确内容；</li>
+<li>返回可再次验证的结果。</li>
+</ul>
+<p>这两个角色可以由：</p>
+<ul>
+<li>两个不同 Prompt；</li>
+<li>两次模型调用；</li>
+<li>不同模型；</li>
+<li>LLM + 确定性验证器；</li>
+<li>同一 Agent 的不同 Workflow 节点；</li>
+</ul>
+<p>实现。</p>
+<p>重点是职责和输入输出边界，而不是必须恰好存在两个 Prompt 文件。</p>
+<h2 id="1214-critic-prompt">12.14 Critic Prompt 应包含什么</h2>
+<h3 id="12141">12.14.1 原始任务与成功标准</h3>
+<p>Critic 必须知道什么才算完成。</p>
+<h3 id="12142">12.14.2 具体检查维度</h3>
+<p>例如：</p>
+<ul>
+<li>Correctness；</li>
+<li>Completeness；</li>
+<li>Evidence；</li>
+<li>Consistency；</li>
+<li>Safety；</li>
+<li>Format；</li>
+<li>Efficiency。</li>
+</ul>
+<h3 id="12143">12.14.3 可验证证据</h3>
+<p>要求每个 Finding 引用：</p>
+<ul>
+<li>输出片段；</li>
+<li>Tool Result；</li>
+<li>测试；</li>
+<li>来源；</li>
+<li>明确规则。</li>
+</ul>
+<h3 id="12144-pass">12.14.4 PASS 出口</h3>
+<p>如果结果已经满足要求，Critic 必须能够返回 PASS。否则它会为了完成“找问题”的指令不断制造低价值意见。</p>
+<h3 id="12145">12.14.5 结构化输出</h3>
+<pre><code class="language-json">{
+  &quot;verdict&quot;: &quot;REVISE&quot;,
+  &quot;score&quot;: 0.78,
+  &quot;findings&quot;: [
+    {
+      &quot;criterion&quot;: &quot;evidence&quot;,
+      &quot;severity&quot;: &quot;high&quot;,
+      &quot;location&quot;: &quot;section-3&quot;,
+      &quot;problem&quot;: &quot;关键市场份额结论没有来源&quot;,
+      &quot;evidence&quot;: &quot;报告第 3 节第 2 段&quot;,
+      &quot;suggestion&quot;: &quot;补充权威来源，或删除该具体数字&quot;
+    }
+  ],
+  &quot;next_action&quot;: &quot;revise&quot;
+}
+</code></pre>
+<p>允许的 Verdict 可以是：</p>
+<ul>
+<li><code>PASS</code>；</li>
+<li><code>REVISE</code>；</li>
+<li><code>REPLAN</code>；</li>
+<li><code>BLOCKED</code>；</li>
+<li><code>NEEDS_HUMAN_REVIEW</code>。</li>
+</ul>
+<h2 id="1215-refiner-prompt">12.15 Refiner Prompt 应包含什么</h2>
+<p>Refiner 需要：</p>
+<ul>
+<li>原始任务；</li>
+<li>当前候选；</li>
+<li>Critic Findings；</li>
+<li>不可改变的约束；</li>
+<li>允许修改的范围；</li>
+<li>输出 Schema。</li>
+</ul>
+<p>推荐要求：</p>
+<ol>
+<li>只处理有效 Finding；</li>
+<li>保留已经正确的部分；</li>
+<li>不引入无来源新事实；</li>
+<li>返回修改后的完整 Artifact 或明确 Patch；</li>
+<li>说明哪些 Finding 无法解决。</li>
+</ol>
+<p>不要只说“请根据意见优化一下”，否则修改方向不稳定。</p>
+<h2 id="1216-stop-controller">12.16 Stop Controller</h2>
+<p>不能依赖模型自己无限反思直到满意。</p>
+<p>停止条件包括：</p>
+<ul>
+<li>Verifier 返回 PASS；</li>
+<li>达到最低分数；</li>
+<li>达到最大轮数；</li>
+<li>Token 或费用预算耗尽；</li>
+<li>超时；</li>
+<li>连续多轮没有显著改善；</li>
+<li>相同 Finding 重复出现；</li>
+<li>需要人工判断；</li>
+<li>用户取消。</li>
+</ul>
+<p>设第 <code>r</code> 轮评分为 <code>sᵣ</code>，改进量为：</p>
+<p>$$
+\Delta_r=s_r-s_{r-1}
+$$</p>
+<p>如果连续若干轮满足：</p>
+<p>$$
+\Delta_r\le\epsilon
+$$</p>
+<p>可以判定优化已经停滞。</p>
+<h3 id="12161-2-3">12.16.1 最大轮数不是固定 2 到 3</h3>
+<p>一到三轮是很多低风险文本任务的常见默认范围，但不应写成普适规则。</p>
+<p>轮数应根据：</p>
+<ul>
+<li>单轮成本；</li>
+<li>任务风险；</li>
+<li>Verifier 可靠性；</li>
+<li>每轮平均提升；</li>
+<li>用户延迟目标；</li>
+<li>是否存在确定性成功条件；</li>
+</ul>
+<p>通过评估确定。</p>
+<p>高风险操作可能只允许一次修订后转人工；可自动测试的代码修复则可能允许更多受限迭代。</p>
+<h2 id="1217">12.17 反思成本</h2>
+<p>若每轮包含 Evaluate、Refine 和 Verify，总成本可表示为：</p>
+<p>$$
+C_{reflection}=
+\sum_{r=1}^{R}
+\left(
+C_{eval,r}
++
+C_{refine,r}
++
+C_{verify,r}
+\right)
+$$</p>
+<p>成本还包括：</p>
+<ul>
+<li>Tool 执行；</li>
+<li>测试；</li>
+<li>Context；</li>
+<li>Critic Agent 通信；</li>
+<li>Artifact 存储；</li>
+<li>人工审核。</li>
+</ul>
+<p>降低成本的方法：</p>
+<ul>
+<li>只在异常或高风险时触发；</li>
+<li>使用确定性验证器；</li>
+<li>用小模型初筛；</li>
+<li>批量检查多个步骤；</li>
+<li>在 Milestone 而非每个微步骤反思；</li>
+<li>达到阈值立即停止；</li>
+<li>只修复受影响部分。</li>
+</ul>
+<h2 id="1218-self-reflection">12.18 Self-Reflection</h2>
+<p>Self-Reflection 使用同一模型或同一 Agent 评价自己的结果。</p>
+<h3 id="12181">12.18.1 优势</h3>
+<ul>
+<li>实现简单；</li>
+<li>无需额外 Agent；</li>
+<li>Context 传递成本低；</li>
+<li>适合低风险初步检查。</li>
+</ul>
+<h3 id="12182">12.18.2 局限</h3>
+<ul>
+<li>Generator 与 Critic 共享模型偏差；</li>
+<li>容易重复原来的假设；</li>
+<li>可能偏好自己的表达；</li>
+<li>缺少真正的新证据；</li>
+<li>可能产生表面修改。</li>
+</ul>
+<p>Self-Reflection 可以作为初筛，但不能当成客观验证。</p>
+<h2 id="1219-critic-agent">12.19 Critic Agent</h2>
+<p>Critic Agent 专门检查 Executor 的 Artifact 或轨迹。</p>
+<pre class="mermaid">sequenceDiagram
+    participant E as Executor Agent
+    participant C as Critic Agent
+    participant V as Verifier
+
+    E->>C: Candidate + Rubric + Evidence
+    C-->>E: Structured Findings
+    E->>E: Refine
+    E->>V: Revised Candidate
+    V-->>E: Pass or Fail
+</pre>
+
+<h3 id="12191">12.19.1 为什么可能更好</h3>
+<ul>
+<li>Critic 使用独立 Prompt；</li>
+<li>Critic 不承担生成任务；</li>
+<li>可以隐藏 Generator 的解释，减少 Anchoring；</li>
+<li>可以使用不同模型和 Tools；</li>
+<li>可以只关注某个质量维度；</li>
+<li>可以访问独立验证数据。</li>
+</ul>
+<h3 id="12192">12.19.2 为什么不一定更客观</h3>
+<p>如果 Critic：</p>
+<ul>
+<li>使用相同模型；</li>
+<li>看到相同上下文；</li>
+<li>使用模糊 Rubric；</li>
+<li>没有外部证据；</li>
+<li>只被要求“找问题”；</li>
+</ul>
+<p>它仍可能与 Generator 共享错误，或为了批评而批评。</p>
+<blockquote>
+<p><strong>拆成独立 Critic Agent，不会自动带来独立证据，也不会自动消除共享误差。</strong></p>
+</blockquote>
+<p>提高独立性的方式：</p>
+<ul>
+<li>使用不同模型或模型版本；</li>
+<li>使用不同数据源；</li>
+<li>Blind Review；</li>
+<li>明确 Rubric；</li>
+<li>提供测试和事实来源；</li>
+<li>对 Critic 本身做评估。</li>
+</ul>
+<h2 id="1220-multi-critic">12.20 Multi-Critic</h2>
+<p>可以让多个 Critic 分别检查：</p>
+<ul>
+<li>事实；</li>
+<li>安全；</li>
+<li>逻辑；</li>
+<li>格式；</li>
+<li>领域合规。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    OUT[Candidate] --> F[Fact Critic]
+    OUT --> S[Safety Critic]
+    OUT --> L[Logic Critic]
+    OUT --> D[Domain Critic]
+    F --> J[Finding Aggregator]
+    S --> J
+    L --> J
+    D --> J
+</pre>
+
+<p>优势：</p>
+<ul>
+<li>每个 Critic 更聚焦；</li>
+<li>可以并行；</li>
+<li>权限和数据隔离更清晰。</li>
+</ul>
+<p>代价：</p>
+<ul>
+<li>成本增加；</li>
+<li>Findings 可能冲突；</li>
+<li>需要聚合和优先级；</li>
+<li>多个相同模型仍可能共享偏差。</li>
+</ul>
+<h2 id="1221-debate">12.21 Debate</h2>
+<p>Debate 让多个 Agent 对候选方案进行对抗式讨论。</p>
+<pre class="mermaid">flowchart LR
+    P[Proposer] --> O[Opponent]
+    O --> R[Rebuttal]
+    R --> J[Judge / Verifier]
+    J --> D{通过?}
+    D -->|否| P
+    D -->|是| OUT[Final Decision]
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>存在多个合理观点；</li>
+<li>需要暴露假设；</li>
+<li>需要风险分析；</li>
+<li>结论无法完全用确定性规则验证。</li>
+</ul>
+<h3 id="12211-debate">12.21.1 Debate 的风险</h3>
+<ul>
+<li>更善辩不等于更正确；</li>
+<li>Judge 可能偏好表达方式；</li>
+<li>Agent 可能共享相同知识盲区；</li>
+<li>讨论可能循环；</li>
+<li>Token 和延迟成本高；</li>
+<li>对事实问题不应以投票替代数据。</li>
+</ul>
+<p>关键商业或法律决策仍需要权威事实、领域专家和明确责任人。</p>
+<h2 id="1222-self-refine">12.22 Self-Refine</h2>
+<p>Self-Refine 的基本流程是：</p>
+<blockquote>
+<p><strong>Generate → Feedback → Refine</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    G[Generate] --> F[Self Feedback]
+    F --> R[Refine]
+    R --> V{Pass?}
+    V -->|否| F
+    V -->|是| OUT[Output]
+</pre>
+
+<p>它主要优化当前候选，不修改模型权重。</p>
+<p>适合：</p>
+<ul>
+<li>文本质量优化；</li>
+<li>格式修正；</li>
+<li>有 Rubric 的生成任务；</li>
+<li>低风险迭代。</li>
+</ul>
+<h2 id="1223-reflexion">12.23 Reflexion</h2>
+<p>Reflexion 将环境反馈转化为自然语言反思，并保存在 Episodic Memory 中，供后续尝试使用。</p>
+<p>经典组件包括：</p>
+<ul>
+<li>Actor；</li>
+<li>Evaluator；</li>
+<li>Self-Reflection；</li>
+<li>Episodic Memory。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    A[Actor] --> ENV[Environment]
+    ENV --> TRAJ[Trajectory + Reward]
+    TRAJ --> E[Evaluator]
+    E --> D{Success?}
+    D -->|是| DONE[Finish]
+    D -->|否| SR[Self-Reflection]
+    SR --> MEM[Episodic Memory]
+    MEM --> A
+</pre>
+
+<h3 id="12231-reflexion">12.23.1 原始 Reflexion 的记忆范围</h3>
+<p>原始方法重点是在同一任务的多次 Trial 之间保留 verbal reflection，从而让下一次尝试避免重复错误。</p>
+<p>它不要求：</p>
+<ul>
+<li>必须使用 Vector DB；</li>
+<li>必须进行跨任务语义检索；</li>
+<li>自动把所有经验永久保存。</li>
+</ul>
+<p>生产系统可以扩展为跨任务记忆，但需要：</p>
+<ul>
+<li>经验验证；</li>
+<li>适用范围；</li>
+<li>去重；</li>
+<li>来源；</li>
+<li>相似任务检索；</li>
+<li>过期和删除策略。</li>
+</ul>
+<h3 id="12232-reflection-skill">12.23.2 从 Reflection 晋升为 Skill</h3>
+<p>如果一条经验：</p>
+<ul>
+<li>多次验证有效；</li>
+<li>具有跨任务价值；</li>
+<li>适用范围明确；</li>
+<li>不包含敏感信息；</li>
+</ul>
+<p>可以晋升为：</p>
+<ul>
+<li>Skill；</li>
+<li>Workflow；</li>
+<li>Rule；</li>
+<li>Test；</li>
+<li>Runbook。</li>
+</ul>
+<h2 id="1224-lats">12.24 LATS</h2>
+<p>LATS（Language Agent Tree Search）将：</p>
+<ul>
+<li>Tree Search；</li>
+<li>Action；</li>
+<li>Environment Feedback；</li>
+<li>Value Evaluation；</li>
+<li>Reflection；</li>
+</ul>
+<p>结合在同一个搜索过程。</p>
+<pre class="mermaid">flowchart TB
+    ROOT[Current State] --> A[Action A]
+    ROOT --> B[Action B]
+    ROOT --> C[Action C]
+
+    A --> OA[Observation A]
+    B --> OB[Observation B]
+    C --> OC[Observation C]
+
+    OA --> VA[Value + Reflection]
+    OB --> VB[Value + Reflection]
+    OC --> VC[Value + Reflection]
+
+    VA --> SELECT[Tree Policy]
+    VB --> SELECT
+    VC --> SELECT
+    SELECT --> EXPAND[Expand Promising Path]
+</pre>
+
+<h3 id="12241">12.24.1 核心价值</h3>
+<ul>
+<li>同时探索多个行动路径；</li>
+<li>使用环境反馈评价路径；</li>
+<li>从失败轨迹中提取反思；</li>
+<li>将评价用于后续搜索。</li>
+</ul>
+<h3 id="12242">12.24.2 成本</h3>
+<p>成本取决于：</p>
+<ul>
+<li>分支数；</li>
+<li>搜索深度；</li>
+<li>Rollout 数；</li>
+<li>Value Evaluation；</li>
+<li>Reflection 调用；</li>
+<li>Tool 执行。</li>
+</ul>
+<p>它可能远高于线性 ReAct 或简单 Reflection，不能用固定倍数概括。</p>
+<h3 id="12243">12.24.3 工程定位</h3>
+<p>LATS 是重要的研究型架构，其思想可以用于：</p>
+<ul>
+<li>候选方案搜索；</li>
+<li>代码修复；</li>
+<li>可模拟环境；</li>
+<li>高价值决策辅助。</li>
+</ul>
+<p>但完整 MCTS + Reflection 通常不是普通生产请求的默认方案。生产系统更常采用受预算限制的 Beam Search、Best-of-N、Verifier 和局部重试。</p>
+<h2 id="1225">12.25 反思与规划的关系</h2>
+<p>Reflection 可以作用于不同对象：</p>
+<pre class="mermaid">flowchart TB
+    R[Reflection] --> OUT[Output Reflection]
+    R --> STEP[Step Reflection]
+    R --> PLAN[Plan Reflection]
+    R --> TRACE[Trajectory Reflection]
+    R --> MEMORY[Memory Reflection]
+</pre>
+
+<ul>
+<li>Output Reflection：结果是否正确；</li>
+<li>Step Reflection：当前步骤是否有效；</li>
+<li>Plan Reflection：计划是否仍适用；</li>
+<li>Trajectory Reflection：整条执行路径是否合理；</li>
+<li>Memory Reflection：哪些经验值得保留。</li>
+</ul>
+<p>Plan-and-Execute 中，反思结果可能触发 Replanner，而不仅是重写当前答案。</p>
+<h2 id="1226-agentic-workflow">12.26 反思与 Agentic Workflow</h2>
+<p>生产系统通常将反思限制在 Workflow 节点中：</p>
+<pre class="mermaid">flowchart LR
+    IN[Input] --> G[Generate]
+    G --> DET[Deterministic Checks]
+    DET -->|通过| C[Critic]
+    DET -->|失败| FIX[Direct Repair]
+    C --> D{Verdict}
+    D -->|PASS| OUT[Output]
+    D -->|REVISE| R[Refiner]
+    D -->|REPLAN| P[Planner]
+    D -->|HUMAN| H[Human Review]
+    R --> DET
+    P --> G
+</pre>
+
+<p>Workflow 负责：</p>
+<ul>
+<li>最大轮数；</li>
+<li>允许的 Verdict；</li>
+<li>权限；</li>
+<li>预算；</li>
+<li>人工审批；</li>
+<li>最终停止。</li>
+</ul>
+<p>LLM 负责：</p>
+<ul>
+<li>找出难以形式化的问题；</li>
+<li>生成具体反馈；</li>
+<li>定向修订。</li>
+</ul>
+<h2 id="1227-agent">12.27 代码 Agent 示例</h2>
+<p>目标：</p>
+<blockquote>
+<p>修复一个导致空输入崩溃的函数。</p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    G[Generate Patch] --> T[Run Tests]
+    T --> D{Tests Pass?}
+    D -->|是| R[Code Review]
+    D -->|否| F[Extract Failure]
+    F --> REF[Reflect on Root Cause]
+    REF --> G
+    R --> Q{Review Pass?}
+    Q -->|是| DONE[Finish]
+    Q -->|否| G
+</pre>
+
+<p>关键点：</p>
+<ul>
+<li>Test 是 Verifier；</li>
+<li>测试失败提供新证据；</li>
+<li>Reflection 总结根因；</li>
+<li>Refiner 修改 Patch；</li>
+<li>最大尝试次数由 Runtime 控制；</li>
+<li>测试通过后仍需 Review 检查未覆盖风险。</li>
+</ul>
+<h2 id="1228">12.28 研究报告示例</h2>
+<h3 id="12281-step-level">12.28.1 Step-level</h3>
+<ul>
+<li>搜索结果是否相关；</li>
+<li>来源是否可信；</li>
+<li>关键数字是否来自原文。</li>
+</ul>
+<h3 id="12282-milestone-level">12.28.2 Milestone-level</h3>
+<ul>
+<li>每个竞品是否覆盖相同维度；</li>
+<li>是否存在缺失资料；</li>
+<li>Artifact Schema 是否完整。</li>
+</ul>
+<h3 id="12283-task-level">12.28.3 Task-level</h3>
+<ul>
+<li>结论是否前后一致；</li>
+<li>引用是否支持论点；</li>
+<li>是否区分事实、推断与建议；</li>
+<li>报告结构是否完整。</li>
+</ul>
+<h3 id="12284-cross-task">12.28.4 Cross-task</h3>
+<ul>
+<li>哪些来源长期可靠；</li>
+<li>哪种检索策略经常失败；</li>
+<li>哪些检查规则应加入 Skill。</li>
+</ul>
+<h2 id="1229">12.29 反思记忆的数据结构</h2>
+<pre><code class="language-json">{
+  &quot;reflection_id&quot;: &quot;ref-42&quot;,
+  &quot;task_id&quot;: &quot;task-101&quot;,
+  &quot;scope&quot;: &quot;step&quot;,
+  &quot;trigger&quot;: &quot;test_failure&quot;,
+  &quot;evidence&quot;: {
+    &quot;test&quot;: &quot;test_empty_input&quot;,
+    &quot;error&quot;: &quot;IndexError&quot;
+  },
+  &quot;diagnosis&quot;: &quot;函数在访问首元素前没有检查空列表&quot;,
+  &quot;recommended_action&quot;: &quot;增加空输入分支并补充测试&quot;,
+  &quot;verified&quot;: true,
+  &quot;applicability&quot;: &quot;functions that access the first list element&quot;,
+  &quot;retention&quot;: &quot;task-local&quot;
+}
+</code></pre>
+<p>关键字段：</p>
+<ul>
+<li>Scope；</li>
+<li>Trigger；</li>
+<li>Evidence；</li>
+<li>Diagnosis；</li>
+<li>Action；</li>
+<li>Verification；</li>
+<li>Applicability；</li>
+<li>Retention。</li>
+</ul>
+<h2 id="1230-reflection-loop">12.30 防止 Reflection Loop</h2>
+<pre class="mermaid">flowchart TB
+    R[Reflection Round] --> V[Verify]
+    V --> P{Pass?}
+    P -->|是| DONE[Finish]
+    P -->|否| B{Budget Remaining?}
+    B -->|否| STOP[Stop and Report]
+    B -->|是| I{Finding Changed?}
+    I -->|否| ESC[Escalate / Human]
+    I -->|是| FIX[Refine]
+    FIX --> R
+</pre>
+
+<p>硬性机制包括：</p>
+<ul>
+<li>最大轮数；</li>
+<li>最大 Token 和费用；</li>
+<li>超时；</li>
+<li>Finding 去重；</li>
+<li>无改进检测；</li>
+<li>同一错误重复阈值；</li>
+<li>人工升级；</li>
+<li>不可修复状态。</li>
+</ul>
+<p>停止时应明确报告：</p>
+<ul>
+<li>已解决问题；</li>
+<li>未解决 Finding；</li>
+<li>停止原因；</li>
+<li>当前 Artifact；</li>
+<li>下一步建议。</li>
+</ul>
+<h2 id="1231">12.31 如何评估反思系统</h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>First-pass Success</td>
+<td>不反思时的成功率</td>
+</tr>
+<tr>
+<td>Post-reflection Success</td>
+<td>反思后的成功率</td>
+</tr>
+<tr>
+<td>Finding Precision</td>
+<td>Critic 提出的问题中真实问题比例</td>
+</tr>
+<tr>
+<td>Finding Recall</td>
+<td>已知问题被发现的比例</td>
+</tr>
+<tr>
+<td>Fix Success</td>
+<td>反馈是否促成正确修复</td>
+</tr>
+<tr>
+<td>Regression Rate</td>
+<td>修订是否破坏正确内容</td>
+</tr>
+<tr>
+<td>Average Rounds</td>
+<td>平均反思轮数</td>
+</tr>
+<tr>
+<td>Cost per Success</td>
+<td>每个成功任务的总成本</td>
+</tr>
+<tr>
+<td>Time to Detect</td>
+<td>错误被发现的时间</td>
+</tr>
+<tr>
+<td>Escalation Rate</td>
+<td>需要人工处理的比例</td>
+</tr>
+</tbody>
+</table>
+<p>评估时更该看反思是否以可接受成本提高最终任务成功率，并减少风险，而不是只统计 Critic 提了多少意见。</p>
+<h2 id="1232-ab">12.32 A/B 评估</h2>
+<p>至少比较：</p>
+<ol>
+<li>无 Reflection；</li>
+<li>Self-Reflection；</li>
+<li>Deterministic Verifier；</li>
+<li>Critic Agent；</li>
+<li>Verifier + Critic；</li>
+<li>Step-level；</li>
+<li>Milestone-level；</li>
+<li>Task-level。</li>
+</ol>
+<p>观察：</p>
+<ul>
+<li>质量提升；</li>
+<li>延迟；</li>
+<li>Token；</li>
+<li>Tool 成本；</li>
+<li>False Positive；</li>
+<li>Regression；</li>
+<li>用户满意度。</li>
+</ul>
+<p>如果 Critic 只增加成本而没有稳定提升，就不应保留。</p>
+<h2 id="1233">12.33 常见反模式</h2>
+<h3 id="12331">12.33.1 只说“请检查有没有问题”</h3>
+<p>缺少 Rubric，反馈容易流于表面。</p>
+<h3 id="12332-critic">12.33.2 Critic 只能返回问题</h3>
+<p>没有 PASS 出口，会无限挑毛病。</p>
+<h3 id="12333-refiner">12.33.3 Refiner 看不到原始任务</h3>
+<p>只根据批注修改，可能偏离用户目标。</p>
+<h3 id="12334">12.33.4 同一个模型反复重写</h3>
+<p>没有新证据，只产生文本变化。</p>
+<h3 id="12335-critic">12.33.5 每个步骤都调用大型 Critic</h3>
+<p>低风险步骤成本过高。</p>
+<h3 id="12336-critic-agent">12.33.6 Critic Agent 被假设为客观真相</h3>
+<p>独立角色仍可能共享模型偏差。</p>
+<h3 id="12337">12.33.7 反思自动写入长期记忆</h3>
+<p>错误经验会形成 Memory Poisoning。</p>
+<h3 id="12338">12.33.8 没有最大轮次</h3>
+<p>形成无限修订。</p>
+<h3 id="12339-debate">12.33.9 Debate 用于替代事实查询</h3>
+<p>多个 Agent 讨论不能替代权威数据。</p>
+<h2 id="1234">12.34 推荐生产架构</h2>
+<pre class="mermaid">flowchart TB
+    TASK[Task] --> EXEC[Executor]
+    EXEC --> ART[Artifact + Trace]
+
+    ART --> DV[Deterministic Verifiers]
+    DV --> RISK{高风险或检查失败?}
+
+    RISK -->|否| NEED{需要主观质量评价?}
+    RISK -->|是| CRITIC[Critic]
+    NEED -->|否| DONE[Finish]
+    NEED -->|是| CRITIC
+
+    CRITIC --> VERDICT{Verdict}
+    VERDICT -->|PASS| DONE
+    VERDICT -->|REVISE| REFINE[Refiner]
+    VERDICT -->|REPLAN| PLAN[Replanner]
+    VERDICT -->|BLOCKED| HUMAN[Human Review]
+
+    REFINE --> EXEC
+    PLAN --> EXEC
+
+    CRITIC --> STOP[Stop Controller]
+    STOP -->|Budget Exhausted| PARTIAL[Report Incomplete]
+
+    DONE --> CONS{经验值得沉淀?}
+    CONS -->|否| END[End]
+    CONS -->|是| VALIDATE[Validate Reflection]
+    VALIDATE --> MEMORY[Memory / Skill Candidate]
+</pre>
+
+<p>推荐原则：</p>
+<ol>
+<li>先使用确定性 Verifier；</li>
+<li>只在必要维度调用 Critic；</li>
+<li>使用结构化 Finding；</li>
+<li>将 Evaluate 与 Refine 分开；</li>
+<li>对高风险和强依赖步骤提前验证；</li>
+<li>对整体输出进行 Task-level Review；</li>
+<li>硬性限制轮数、预算和时间；</li>
+<li>只有经过验证的经验才能进入长期记忆。</li>
+</ol>
+<h2 id="1235">12.35 本章总结</h2>
+<p>Agent Reflection 是反馈驱动的质量控制环：</p>
+<blockquote>
+<p><strong>执行 → 验证 → 反馈 → 修订或重规划 → 再验证</strong></p>
+</blockquote>
+<p>触发粒度包括：</p>
+<ul>
+<li>Step-level：尽早阻止错误传播；</li>
+<li>Milestone-level：平衡成本和纠错速度；</li>
+<li>Task-level：检查整体一致性；</li>
+<li>Cross-task：提炼可复用经验。</li>
+</ul>
+<p>落地时要看几件事：</p>
+<ul>
+<li>Critic 具有明确 Rubric；</li>
+<li>输出结构化 Finding；</li>
+<li>允许 PASS；</li>
+<li>Refiner 保留原始任务和正确内容；</li>
+<li>优先使用客观 Verifier；</li>
+<li>设置硬性停止条件；</li>
+<li>不把未经验证的反思直接写入长期记忆。</li>
+</ul>
+<p>Self-Refine、Reflexion、Critic Agent、Debate 和 LATS 提供的是不同深度的反馈机制。它们有用，但都会增加成本，也都不能替代真实环境、测试、权威数据和人工责任。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2303.17651">Self-Refine: Iterative Refinement with Self-Feedback</a></li>
+<li><a href="https://arxiv.org/abs/2303.11366">Reflexion: Language Agents with Verbal Reinforcement Learning</a></li>
+<li><a href="https://arxiv.org/abs/2310.04406">Language Agent Tree Search Unifies Reasoning, Acting, and Planning</a></li>
+<li><a href="https://arxiv.org/abs/2305.14325">Improving Factuality and Reasoning in Language Models through Multiagent Debate</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

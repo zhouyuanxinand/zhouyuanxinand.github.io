@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Scaling Law 与涌现 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Scaling Law 与涌现 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>训练与对齐</span> / <span>Scaling Law 与涌现</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="scaling-law">第七章：Scaling Law 与涌现能力</h1>
+<h2 id="71-scaling-law">7.1 Scaling Law 是什么，为什么它震撼了业界</h2>
+<p>要理解 Scaling Law 的重要性，得先回到 2018–2020 年那个语境。</p>
+<p>那时候深度学习圈子里对「模型加大有没有用」是有分歧的。一派觉得「模型再大也有上限，参数加多了就饱和」，另一派觉得「先加大试试再说」。<strong>但谁都没有量化证据，全凭经验和直觉。</strong></p>
+<h3 id="711-kaplan-2020">7.1.1 Kaplan 2020 的发现</h3>
+<p>OpenAI 的 Kaplan 等人系统训练了一系列从几万到几十亿参数的语言模型，发现损失值随<strong>模型参数 $N$、训练数据量 $D$、训练算力 $C$</strong> 按幂律下降：</p>
+<p>$$
+L(N) \approx \left(\frac{N_c}{N}\right)^{\alpha_N}
+$$</p>
+<p>直观理解：<strong>模型规模翻倍，损失按一个固定比例下降，而且这个比例可以提前算出来。</strong></p>
+<h3 id="712">7.1.2 震撼业界的三个点</h3>
+<table>
+<thead>
+<tr>
+<th>关键点</th>
+<th>意义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>可预测</strong></td>
+<td>不是「试试看运气」，而是「我有 X 算力，算一下最终能到什么 loss」。<strong>这给了大公司投资大模型的底气</strong>，因为投入产出比可预测</td>
+</tr>
+<tr>
+<td><strong>没看到饱和点</strong></td>
+<td>论文把规模加到当时能训的极限，loss 还在按幂律下降。传递的信号是：继续加大就还能继续提升</td>
+</tr>
+<tr>
+<td><strong>三个变量可独立分析</strong></td>
+<td>可以分别问「加倍参数 / 数据 / 算力各能降多少 loss」，为后来 Chinchilla 把三者联立打下基础</td>
+</tr>
+</tbody>
+</table>
+<h3 id="713">7.1.3 但它没回答一个关键问题</h3>
+<p><strong>参数和数据应该按什么比例配？</strong></p>
+<p>当时业界的普遍做法是「能加多少参数加多少，数据用差不多就行」。结果训出了一批<strong>严重欠训</strong>的大模型，最典型的就是 GPT-3。</p>
+<h2 id="72-chinchilla-2022-120">7.2 Chinchilla 2022：参数和数据要 1:20</h2>
+<p>DeepMind 在《Training Compute-Optimal Large Language Models》里做了一个相当壕的实验：<strong>训了 400 个不同规模的 Transformer</strong>，参数从 70M 到 16B，数据从 5B 到 500B token，全部跑完拟合损失曲面。</p>
+<h3 id="721">7.2.1 结论</h3>
+<p>给定固定训练算力 $C$，<strong>参数和数据按接近 1:20 的比例配，最终损失更低</strong>——经验上大约「每个参数配 20 个 token」。</p>
+<blockquote>
+<p>这个 1:20 <strong>不是自然常数</strong>，而是 Chinchilla 实验条件下拟合出的 compute-optimal 经验点。但它把业界从「只堆参数」拉回了「参数和数据要均衡」。</p>
+</blockquote>
+<h3 id="722">7.2.2 对照实验</h3>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数</th>
+<th>数据</th>
+<th>训练算力</th>
+<th>最终效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Gopher（DeepMind 旧版）</td>
+<td>280B</td>
+<td>300B token</td>
+<td>X</td>
+<td>基线</td>
+</tr>
+<tr>
+<td>GPT-3</td>
+<td>175B</td>
+<td>300B token</td>
+<td>0.7X</td>
+<td>比 Gopher 略弱</td>
+</tr>
+<tr>
+<td><strong>Chinchilla（按 1:20）</strong></td>
+<td><strong>70B</strong></td>
+<td><strong>1.4T token</strong></td>
+<td>X</td>
+<td><strong>明显超过前两者</strong></td>
+</tr>
+</tbody>
+</table>
+<p>训练算力量级相同，<strong>参数砍到 1/4、数据加到 4.7 倍</strong>，结果反超了 4 倍参数的 Gopher。</p>
+<h3 id="723">7.2.3 大家都严重欠训</h3>
+<pre><code>GPT-3:      175B 参数 / 300B tokens  =  1 : 1.7
+Chinchilla 最优比例:                    1 : 20
+GPT-3 的数据缺口:                       约 12 倍
+</code></pre>
+<p>GPT-3 应该配 3.5T token 才是 compute-optimal，实际只用了 300B，<strong>差了一个数量级</strong>。</p>
+<h3 id="724">7.2.4 行业被改变了</h3>
+<p>2022 年之后训的主流模型配比都比之前激进得多：</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>参数 : 数据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LLaMA 1 7B</td>
+<td>1 : 140</td>
+</tr>
+<tr>
+<td>Llama 2 7B</td>
+<td>1 : 285</td>
+</tr>
+</tbody>
+</table>
+<p><strong>都远超 Chinchilla 推荐的 1:20</strong>——越来越多模型主动「过量」喂数据。</p>
+<h2 id="73-llama-3-chinchilla">7.3 Llama 3 时代：Chinchilla 不是数据上限</h2>
+<p>2024 年 Meta 训 Llama 3 时做了一件激进的事：</p>
+<pre><code>Llama 3 8B:  8B 参数 / 15T tokens  =  1 : 1875
+Chinchilla 推荐:                       1 : 20
+                                       ↑ 94 倍
+</code></pre>
+<p>按当时常识，早就该过拟合或收益递减了。<strong>但 Meta 实测发现，数据从 1T 推到 15T 的过程中 loss 一直在稳定下降。</strong></p>
+<p>最终 Llama 3 8B 在多项基准上超过了 GPT-3 175B——<strong>一个 8B 小模型打赢了 22 倍参数的大模型</strong>。</p>
+<h3 id="731-chinchilla">7.3.1 重新理解 Chinchilla</h3>
+<p>Chinchilla 的 1:20 <strong>不是「数据上限」</strong>，而是「<strong>给定训练算力时，参数和数据怎么分配更划算</strong>」的经验答案。</p>
+<p>如果你愿意投入更多训练计算、继续喂更多高质量 token，loss 仍然可能下降，只是边际收益变小。</p>
+<p>两句话不矛盾，只是<strong>在优化不同目标</strong>：</p>
+<pre class="mermaid">flowchart LR
+    subgraph A["Chinchilla 的目标"]
+        A1["训练算力最优<br/>固定 FLOPs 下 loss 最低"]
+    end
+    subgraph B["Llama 3 / Qwen3 的目标"]
+        B1["推理成本最优<br/>固定效果下部署最便宜"]
+    end
+    A1 -.->|优化目标不同| B1
+</pre>
+
+<p>Qwen3-0.6B 把这个趋势推到更极端：<strong>36T token 训一个 0.6B 模型，比例 1:60000</strong>。</p>
+<h3 id="732">7.3.2 为什么会出现这个趋势</h3>
+<p>两个很现实的工程原因：</p>
+<table>
+<thead>
+<tr>
+<th>原因</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>推理成本与参数强相关</strong></td>
+<td>8B 模型一张消费级 GPU 就够，175B 要好几台 H100，成本天差地别。如果 8B + 大数据能达到同等效果，何乐不为</td>
+</tr>
+<tr>
+<td><strong>数据相对便宜</strong></td>
+<td>算力是真金白银的硬件投入（一张 H100 三万美元，集群上千万），数据虽然也要花钱清洗，但相比 GPU 集群仍便宜得多</td>
+</tr>
+</tbody>
+</table>
+<p>在算力受限的环境下，把算力多花在「跑过更多数据」而不是「跑过更多参数」更划算。</p>
+<h2 id="74">7.4 涌现能力：量变到质变的临界点</h2>
+<p>Scaling Law 有一个让所有人都没想到的副产物。</p>
+<p><strong>涌现的精确定义</strong>：某项能力在小模型上完全看不到，规模超过某个临界点之后突然出现。<strong>不是平滑上升，而是「先趴在地上、到某个点垂直冲天」的折线。</strong></p>
+<h3 id="741">7.4.1 三类典型涌现能力</h3>
+<p><strong>① 多步算术推理</strong></p>
+<p>Google PaLM 论文里测试 5 步算术应用题：</p>
+<pre><code>8B   →  约 0%
+62B  →  约 5%
+540B →  约 60%
+</code></pre>
+<p><strong>中间没有任何渐进过程</strong>，从「完全不会」直接到「会一大半」。</p>
+<p><strong>② In-Context Learning</strong></p>
+<p>不更新任何参数，只在 prompt 里给几个示例，模型就能学会新任务。小模型给示例也没用，规模够大之后这个能力才稳定出现。</p>
+<p><strong>③ 跨语言泛化</strong></p>
+<p>GPT-3 训练数据 92% 是英文，训完之后却能直接处理中文、阿拉伯语甚至冰岛语。<strong>模型从没被显式教过「中文怎么说」</strong>，它通过大规模混合语料自己学会了语言间的对应关系。这种能力也是规模到 100B 左右才稳定出现。</p>
+<h3 id="742">7.4.2 临界规模</h3>
+<p>通常出现在 <strong>50B–100B</strong> 这个区间。这个区间的物理意义业界还没有定论。一个流行的解释是：模型大到一定程度，注意力头数、隐藏维度等达到了「能编码复杂推理结构」的最低门槛。</p>
+<h2 id="75-mirage">7.5 Mirage 挑战：涌现可能是测量假象</h2>
+<p>正当涌现被广泛接受时，2023 年斯坦福的《Are Emergent Abilities of Large Language Models a Mirage?》炸了锅。</p>
+<h3 id="751">7.5.1 论点</h3>
+<p>作者观察到：<strong>很多「涌现」能力只在某些评估指标下才出现，换个指标就消失了。</strong></p>
+<p>以多步算术为例，常规指标是 <strong>exact match</strong>（最终答案完全正确）：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>特性</th>
+<th>观察到的曲线</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Exact Match</strong></td>
+<td>离散二元，答错任何一步就是 0 分</td>
+<td>小模型一直 0 分，大模型突然跳到 60%——<strong>看起来像涌现</strong></td>
+</tr>
+<tr>
+<td><strong>部分正确率</strong></td>
+<td>连续，答对前 4 步算 0.8 分</td>
+<td><strong>同样的实验数据，曲线变成平滑的对数曲线，没有任何突变</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心论点</strong>：「涌现」可能不是模型本身的非线性特性，而是<strong>评估指标的不连续性放大了一个本来连续的能力提升过程</strong>。</p>
+<pre class="mermaid">flowchart TB
+    REAL["模型能力<br/>其实在平滑连续提升"]
+    REAL -->|用连续指标测| C1["观察到平滑曲线<br/>没有涌现"]
+    REAL -->|用 exact match 测| C2["观察到断崖跳变<br/>看起来像涌现"]
+
+    style C2 fill:#fdecea
+</pre>
+
+<h3 id="752">7.5.2 目前的中立结论</h3>
+<p>后续也有论文反驳，认为某些涌现现象在多种连续指标下都能观察到。争议还在继续，中立的说法是：</p>
+<ol>
+<li><strong>能力跃迁客观存在</strong>：从工程效果看，规模到 100B 之后确实能做小模型完全做不了的事；</li>
+<li><strong>但「涌现」被过度神化了</strong>：很多所谓突变是连续提升 + 指标放大效应；</li>
+<li><strong>不存在「魔法的涌现规模」</strong>：不同任务的临界点不同，没有统一的「100B 之后必然涌现」。</li>
+</ol>
+<blockquote>
+<p>面试里能指出 Mirage 论文的存在、并把双方观点都讲清楚，会显得你真的看过论文而不是在背技术博客。</p>
+</blockquote>
+<h2 id="76">7.6 对工程选型的四个启发</h2>
+<h3 id="761">7.6.1 不是越大越好，要看训练是否充分</h3>
+<p>至少不能出现「参数很大但数据很少」的欠训状态。1:20 可作为理解标尺但不是硬指标。选型时该问的是：</p>
+<ul>
+<li>这个模型训练充分吗？</li>
+<li>数据质量怎么样？</li>
+<li>它是为<strong>训练算力最优</strong>设计，还是为<strong>推理成本最优</strong>设计？</li>
+</ul>
+<h3 id="762">7.6.2 数据规模可能比参数规模更值得加</h3>
+<p>有限算力 X 之下，与其训 7B + 100B token，不如训 3B + 250B token。同样开销效果通常更好，<strong>推理还便宜</strong>。Llama 3 和 Qwen3 都验证了这个直觉。</p>
+<h3 id="763">7.6.3 推理成本与参数规模强相关</h3>
+<p>效果差不多的前提下，「小参数 + 海量数据」在推理成本上有天然优势。这是 2024 年之后开源社区疯狂做「小模型大数据」的根本原因。</p>
+<h3 id="764">7.6.4 涌现能力决定模型规模下限</h3>
+<table>
+<thead>
+<tr>
+<th>任务类型</th>
+<th>最低规模</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>多步推理、ICL、跨语言迁移等依赖涌现的能力</td>
+<td>30B–70B 量级起步</td>
+</tr>
+<tr>
+<td>简单分类、抽取、摘要</td>
+<td>7B–13B 完全够用，<strong>没必要硬上大模型</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="77-scaling-law">7.7 Scaling Law 的天花板</h2>
+<p>虽然还没看到饱和点，但业界已经开始担心两个潜在天花板。</p>
+<h3 id="771-data-wall">7.7.1 数据墙（Data Wall）</h3>
+<p>互联网上高质量公开文本的总量是有限的，估计在 10T–50T token 量级。Llama 3 已经用了 15T，Qwen3 用了 36T——<strong>再过几年就会把人类历史上所有公开文本用完</strong>。</p>
+<p>三个应对方向：</p>
+<table>
+<thead>
+<tr>
+<th>方向</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>合成数据</strong></td>
+<td>用强模型生成训练数据训弱模型（DeepSeek-Math、Qwen2.5-Math 大量使用）</td>
+</tr>
+<tr>
+<td><strong>多模态数据</strong></td>
+<td>扩展到图像、视频、音频，把人类所有形式的信号纳入训练</td>
+</tr>
+<tr>
+<td><strong>强化学习数据</strong></td>
+<td>用环境交互生成数据（DeepSeek-R1 的 RL 训练属于这一类）</td>
+</tr>
+</tbody>
+</table>
+<h3 id="772">7.7.2 算力墙</h3>
+<p>摩尔定律接近物理极限，GPU 算力增长在放缓。能买得起 10 万张 H100 的玩家就那么几个，<strong>进一步堆参数的边际成本越来越高</strong>。</p>
+<p>这也是「测试时计算」（test-time compute）这条新曲线受关注的原因——不再只在训练时加规模，而是在推理时用更多计算换效果，这正是 o1、DeepSeek-R1 这类推理模型的思路。</p>
+<h2 id="78">7.8 常见错误</h2>
+<h3 id="781">7.8.1 只会说「模型越大越好」</h3>
+<p>Scaling Law 的核心是<strong>幂律关系和可预测性</strong>，不是「大就好」。而且 Chinchilla 已经证明参数和数据不匹配会严重欠训。</p>
+<h3 id="782-120">7.8.2 把 1:20 当成硬性规则</h3>
+<p>它是 Chinchilla 实验条件下的 compute-optimal 经验点。Llama 3 的 1:1875 和 Qwen3 的 1:60000 都远超它，且效果更好。</p>
+<h3 id="783-llama-3-chinchilla">7.8.3 认为 Llama 3 推翻了 Chinchilla</h3>
+<p><strong>没有推翻，是优化目标不同</strong>。Chinchilla 优化训练算力最优，Llama 3 优化推理成本最优。把这点讲清楚，才不会把两条路线误判成互相否定。</p>
+<h3 id="784">7.8.4 把涌现讲成神秘魔法</h3>
+<p>必须提 Mirage 论文：很多「突变」是 exact match 这类离散指标造成的测量假象。</p>
+<h3 id="785">7.8.5 认为存在统一的「涌现规模」</h3>
+<p>不同任务临界点不同，没有「过了 100B 就必然涌现」这回事。</p>
+<h3 id="786">7.8.6 选型时无视任务是否依赖涌现</h3>
+<p>简单分类抽取用 7B 就够，硬上 70B 是浪费。反过来多步推理任务上 7B 会直接做不了，不是调 prompt 能救的。</p>
+<h3 id="787-scaling-law">7.8.7 说不出 Scaling Law 的天花板</h3>
+<p>数据墙 + 算力墙，以及合成数据、多模态、RL 这三个应对方向。后续路线为什么转向这些方向，基本都能从这两堵墙推出来。</p>
+<h2 id="79">7.9 本章总结</h2>
+<ol>
+<li><strong>Scaling Law 讲的是 loss 与 $N$、$D$、$C$ 的幂律关系</strong>，OpenAI 2020 年提出；</li>
+<li><strong>它震撼业界的是「可预测」</strong>——投入产出比能提前算出来，这是后来所有烧钱投入的理论基础；</li>
+<li><strong>Kaplan 版没回答参数与数据的配比</strong>，导致 GPT-3 这批模型严重欠训；</li>
+<li><strong>Chinchilla 训 400 个模型得出 1:20</strong>，用 70B + 1.4T 反超 280B 的 Gopher；</li>
+<li><strong>1:20 是 compute-optimal 经验点，不是自然常数</strong>；</li>
+<li><strong>Llama 3 用 1:1875 训出 8B 打赢 175B</strong>，说明 Chinchilla 不是数据上限；</li>
+<li><strong>两者不矛盾</strong>：一个优化训练算力最优，一个优化推理成本最优；</li>
+<li><strong>涌现是能力在临界规模突然出现</strong>，典型三类：多步算术、ICL、跨语言泛化，临界区间 50B–100B；</li>
+<li><strong>Mirage 论文挑战涌现</strong>：换成连续指标曲线就平滑了，可能是指标不连续放大的假象；</li>
+<li><strong>选型启发</strong>：看训练是否充分、数据比参数更值得加、推理成本与参数强相关、依赖涌现的任务有规模下限；</li>
+<li><strong>两个天花板</strong>：数据墙与算力墙，应对方向是合成数据、多模态、强化学习与测试时计算。</li>
+</ol>
+<blockquote>
+<p>Scaling Law 解决的是「投入大致能换来多少 loss 改善」，而 Chinchilla 到 Llama 3 的变化解决的是「同样的预算该花在参数、数据还是部署成本上」。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2001.08361">Scaling Laws for Neural Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2203.15556">Training Compute-Optimal Large Language Models（Chinchilla）</a></li>
+<li><a href="https://arxiv.org/abs/2206.07682">Emergent Abilities of Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2304.15004">Are Emergent Abilities of Large Language Models a Mirage?</a></li>
+<li><a href="https://arxiv.org/abs/2204.02311">PaLM: Scaling Language Modeling with Pathways</a></li>
+<li><a href="https://arxiv.org/abs/2407.21783">The Llama 3 Herd of Models</a></li>
+<li><a href="https://arxiv.org/abs/2302.13971">LLaMA: Open and Efficient Foundation Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2505.09388">Qwen3 Technical Report</a></li>
+<li><a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

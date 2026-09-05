@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>重试、超时、幂等与熔断 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="重试、超时、幂等与熔断 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>请求路径可靠性</span> / <span>重试、超时、幂等与熔断</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第四章：重试、超时、幂等与熔断</h1>
+<h2 id="41-llm-api">4.1 为什么 LLM 调用的可靠性模式不能直接照搬传统 API</h2>
+<p>LLM 调用具备几个和普通微服务调用不同的特征:<strong>耗时长(几秒到几十秒)、费用高(重试一次就是一次完整的 token 账单)、非幂等的副作用少见但一旦发生代价很大(如已经触发了一次下游工具调用)</strong>。这些特征让「重试、超时、幂等、熔断」这套经典分布式系统模式在 LLM 场景下需要重新校准参数,而不是直接套用默认值。</p>
+<h2 id="42">4.2 重试:指数退避 + 抖动,但要分清错误类型</h2>
+<pre><code class="language-python">import random
+import time
+
+RETRYABLE_STATUS = {429, 500, 502, 503, 504}
+
+def call_with_retry(fn, max_retries=3, base_delay=1.0):
+    for attempt in range(max_retries + 1):
+        try:
+            return fn()
+        except ApiError as e:
+            if e.status not in RETRYABLE_STATUS or attempt == max_retries:
+                raise
+            # 指数退避 + 全抖动,避免大量客户端同时在同一时刻重试
+            delay = base_delay * (2 ** attempt)
+            time.sleep(random.uniform(0, delay))
+</code></pre>
+<p><strong>不是所有错误都值得重试</strong>:</p>
+<table>
+<thead>
+<tr>
+<th>错误类型</th>
+<th>是否重试</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>429 限流、5xx</td>
+<td>是</td>
+<td>大概率是瞬时问题</td>
+</tr>
+<tr>
+<td>400 参数错误、401 鉴权失败</td>
+<td>否</td>
+<td>重试结果必然相同,只会浪费时间和费用</td>
+</tr>
+<tr>
+<td>内容安全拦截</td>
+<td>视情况</td>
+<td>换供应商可能规避误伤(见第 3 章),原地重试通常无效</td>
+</tr>
+<tr>
+<td>输出解析失败(见第 5 章)</td>
+<td>是,但要改造 Prompt</td>
+<td>单纯重试可能重复相同错误,常配合「把错误信息回填给模型再试一次」</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>抖动(jitter)不是可选项。</strong> 如果大量客户端在完全相同的延迟后同时重试,会形成新的流量尖峰,这是分布式系统里经典的「重试风暴」。</p>
+</blockquote>
+<h2 id="43">4.3 超时:要设置的不是一个值,而是一个预算</h2>
+<p>一次 LLM 调用的耗时和输出长度强相关,固定超时容易在长输出场景下误杀正常请求。更稳健的做法是设置<strong>分层超时预算</strong>:</p>
+<pre class="mermaid">flowchart LR
+    A["连接超时:2s<br/>能否建立到网关的连接"] --> B["首字节超时:10s<br/>模型开始返回内容前最多等多久"]
+    B --> C["总耗时超时:60s<br/>整个流式响应的硬上限"]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>超时层级</th>
+<th>典型值</th>
+<th>目的</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>连接超时</td>
+<td>1–3 秒</td>
+<td>网络层面是否可达</td>
+</tr>
+<tr>
+<td>首字节超时(TTFT 上限)</td>
+<td>5–15 秒</td>
+<td>模型是否卡在排队或推理没有响应,和用户感知的「有没有反应」直接相关</td>
+</tr>
+<tr>
+<td>总耗时超时</td>
+<td>依据最大输出长度估算,通常 30–120 秒</td>
+<td>防止极端情况下连接挂起不释放资源</td>
+</tr>
+</tbody>
+</table>
+<p>流式返回(streaming)场景下,首字节超时比总耗时超时更重要——<strong>只要模型开始吐字,用户体验就是「在响应」,即使总耗时长一些也能接受</strong>;反之首字节迟迟不来,用户会认为系统卡死了。</p>
+<h2 id="44">4.4 幂等:防止重试引发重复副作用</h2>
+<p>如果一次 LLM 调用之后跟着一个有副作用的动作(发邮件、下单、调用外部工具),简单重试可能导致该动作被执行两次。解决方案是<strong>幂等键(idempotency key)</strong>:</p>
+<pre><code class="language-python">import uuid
+
+def create_order_via_agent(request_payload: dict) -&gt; dict:
+    idempotency_key = request_payload.get(&quot;idempotency_key&quot;) or str(uuid.uuid4())
+    # 幂等键必须由调用方在首次请求时生成并跨重试保持不变,
+    # 而不是每次重试都重新生成
+    return call_downstream_api(
+        payload=request_payload,
+        headers={&quot;Idempotency-Key&quot;: idempotency_key},
+    )
+</code></pre>
+<p>幂等键需要<strong>在最外层生成一次,并贯穿整条重试链路</strong>——包括网关重试、Agent 内部的工具调用重试。下游服务(支付、下单类 API)收到相同幂等键的重复请求时,直接返回第一次的结果而不重复执行。</p>
+<blockquote>
+<p>幂等键方案并非 LLMOps 首创,Stripe 等支付 API 早已用它解决类似问题,LLM 场景的特殊之处在于<strong>幂等键必须覆盖到 Agent 多轮工具调用的每一层,而不只是最外层 HTTP 请求</strong>,否则一次「模型决定重试某个工具调用」也会引发重复副作用。</p>
+</blockquote>
+<h2 id="45">4.5 熔断:防止对已经过载的服务继续加压</h2>
+<pre class="mermaid">stateDiagram-v2
+    [*] --> Closed
+    Closed --> Open: 失败率超过阈值
+    Open --> HalfOpen: 冷却时间到
+    HalfOpen --> Closed: 探测请求成功
+    HalfOpen --> Open: 探测请求失败
+</pre>
+
+<p>熔断器有三种状态:<strong>关闭(Closed)</strong> 正常放行请求;失败率超过阈值后跳到<strong>打开(Open)</strong>,在冷却期内直接快速失败,不再实际调用下游;冷却期结束进入<strong>半开(Half-Open)</strong>,放行少量探测请求,成功则回到关闭状态,失败则回到打开状态继续冷却。</p>
+<p>对 LLM 调用而言,熔断器的关键价值是<strong>当某个供应商大规模故障时,让重试和回退不再对它发起新请求,直接走回退链路</strong>(见<a href="../02-request-reliability/03-model-gateway-routing-fallback.html">第 3 章</a>),同时避免海量客户端的重试流量本身成为压垮供应商恢复的最后一根稻草。</p>
+<h2 id="46">4.6 舱壁隔离:不同任务的故障不应互相传染</h2>
+<p>即使做了熔断,如果所有任务共用同一个连接池/线程池,一个慢任务占满资源,会拖慢所有其他任务。<strong>舱壁隔离(bulkhead)</strong>为不同优先级或不同类型的任务分配独立的资源池:</p>
+<table>
+<thead>
+<tr>
+<th>任务类型</th>
+<th>独立资源池</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>用户实时对话</td>
+<td>高优先级连接池,严格超时</td>
+</tr>
+<tr>
+<td>后台批量摘要任务</td>
+<td>低优先级连接池,宽松超时,可排队</td>
+</tr>
+<tr>
+<td>内部工具调用(如向量检索)</td>
+<td>独立池,防止被主链路的重试风暴挤占</td>
+</tr>
+</tbody>
+</table>
+<h2 id="47">4.7 常见错误</h2>
+<h3 id="471">4.7.1 对所有错误码一律重试</h3>
+<p>400、401 这类确定性错误重试没有意义,只会浪费时间和 token 费用,应该只重试瞬时性错误。</p>
+<h3 id="472">4.7.2 重试不带抖动</h3>
+<p>固定延迟重试会在故障恢复的瞬间制造流量尖峰,必须加入随机抖动。</p>
+<h3 id="473">4.7.3 用单一超时值覆盖所有场景</h3>
+<p>短任务和长输出任务用同一个超时阈值,要么误杀正常的长输出请求,要么让异常请求挂起太久不释放资源。应按第 4.3 节分层设置。</p>
+<h3 id="474">4.7.4 幂等键只覆盖最外层请求</h3>
+<p>Agent 内部多轮工具调用如果各自生成新的幂等键,重试时下游副作用依然可能被重复触发。</p>
+<h3 id="475">4.7.5 没有熔断机制,靠重试硬扛供应商故障</h3>
+<p>供应商大规模故障时,没有熔断器的系统会持续用重试请求给故障服务"添堵",延长故障恢复时间。</p>
+<h3 id="476">4.7.6 所有任务共享同一资源池</h3>
+<p>一个慢的后台任务占满连接池,会连带拖慢用户实时对话的响应,舱壁隔离是防止这种"故障传染"的基本手段。</p>
+<h2 id="48">4.8 本章总结</h2>
+<ol>
+<li><strong>LLM 调用的可靠性模式要重新校准参数</strong>:耗时长、成本高、部分场景非幂等,不能直接照搬默认配置;</li>
+<li><strong>重试要区分错误类型</strong>,只对瞬时性错误重试,且必须带抖动的指数退避;</li>
+<li><strong>超时应该是分层预算</strong>:连接超时、首字节超时、总耗时超时分别设置,流式场景首字节超时更重要;</li>
+<li><strong>幂等键必须贯穿整条重试链路</strong>,包括 Agent 内部的多轮工具调用,而不只是最外层请求;</li>
+<li><strong>熔断器防止对已过载的服务继续加压</strong>,配合回退链路使用;</li>
+<li><strong>舱壁隔离防止故障在不同任务类型之间传染</strong>,不同优先级任务应有独立资源池。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://cloud.google.com/storage/docs/retry-strategy">Google Cloud: Implementing exponential backoff</a></li>
+<li><a href="https://docs.stripe.com/api/idempotent_requests">Stripe API: Idempotent requests</a></li>
+<li><a href="https://martinfowler.com/bliki/CircuitBreaker.html">Martin Fowler: CircuitBreaker</a></li>
+<li><a href="https://netflixtechblog.com/fault-tolerance-in-a-high-volume-distributed-system-91ab4faae74a">Netflix Tech Blog: Fault Tolerance in a High Volume, Distributed System</a></li>
+<li><a href="https://docs.aws.amazon.com/wellarchitected/latest/reliability-pillar/rel_mitigate_interaction_failure_bulkhead.html">AWS Well-Architected Framework: REL05-BP04 Bulkhead architecture</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

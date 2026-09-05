@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>大模型微调 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="大模型微调 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>训练与对齐</span> / <span>大模型微调</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第八章：大模型微调方案</h1>
+<h2 id="81">8.1 前置问题：什么时候才真的需要微调</h2>
+<p>很多人一遇到「模型表现不好」就想上微调，这是新人的本能反应。但踩过坑的人都知道：<strong>微调是最后手段，不是第一选择。</strong></p>
+<h3 id="811">8.1.1 微调的成本远比想象大</h3>
+<table>
+<thead>
+<tr>
+<th>成本项</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>数据成本</strong></td>
+<td>高质量数据集光标注可能就要花几万到几十万</td>
+</tr>
+<tr>
+<td><strong>算力成本</strong></td>
+<td>少说几张 A100</td>
+</tr>
+<tr>
+<td><strong>工程经验</strong></td>
+<td>调参、防过拟合、防灾难性遗忘</td>
+</tr>
+<tr>
+<td><strong>维护成本（最坑）</strong></td>
+<td>底层基础模型一升级，之前微调的版本基本就废了，得重新来一遍</td>
+</tr>
+</tbody>
+</table>
+<p>最后一条尤其致命——<strong>微调产出的是一个会随基座过期的资产</strong>。</p>
+<h3 id="812">8.1.2 先试这三条更轻的路</h3>
+<pre class="mermaid">flowchart TB
+    NEED["模型表现不好"] --> Q1{"想要特定<br/>输出格式?"}
+    Q1 -->|是| P1["Prompt + Few-shot<br/>写清格式要求 + 3-5 个示例"]
+    Q1 -->|否| Q2{"想要特定<br/>回答风格?"}
+    Q2 -->|是| P2["System Prompt 描述风格<br/>+ 几个对话示例"]
+    Q2 -->|否| Q3{"想让模型懂<br/>某个领域知识?"}
+    Q3 -->|是| P3["RAG 检索增强<br/>挂领域知识库实时查"]
+    Q3 -->|否| FT["以上都试过不达标<br/>→ 才考虑微调"]
+
+    style FT fill:#fdecea
+</pre>
+
+<h3 id="813">8.1.3 三种场景微调才真的值得做</h3>
+<ol>
+<li><strong>需要持续以一种特殊风格输出</strong>，Prompt 控制不住（如生成特定格式的代码、特定语气的文案）；</li>
+<li><strong>需要模型稳定掌握某类任务模式或内部术语表达</strong>；</li>
+<li><strong>想用小模型替代大模型省成本</strong>（7B 微调模型替代 70B 通用模型，推理成本能省很多）。</li>
+</ol>
+<h3 id="814">8.1.4 一个重要的反例</h3>
+<blockquote>
+<p><strong>如果需求是「补充经常变化的事实知识」，微调通常不是好选择。</strong></p>
+</blockquote>
+<p>产品价格、政策条款、库存状态、合同原文这些应该放进 RAG 或数据库实时查。</p>
+<p><strong>微调适合学行为、格式、风格和任务模式，不适合当一个会频繁更新的知识库。</strong></p>
+<h2 id="82">8.2 关键框架：两个正交维度</h2>
+<p>这里有个特别容易踩的坑：很多人把「全量微调、LoRA、QLoRA、SFT、DPO」当成同一类的「不同微调方法」来背。</p>
+<p><strong>其实它们分属两个完全不同的维度。</strong></p>
+<pre class="mermaid">flowchart LR
+    subgraph D1["维度一 · 改哪些参数（怎么改）"]
+        A1["全量微调<br/>全改"]
+        A2["LoRA<br/>改一小部分"]
+        A3["QLoRA<br/>改一小部分 + 量化基座"]
+    end
+    subgraph D2["维度二 · 学什么目标（改成什么）"]
+        B1["SFT<br/>学指令格式"]
+        B2["DPO<br/>学偏好对齐"]
+    end
+    D1 -.->|任意组合| D2
+</pre>
+
+<p><strong>这两个维度是正交的，可以任意组合</strong>：全量微调 + SFT、LoRA + SFT、QLoRA + SFT、LoRA + DPO、QLoRA + DPO……每种组合都是合法的微调方案。</p>
+<blockquote>
+<p>把「改哪些参数」和「学什么目标」分开看，LoRA、QLoRA、SFT、DPO 才不会混成一团。</p>
+</blockquote>
+<h2 id="83">8.3 维度一：改哪些参数</h2>
+<h3 id="831">8.3.1 全量微调：所有参数都改</h3>
+<p>最朴素的方案，把所有参数拿出来在新数据上继续训练。效果上限最高，因为模型有最大自由度。</p>
+<p><strong>但代价大到吓人。</strong> 一个 7B 模型的全量微调显存账：</p>
+<table>
+<thead>
+<tr>
+<th>项目</th>
+<th>显存（FP16）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>权重本身</td>
+<td>约 14 GB</td>
+</tr>
+<tr>
+<td>梯度</td>
+<td>约 14 GB</td>
+</tr>
+<tr>
+<td>优化器状态（Adam 两个矩，FP32）</td>
+<td>约 56 GB</td>
+</tr>
+<tr>
+<td><strong>合计</strong></td>
+<td><strong>80 GB 起步</strong></td>
+</tr>
+</tbody>
+</table>
+<p>70B 模型更夸张，要几十张 A100 组集群。</p>
+<p><strong>更糟的是灾难性遗忘（Catastrophic Forgetting）</strong>：模型在新任务上学好了，原本预训练学到的通用能力反而下降。因为所有参数都在被改写，新数据分布有偏的话，模型会忘掉通用知识。</p>
+<h3 id="832-lora">8.3.2 LoRA：只改一小部分</h3>
+<p><strong>核心洞见</strong>：模型参数的更新量 $\Delta W = W_{\mathrm{after}} - W_{\mathrm{before}}$ 虽然维度很大（比如 $4096 \times 4096$），但<strong>真正有意义的变化只发生在一个低维子空间里</strong>——权重更新具有「内在低秩性」。</p>
+<p>做法：冻结原始权重 $W$，在旁边新增两个小矩阵：</p>
+<p>$$
+W' = W + BA, \quad A \in \mathbb{R}^{r \times d},\ B \in \mathbb{R}^{d \times r},\ r \ll d
+$$</p>
+<p>训练时只更新 $A$ 和 $B$（通常 $r = 8$ 或 $16$）。</p>
+<p><strong>便利贴类比</strong>：全量微调像把一本厚教科书全部重写，LoRA 像在书的空白处贴便利贴——<strong>原书一字不动</strong>，便利贴上写着修正和补充，看书时原文 + 便利贴一起看。</p>
+<p>参数量对比很直观：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>参数量</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一个 $4096 \times 4096$ 权重矩阵</td>
+<td>1600 万</td>
+</tr>
+<tr>
+<td>LoRA $r=16$：$4096 \times 16 + 16 \times 4096$</td>
+<td>13 万（<strong>1/120</strong>）</td>
+</tr>
+<tr>
+<td>整个 7B 模型可训练参数</td>
+<td>从 70 亿降到 2000 万量级</td>
+</tr>
+<tr>
+<td>显存需求</td>
+<td>从 80GB+ 降到 20GB 量级，<strong>一张 A100 就够</strong></td>
+</tr>
+</tbody>
+</table>
+<p>LoRA 是 2023 年之后最主流的微调方案，几乎所有开源社区微调项目都在用。详见 <a href="09-lora.html">第九章</a>。</p>
+<h3 id="833-qlora-gpu">8.3.3 QLoRA：消费级 GPU 的入场券</h3>
+<p>LoRA 解决了「不用 80GB 也能微调」，但 20GB 对个人开发者仍有门槛（4090 是 24GB，刚够 7B）。</p>
+<p>QLoRA 的思路：</p>
+<ol>
+<li><strong>先把基础模型 4-bit 量化</strong>（用 NF4 格式，专为权重的近似高斯分布设计），7B 显存从 14GB 压到 4GB 左右；</li>
+<li><strong>在量化后的基座上套 LoRA</strong>。</li>
+</ol>
+<p>整个微调过程显存降到 10GB 以内，<strong>一张 4090 就能微调 7B 甚至 13B</strong>。</p>
+<p><strong>精度损失非常小</strong>，实测效果和全精度 LoRA 几乎没差别。这一招直接让微调民主化了。</p>
+<h3 id="834">8.3.4 三者对比</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>全量微调</th>
+<th>LoRA</th>
+<th>QLoRA</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>可训练参数</td>
+<td>100%</td>
+<td>约 0.3%</td>
+<td>约 0.3%</td>
+</tr>
+<tr>
+<td>7B 训练显存</td>
+<td>80GB+</td>
+<td>20GB 量级</td>
+<td>10GB 以内</td>
+</tr>
+<tr>
+<td>硬件门槛</td>
+<td>多卡 A100</td>
+<td>单张 A100</td>
+<td><strong>单张 4090</strong></td>
+</tr>
+<tr>
+<td>效果上限</td>
+<td>最高</td>
+<td>接近全量</td>
+<td>略低于 LoRA，差距很小</td>
+</tr>
+<tr>
+<td>灾难性遗忘</td>
+<td>风险最高</td>
+<td>低（基座冻结）</td>
+<td>低</td>
+</tr>
+<tr>
+<td>训练速度</td>
+<td>慢</td>
+<td>快</td>
+<td>比 LoRA 略慢（有反量化开销）</td>
+</tr>
+</tbody>
+</table>
+<h2 id="84">8.4 维度二：学什么目标</h2>
+<p>「改哪些参数」回答的是「怎么改」，但还有更核心的问题：<strong>改的目标是什么？</strong></p>
+<h3 id="841-sft">8.4.1 SFT：学会按指令回答</h3>
+<p>预训练模型本质是文本续写机器，不知道「问问题」是什么意思。SFT 把它从<strong>续写模式</strong>切换到<strong>对话模式</strong>。</p>
+<p>数据格式是 (指令, 期望回答) 对：</p>
+<pre><code>请介绍一下北京  →  北京是中国的首都，位于华北平原……
+</code></pre>
+<p><strong>SFT 是一个「目标」，不是「方法」。</strong> 可以用全量微调做 SFT、用 LoRA 做 SFT、用 QLoRA 做 SFT。工业界最常见的组合是 <strong>QLoRA + SFT</strong>，性价比最高。</p>
+<p>数据的关键仍然是<strong>质量大于数量</strong>（见 <a href="06-llm-training.html">第六章</a>）。</p>
+<h3 id="842-dpo">8.4.2 DPO：学会哪种回答更受欢迎</h3>
+<p>SFT 之后模型会按指令回答了，但风格不一定是用户喜欢的（太啰嗦、太简洁、说话不得体）。这时需要<strong>偏好对齐</strong>。</p>
+<p>早期标配是 RLHF：收集偏好数据 → 训奖励模型 → PPO 优化。但流程长、要维护好几个模型、训练不稳定。</p>
+<p>DPO 发现一个数学等价转换：<strong>RLHF 的优化目标可以推导成纯监督学习的损失函数</strong>，完全绕过奖励模型和 PPO。直接拿 (问题, 好回答, 差回答) 三元组训练。</p>
+<p><strong>DPO 同样是「目标」不是「方法」</strong>，可以用全量微调实现，也可以用 LoRA 实现。最常见的工业组合是 <strong>LoRA + DPO</strong>。</p>
+<blockquote>
+<p>别说得太绝对：Llama 2-Chat 公开流程主要是 SFT + 拒绝采样 + PPO/RLHF；社区模型为降低成本才大量换成 DPO。</p>
+</blockquote>
+<p>两者的详细对比见 <a href="11-dpo-vs-ppo.html">第十一章</a>。</p>
+<h2 id="85">8.5 实战选型</h2>
+<table>
+<thead>
+<tr>
+<th>你的情况</th>
+<th>推荐组合</th>
+<th>理由</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>个人开发者 / 资源受限小团队</strong></td>
+<td><strong>QLoRA + SFT</strong></td>
+<td>一张 4090 训 7B，几千条精标数据就够。<strong>绝大多数项目走这条路就够了</strong></td>
+</tr>
+<tr>
+<td>中小企业，有几张 A100</td>
+<td>LoRA + SFT</td>
+<td>基座不量化，精度略好、训练更快</td>
+</tr>
+<tr>
+<td>需要回答风格贴合用户偏好</td>
+<td>SFT 之后加 <strong>LoRA + DPO</strong></td>
+<td>先学格式再对齐风格，社区 Instruct 模型的主流轻量路线</td>
+</tr>
+<tr>
+<td>大厂，充足 GPU，追求最高效果</td>
+<td>全量微调 + SFT（+ RLHF）</td>
+<td>最贵也最强，但要承担几十张 A100 的成本和工程复杂度</td>
+</tr>
+</tbody>
+</table>
+<h3 id="851">8.5.1 一个常见误区：方案越重越好</h3>
+<p>工程上恰恰相反。<strong>能用轻量方案搞定的需求，一定不要上重的</strong>，原因有三：</p>
+<ol>
+<li>训练成本指数级上升；</li>
+<li>调参难度上升；</li>
+<li>维护成本上升（基座升级后要重新微调）。</li>
+</ol>
+<p>所以实战中绝大多数项目都在用 QLoRA + SFT 这种最轻组合，只有需求真的特殊才往上加。</p>
+<h2 id="86">8.6 常见错误</h2>
+<h3 id="861">8.6.1 一遇到效果不好就上微调</h3>
+<p>先试 Prompt + Few-shot、System Prompt、RAG。这一句说出来，就说明不是「为了微调而微调」。</p>
+<h3 id="862">8.6.2 把五个名词当成并列项罗列</h3>
+<p>「全量微调 / LoRA / QLoRA」是<strong>改哪些参数</strong>，「SFT / DPO」是<strong>学什么目标</strong>，两个维度正交可任意组合。这是本章最核心的框架。</p>
+<h3 id="863">8.6.3 用微调来灌注频繁变化的事实知识</h3>
+<p>价格、条款、库存这类应该走 RAG。微调学的是行为、格式、风格、任务模式。</p>
+<h3 id="864">8.6.4 低估维护成本</h3>
+<p>基座一升级微调版本就废了。这是很多团队上了微调之后才发现的坑。</p>
+<h3 id="865">8.6.5 忽略灾难性遗忘</h3>
+<p>全量微调风险最高。LoRA/QLoRA 因为冻结基座，天然缓解了这个问题——这也是它们除省显存之外的一个重要优点。</p>
+<h3 id="866-qlora">8.6.6 认为 QLoRA 精度损失很大</h3>
+<p>实测和全精度 LoRA 几乎没差别。NF4 是专为权重分布设计的量化格式。</p>
+<h3 id="867">8.6.7 认为方案越重效果越好</h3>
+<p>成本、调参难度、维护成本都会指数级上升。大多数团队最后输的，都是收益撑不起额外复杂度。</p>
+<h2 id="87">8.7 本章总结</h2>
+<ol>
+<li><strong>微调是最后手段</strong>：先试 Prompt + Few-shot、System Prompt、RAG；</li>
+<li><strong>微调成本包含数据、算力、工程和维护</strong>，其中基座升级导致的重做最坑；</li>
+<li><strong>三种值得微调的场景</strong>：Prompt 控不住的输出风格、稳定的任务模式与内部术语、用小模型替大模型省钱；</li>
+<li><strong>频繁变化的事实知识不该用微调</strong>，该走 RAG；</li>
+<li><strong>两个正交维度是回答本题的钥匙</strong>：改哪些参数 vs 学什么目标；</li>
+<li><strong>全量微调</strong>效果上限最高，但 7B 就要 80GB 显存，且灾难性遗忘风险最大；</li>
+<li><strong>LoRA 基于更新量的内在低秩性</strong>，冻结基座只训两个小矩阵，参数量降到 1/120；</li>
+<li><strong>QLoRA = 4-bit NF4 量化基座 + LoRA</strong>，10GB 以内，一张 4090 搞定 7B，精度损失极小；</li>
+<li><strong>SFT 学格式，DPO 学偏好</strong>，两者都是目标，可与任一参数方案组合；</li>
+<li><strong>实战首选 QLoRA + SFT</strong>，能轻则轻，方案越重成本、调参和维护都指数级上升。</li>
+</ol>
+<blockquote>
+<p>先判断需求到底该不该微调，再区分参数方案和训练目标；多数项目从 QLoRA + SFT 起步就够了。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2106.09685">LoRA: Low-Rank Adaptation of Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2305.14314">QLoRA: Efficient Finetuning of Quantized LLMs</a></li>
+<li><a href="https://arxiv.org/abs/2305.18290">Direct Preference Optimization: Your Language Model is Secretly a Reward Model</a></li>
+<li><a href="https://arxiv.org/abs/2203.02155">Training language models to follow instructions with human feedback（InstructGPT）</a></li>
+<li><a href="https://arxiv.org/abs/2305.11206">LIMA: Less Is More for Alignment</a></li>
+<li><a href="https://arxiv.org/abs/1902.00751">Parameter-Efficient Transfer Learning for NLP（Adapter）</a></li>
+<li><a href="https://github.com/huggingface/peft">Hugging Face PEFT</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

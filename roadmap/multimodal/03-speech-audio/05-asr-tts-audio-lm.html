@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ASR、TTS 与音频语言模型 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="ASR、TTS 与音频语言模型 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>多模态 AI</span> / <span>语音与音频</span> / <span>ASR、TTS 与音频语言模型</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第五章：语音识别、合成与音频语言模型</h1>
+<blockquote>
+<p>本章覆盖语音/音频领域的三类核心任务——ASR（自动语音识别）、TTS（语音合成）与通用音频理解——的架构演进与评测方式。实时对话场景下的全双工交互与打断处理是独立的工程问题，见 <a href="06-realtime-duplex-voice.html">第六章</a>。</p>
+</blockquote>
+<h2 id="51">5.1 语音任务谱系</h2>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>输入 → 输出</th>
+<th>核心难点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ASR（自动语音识别）</td>
+<td>语音 → 文字</td>
+<td>口音、噪声、重叠语音、专有名词</td>
+</tr>
+<tr>
+<td>TTS（语音合成）</td>
+<td>文字 → 语音</td>
+<td>自然度、韵律、说话人相似度、可控性</td>
+</tr>
+<tr>
+<td>音频理解</td>
+<td>语音/环境声/音乐 → 文字描述或结构化结果</td>
+<td>非语音声学事件、说话人识别、音乐结构</td>
+</tr>
+<tr>
+<td>Audio-Language 模型</td>
+<td>音频 + 文字 → 文字</td>
+<td>跨模态推理（"这段录音里谁在生气"）</td>
+</tr>
+</tbody>
+</table>
+<p>前两类任务历史悠久，各自有专门的架构谱系；第三、四类近年逐渐统一到"用离散音频 token + 语言模型"的范式下，与 <a href="../01-foundations/01-multimodal-fusion-architecture.html">第一章</a>描述的融合架构是同一套设计原则在音频模态上的应用。</p>
+<h2 id="52-asr">5.2 ASR 架构演进</h2>
+<p>早期端到端 ASR 主要有两条路线：</p>
+<ul>
+<li><strong>CTC（Connectionist Temporal Classification）</strong>：让模型逐帧输出字符/音素分布，用一个允许"空白符"和重复折叠的对齐算法处理语音帧与文字长度不一致的问题，推理简单但假设各帧输出条件独立，建模能力有限；</li>
+<li><strong>RNN-Transducer（RNN-T）</strong>：在 CTC 基础上引入一个显式的语言模型预测网络，联合建模声学和语言依赖，天然支持流式解码（边听边出文字），是长期以来生产级流式 ASR 的主流架构之一。</li>
+</ul>
+<p>Whisper 代表了另一条路线：用标准的 encoder-decoder Transformer，在 68 万小时弱监督（网络爬取的音频-文字对，质量参差不齐）数据上直接训练序列到序列的语音识别与翻译任务，不依赖专门的对齐算法，同时用多任务格式（转录、翻译、语种识别、时间戳）统一训练。其技术报告的核心结论是：<strong>规模化的弱监督数据训练出的鲁棒性，在跨口音、跨噪声条件下往往优于在干净数据上过拟合的强监督模型</strong>。</p>
+<p>流式场景（边说边出文字）与离线场景（录完整句再识别）的架构约束不同：流式 ASR 必须在看到有限右侧上下文（甚至完全看不到）的情况下增量输出，天然存在"准确率 vs 延迟"的权衡；离线 ASR 可以用完整上下文做双向建模换取更高准确率。</p>
+<h2 id="53-tts">5.3 TTS 架构演进</h2>
+<p>TTS 长期采用两阶段管线：<strong>文本→声学特征</strong>（如 Mel 频谱，代表工作 Tacotron 2）加<strong>声码器</strong>（Vocoder，把声学特征还原为波形，代表工作 WaveNet/HiFi-GAN）。这类管线的音色和韵律建模能力受限于声学特征的表达粒度。</p>
+<p>近年的神经编解码器语言模型路线把 TTS 重新表述为一个语言建模问题：先用神经音频编解码器（见 5.4 节）把语音波形离散化为一串 token，再训练一个语言模型在给定文本和一段参考语音（作为音色提示）的条件下，自回归生成目标语音的离散 token 序列，最后用编解码器的解码器把 token 还原成波形。VALL-E 是这一路线的代表：仅用 3 秒参考音频就能在推理时"零样本"模仿说话人音色，把 TTS 的可控性问题转化为语言模型的上下文学习问题，而不需要针对每个新说话人重新训练。</p>
+<h2 id="54-token">5.4 音频 Token 化：连接感知与生成的公共表示</h2>
+<p>无论是把音频接入语言模型做理解，还是像 VALL-E 一样把 TTS 转成语言建模问题，都需要先把连续波形离散化为 token。神经音频编解码器（Neural Audio Codec）承担了这个角色：SoundStream 和 EnCodec 都采用"编码器 + 残差向量量化（RVQ）+ 解码器"的结构，用多层级联的 codebook 逐级量化残差，在较低比特率下重建出接近原始质量的波形。</p>
+<p>$$
+z=E(x),\qquad \hat z=\sum_{l=1}^{L}q_l(r_{l-1}),\quad r_0=z,\ r_l=r_{l-1}-q_l(r_{l-1})
+$$</p>
+<p>其中 $q_l$ 是第 $l$ 层量化器，$L$ 层级联的残差量化让少量 codebook 也能覆盖较宽的音频动态范围。得到的多层离散 token 序列既可以喂给语言模型做音频理解（AudioLM、Qwen-Audio 一类模型的输入侧），也可以作为语言模型的生成目标（VALL-E 一类模型的输出侧），是音频模态在 <a href="../01-foundations/01-multimodal-fusion-architecture.html">第一章 1.4 节 Early Fusion</a>描述的"统一 token 化"范式下的具体实现。</p>
+<h2 id="55-audio-language">5.5 通用音频理解与 Audio-Language 模型</h2>
+<p>AudioLM 最早展示了"纯粹用语言建模方式处理离散音频 token"可以同时保留语音内容和说话人身份、韵律等副语言信息，生成的续写音频在语义连贯性和音色一致性上都优于此前的生成式方法。在此基础上，Qwen-Audio、SALMONN 一类 Audio-Language 模型把音频编码器接入大语言模型（沿用 <a href="../01-foundations/01-multimodal-fusion-architecture.html">第一章</a>描述的 Late Fusion/projector 路线），使模型能够对语音内容、说话人情绪、背景声学事件、音乐结构等提出开放式问题并用自然语言回答，而不仅是转录文字。</p>
+<p>这类模型的评测必须区分"听清楚说了什么"（等价于 ASR 能力）和"听懂了什么"（副语言信息、事件、音乐结构等更高层理解），两者对模型架构和训练数据的要求并不相同。</p>
+<h2 id="56">5.6 评测</h2>
+<table>
+<thead>
+<tr>
+<th>任务</th>
+<th>指标</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ASR</td>
+<td>WER（词错误率）/ CER（字符错误率）</td>
+<td>需固定测试集的口音、噪声条件才可比较</td>
+</tr>
+<tr>
+<td>TTS 自然度</td>
+<td>MOS（Mean Opinion Score）及其变体</td>
+<td>依赖人工评分，主观性强，需报告评分人数与协议</td>
+</tr>
+<tr>
+<td>TTS 相似度</td>
+<td>说话人相似度（Speaker Similarity）</td>
+<td>衡量零样本音色克隆是否忠实于参考音频</td>
+</tr>
+<tr>
+<td>音频理解</td>
+<td>任务专用准确率/F1</td>
+<td>声学事件分类、情绪识别等各有独立基准，不能混用 ASR 指标</td>
+</tr>
+</tbody>
+</table>
+<p>WER 极低不代表语音助手体验好：延迟、韵律自然度和打断处理体验同样重要，这些维度需要结合 <a href="06-realtime-duplex-voice.html">第六章</a>的实时交互评测一起看。</p>
+<h2 id="57">5.7 常见错误</h2>
+<h3 id="571-wer">5.7.1 用离线 WER 评测流式产品体验</h3>
+<p>流式 ASR 的部分假设（partial hypothesis）会随后续语音修正，仅用最终转录的 WER 评测无法反映用户实际看到的"实时上屏文字是否频繁跳变"体验，应额外报告部分结果的稳定性。</p>
+<h3 id="572">5.7.2 忽视训练数据口音/语言分布与实际使用场景不匹配</h3>
+<p>模型在标准口音、常见语种上的 WER 很低，不代表在方言、口音混杂或低资源语言上同样可靠，上线前必须用目标人群的真实录音单独核验。</p>
+<h3 id="573">5.7.3 把"音色克隆能力"当成没有风险的功能默认开放</h3>
+<p>零样本音色克隆技术（如 VALL-E 一类方法）存在被用于语音伪造和身份冒用的风险，产品化时应设置授权确认、水印或使用范围限制，而不是默认对任意参考音频开放克隆能力。</p>
+<h2 id="58">5.8 本章总结</h2>
+<ol>
+<li>ASR 从 CTC/RNN-T 等专门对齐架构演进到 Whisper 式规模化弱监督序列到序列训练，鲁棒性提升明显得益于数据规模而非架构复杂度；</li>
+<li>TTS 从"声学特征 + 声码器"两阶段管线演进出神经编解码器语言模型路线（VALL-E），把语音生成转化为离散 token 的语言建模问题；</li>
+<li>神经音频编解码器（SoundStream/EnCodec 的残差向量量化）是连接音频理解与音频生成的公共表示，呼应第一章的统一 Token 化范式；</li>
+<li>Audio-Language 模型（Qwen-Audio、SALMONN）在识别文字之上还要理解副语言信息，需要与纯 ASR 分开评测；</li>
+<li>TTS 音色克隆能力应配合授权与滥用防护，不能默认无限制开放。</li>
+</ol>
+<blockquote>
+<p>把音频离散成 token 之后，ASR、TTS 和音频理解能共享一套语言建模思路，但评测仍要分开看准确率、自然度和副语言理解。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2212.04356">Whisper: Robust Speech Recognition via Large-Scale Weak Supervision</a></li>
+<li><a href="https://arxiv.org/abs/1211.3711">Sequence Transduction with Recurrent Neural Networks (RNN-T)</a></li>
+<li><a href="https://arxiv.org/abs/1712.05884">Natural TTS Synthesis by Conditioning WaveNet on Mel Spectrogram Predictions (Tacotron 2)</a></li>
+<li><a href="https://arxiv.org/abs/2301.02111">Neural Codec Language Models are Zero-Shot Text to Speech Synthesizers (VALL-E)</a></li>
+<li><a href="https://arxiv.org/abs/2107.03312">SoundStream: An End-to-End Neural Audio Codec</a></li>
+<li><a href="https://arxiv.org/abs/2210.13438">High Fidelity Neural Audio Compression (EnCodec)</a></li>
+<li><a href="https://arxiv.org/abs/2209.03143">AudioLM: a Language Modeling Approach to Audio Generation</a></li>
+<li><a href="https://arxiv.org/abs/2311.07919">Qwen-Audio: Advancing Universal Audio Understanding via Unified Large-Scale Audio-Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2310.13289">SALMONN: Towards Generic Hearing Abilities for Large Language Models</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  
+</body>
+</html>

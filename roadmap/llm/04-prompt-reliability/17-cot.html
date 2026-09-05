@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CoT 思维链 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="CoT 思维链 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>Prompt 与可靠性</span> / <span>CoT 思维链</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="cot">第十七章：CoT 思维链</h1>
+<h2 id="171-cot">17.1 没有 CoT 时模型在做什么</h2>
+<p>大语言模型在没有 CoT 时，处理问题的方式<strong>有点像人没睡醒时凭直觉答题</strong>：看到题目，从记忆里拼出一个听起来合理的答案，<strong>跳过了中间的推理过程</strong>。</p>
+<p>简单问题没什么问题。但一旦涉及多步计算、逻辑推导或因果链，<strong>直接跳答案就很容易出错</strong>——因为模型没有一步步「检查」自己的逻辑。</p>
+<h3 id="1711">17.1.1 一个经典例子</h3>
+<blockquote>
+<p>小明有 5 个苹果，他给了小红 2 个，然后又买了 3 个，最后还剩几个？</p>
+</blockquote>
+<p>直接输出答案可能只做了一步运算就报数。但如果让模型写出推理过程：</p>
+<pre><code>小明初始 5 个
+给出 2 个后剩 3 个
+再买 3 个后变成 6 个
+</code></pre>
+<p><strong>每一步都很容易验证，错误自然就少了。</strong></p>
+<h2 id="172-cot">17.2 CoT 的核心思路</h2>
+<p>CoT 要做的事，是让模型把中间推导写出来，而不是直接猜答案。</p>
+<p>对复杂问题，答案无法直接从训练数据里召回，但可以通过一步步推理得到——每一步都基于上一步的结论。</p>
+<h3 id="1721">17.2.1 为什么这个机制天然成立</h3>
+<p>原因在于语言模型本来就是逐 token 生成的。</p>
+<p>模型是一个 token 接一个 token 生成的，<strong>每生成一个新 token 时都能看到前面所有已生成的内容</strong>。所以让它先生成推理步骤，相当于<strong>给后续的答案生成提供了更多「工作记忆」</strong>。</p>
+<h3 id="1722">17.2.2 一个必须区分的点</h3>
+<blockquote>
+<p><strong>「让模型推理」和「把完整推理链展示给用户」不是一回事。</strong></p>
+</blockquote>
+<p>现代产品和 API 往往让模型<strong>内部完成推理</strong>，最终只给用户简洁答案、关键依据或可核查步骤。这样既保留推理收益，又避免输出冗长、不稳定的思考链。</p>
+<h2 id="173-cot">17.3 两种 CoT 形式</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>做法</th>
+<th>效果</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Few-shot CoT</strong></td>
+<td>在 Prompt 里给几个完整的「推理示例」，每个包含问题、逐步推理、最终答案</td>
+<td><strong>最稳定</strong></td>
+<td>对准确率要求高的场景</td>
+</tr>
+<tr>
+<td><strong>Zero-shot CoT</strong></td>
+<td>在问题末尾加一句「请分步思考后再给结论」</td>
+<td>通常略逊于 Few-shot，但<strong>很多场景已经够好</strong></td>
+<td>Prompt 要简洁、任务不太复杂时</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1731-zero-shot-cot">17.3.1 Zero-shot CoT 为什么令人惊讶</h3>
+<p><strong>仅仅加一句指令就能激活模型的推理能力</strong>，让它自发地组织中间步骤——不需要写任何示例。这是研究里发现的一个有趣现象。</p>
+<h2 id="174-cot">17.4 CoT 为什么有效</h2>
+<pre class="mermaid">flowchart TB
+    A["① 错误暴露<br/>每一步都可被检查纠正<br/>而不是藏在不透明的答案里"]
+    B["② 草稿纸作用<br/>复杂中间状态不用全部憋在隐状态里<br/>显式输出减轻推理负担"]
+    C["③ 激活预训练模式<br/>唤起模型从数学解题、逻辑分析<br/>等推理型文本里学到的模式"]
+    A --> R["准确率提升"]
+    B --> R
+    C --> R
+
+    style R fill:#e6f4ea
+</pre>
+
+<h2 id="175-self-consistencycot">17.5 Self-Consistency：CoT 的升级版</h2>
+<p><strong>做法</strong>：对同一个问题，<strong>用较高的温度生成多条不同的推理路径</strong>，然后取最终答案里出现最多次的那个（多数投票）。</p>
+<h3 id="1751">17.5.1 直觉</h3>
+<blockquote>
+<p><strong>正确的答案往往可以通过多种不同的推理路径得到，而错误的答案往往是随机产生的——不同路径不太可能收敛到同一个错误答案。</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    Q["问题"] --> P1["推理路径 1 → 答案 A"]
+    Q --> P2["推理路径 2 → 答案 A"]
+    Q --> P3["推理路径 3 → 答案 B"]
+    Q --> P4["推理路径 4 → 答案 A"]
+    Q --> P5["推理路径 5 → 答案 C"]
+    P1 --> V["多数投票"]
+    P2 --> V
+    P3 --> V
+    P4 --> V
+    P5 --> V
+    V --> O["输出 A（3 票）"]
+
+    style O fill:#e6f4ea
+</pre>
+
+<h3 id="1752">17.5.2 收益与代价</h3>
+<table>
+<thead>
+<tr>
+<th></th>
+<th></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>收益</strong></td>
+<td>在 CoT 基础上再提升约 5–15% 准确率，<strong>数学推理类任务尤其显著</strong></td>
+</tr>
+<tr>
+<td><strong>代价</strong></td>
+<td>调用次数变多（通常 5–10 次），<strong>成本和延迟随之增加</strong></td>
+</tr>
+</tbody>
+</table>
+<p>温度采样的机制见 <a href="../03-inference-serving/13-temperature-top-p-top-k.html">第十三章</a>。</p>
+<h2 id="176-cot">17.6 CoT 的四个局限</h2>
+<p>这些局限决定了 CoT 适不适合进生产链路。</p>
+<h3 id="1761-token">17.6.1 token 消耗大</h3>
+<p>推理链会额外生成几百甚至上千个 token，<strong>API 成本和响应时间都显著增加</strong>。</p>
+<h3 id="1762">17.6.2 对简单问题适得其反</h3>
+<p>让模型对「1+1 等于几」也展开推理，<strong>只会浪费 token、降低速度，不会提升准确率</strong>。</p>
+<h3 id="1763">17.6.3 推理链本身也会出错</h3>
+<p><strong>如果第 2 步推理错了，第 3、4 步会基于错误前提继续推导</strong>，最终答案大概率也是错的。</p>
+<blockquote>
+<p><strong>CoT 能减少跳跃性错误，但不会自动纠正错误前提。</strong> 如果前面某一步已经错了，后面往往只是在把这个错误展开。</p>
+</blockquote>
+<h3 id="1764">17.6.4 对纯记忆类任务没帮助</h3>
+<p>比如「2020 年奥运会在哪里举办」——<strong>这类问题根本不需要推理</strong>，展开推理链毫无收益。</p>
+<h3 id="1765">17.6.5 适用边界</h3>
+<table>
+<thead>
+<tr>
+<th>用 CoT</th>
+<th>不用 CoT</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数学题、逻辑题、代码调试</td>
+<td>简单问答、分类、信息提取</td>
+</tr>
+<tr>
+<td>多步因果推导</td>
+<td>事实召回</td>
+</tr>
+<tr>
+<td>需要中间结论可核查的场景</td>
+<td>对延迟极敏感的场景</td>
+</tr>
+</tbody>
+</table>
+<h2 id="177">17.7 常见错误</h2>
+<h3 id="1771-cot">17.7.1 说不出 CoT 为什么有效的底层机制</h3>
+<p><strong>模型是逐 token 生成、每步都能看到前文</strong>，先写推理步骤等于给了它一张草稿纸。说不出这个就是只会背结论。</p>
+<h3 id="1772-cot">17.7.2 认为 CoT 能消除推理错误</h3>
+<p>它只能减少<strong>跳跃性</strong>错误。推理链第 2 步错了，后面会沿着错误前提一路错下去。</p>
+<h3 id="1773-cot">17.7.3 无差别地对所有任务加 CoT</h3>
+<p>对简单问答和纯记忆任务是纯浪费，还拖慢延迟。</p>
+<h3 id="1774">17.7.4 把完整推理链直接展示给最终用户</h3>
+<p>生产环境通常只展示简要依据或最终答案，完整思考链冗长且不稳定。</p>
+<h3 id="1775-cot">17.7.5 忽略 CoT 的成本</h3>
+<p>几百到上千个额外 token，在高 QPS 场景是实打实的开销。</p>
+<h3 id="1776-self-consistency">17.7.6 把 Self-Consistency 说成免费提升</h3>
+<p>它需要 5–10 次调用，成本和延迟是线性上去的。</p>
+<h3 id="1777-cot">17.7.7 把 CoT 等同于「规划能力」</h3>
+<p>CoT 只是最基础的一种显式推理手段。<strong>规划是方向，CoT 是手段</strong>——ToT、GoT 等更复杂的结构见 <a href="../../agent/02-reasoning-planning/11-llm-agent-planning.html">Agent 主题第十一章</a>。</p>
+<h2 id="178">17.8 本章总结</h2>
+<ol>
+<li><strong>没有 CoT 时模型是凭直觉跳答案</strong>，多步任务容易出错因为没有一步步检查逻辑；</li>
+<li><strong>CoT 的本质是让模型推出来而不是猜出来</strong>；</li>
+<li><strong>有效的底层机制</strong>：模型逐 token 生成且每步都能看到前文，先写推理步骤 = 提供工作记忆；</li>
+<li><strong>两种形式</strong>：Few-shot CoT 给完整推理示例（最稳定），Zero-shot CoT 只加一句触发指令（简洁但略逊）；</li>
+<li><strong>三个有效原因</strong>：错误暴露可纠正、中间状态当草稿纸、激活预训练里的推理模式；</li>
+<li><strong>Self-Consistency 是升级版</strong>：高温生成多条路径 + 多数投票，提升 5–15%，代价是 5–10 倍调用；</li>
+<li><strong>四个局限</strong>：token 消耗大、对简单问题适得其反、推理链本身会出错并沿链传导、对纯记忆任务无帮助；</li>
+<li><strong>CoT 减少跳跃性错误，但不能消除推理错误</strong>；</li>
+<li><strong>生产环境让模型内部推理，只对外输出简要依据或可核查结论</strong>。</li>
+</ol>
+<blockquote>
+<p>CoT 的价值，不是凭空增加知识，而是把中间推导摊出来，让后续步骤能利用前文，也让人有机会检查每一步。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2201.11903">Chain-of-Thought Prompting Elicits Reasoning in Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2205.11916">Large Language Models are Zero-Shot Reasoners（Let's think step by step）</a></li>
+<li><a href="https://arxiv.org/abs/2203.11171">Self-Consistency Improves Chain of Thought Reasoning in Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2205.10625">Least-to-Most Prompting Enables Complex Reasoning in Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2305.10601">Tree of Thoughts: Deliberate Problem Solving with Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2212.10001">Towards Understanding Chain-of-Thought Prompting: An Empirical Study of What Matters</a></li>
+<li><a href="https://arxiv.org/abs/2307.13702">Measuring Faithfulness in Chain-of-Thought Reasoning</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

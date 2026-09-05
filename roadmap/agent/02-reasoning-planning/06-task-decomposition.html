@@ -1,0 +1,972 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>复杂任务拆分与调度 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="复杂任务拆分与调度 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>推理、规划与反思</span> / <span>复杂任务拆分与调度</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第六章：复杂任务拆分与调度</h1>
+<h2 id="61">6.1 任务拆分解决什么问题</h2>
+<p>复杂任务通常具有以下特征：</p>
+<ul>
+<li>步骤数量多；</li>
+<li>中间状态多；</li>
+<li>部分信息需要执行后才能获得；</li>
+<li>子任务之间存在依赖；</li>
+<li>不同步骤需要不同工具或专业能力；</li>
+<li>单个步骤可能失败并需要重试；</li>
+<li>整体任务无法放入一次模型调用。</li>
+</ul>
+<p>任务拆分要做的是把复杂目标改写成一组：</p>
+<blockquote>
+<p><strong>可执行、可验证、可调度、可恢复的任务单元。</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    G[复杂目标] --> D[任务拆分]
+    D --> T1[子任务 1]
+    D --> T2[子任务 2]
+    D --> TN[子任务 N]
+    T1 --> V[独立验证]
+    T2 --> V
+    TN --> V
+    V --> S[结果组合]
+</pre>
+
+<h2 id="62">6.2 为什么要拆分</h2>
+<h3 id="621">6.2.1 降低上下文压力</h3>
+<p>Agent 执行时间越长，产生的消息、工具结果和中间结论越多。如果把所有内容都持续加入上下文，会导致：</p>
+<ul>
+<li>超出 Context Window；</li>
+<li>Token 成本和延迟上升；</li>
+<li>重要约束被噪音稀释；</li>
+<li>早期信息被压缩或遗忘；</li>
+<li>模型更难判断当前进度。</li>
+</ul>
+<p>拆分后，每个子任务只需要最小充分上下文，并通过 Artifact、状态或引用传递结果。</p>
+<h3 id="622">6.2.2 降低单步推理难度</h3>
+<p>让模型一次完成“调研、分析、比较、验证、写报告”通常比让它分别完成这些步骤更不稳定。</p>
+<p>拆开后，每次模型调用的目标和输入都会更聚焦，输出格式也更容易约束，成功标准也更容易定义。</p>
+<h3 id="623">6.2.3 支持独立验证</h3>
+<p>完整任务失败时，很难定位问题来自搜索、分析还是结果合成。拆分后，可以为每个步骤设置验收条件：</p>
+<pre class="mermaid">flowchart LR
+    T[执行子任务] --> V{满足验收条件?}
+    V -->|是| NEXT[进入后续任务]
+    V -->|否| R[局部重试或回退]
+    R --> T
+</pre>
+
+<h3 id="624">6.2.4 支持局部重试和恢复</h3>
+<p>如果第 8 个步骤失败，可靠系统应只重试受影响的步骤，而不是从第 1 步重新执行。</p>
+<p>这要求：</p>
+<ul>
+<li>子任务具有稳定 ID；</li>
+<li>中间结果可以持久化；</li>
+<li>已完成步骤支持 checkpoint；</li>
+<li>写操作尽量幂等；</li>
+<li>失败影响范围可以追踪。</li>
+</ul>
+<h3 id="625">6.2.5 支持并行执行</h3>
+<p>没有依赖关系的子任务可以并发执行，从而降低总耗时。</p>
+<h3 id="626">6.2.6 支持专业化</h3>
+<p>不同子任务可以分配给不同执行器：</p>
+<ul>
+<li>小模型处理分类和提取；</li>
+<li>强模型处理复杂规划；</li>
+<li>搜索 Agent 负责资料收集；</li>
+<li>代码 Agent 负责实现；</li>
+<li>确定性程序负责计算和验证。</li>
+</ul>
+<h2 id="63">6.3 什么时候不应该拆</h2>
+<p>任务拆分也会产生额外成本：</p>
+<ul>
+<li>Planner 调用；</li>
+<li>状态持久化；</li>
+<li>子任务调度；</li>
+<li>上下文切换；</li>
+<li>中间结果序列化；</li>
+<li>最终结果合并；</li>
+<li>更多失败点。</li>
+</ul>
+<p>以下情况通常不需要复杂拆分：</p>
+<ul>
+<li>单次模型调用即可稳定完成；</li>
+<li>任务只有一个原子操作；</li>
+<li>子任务之间高度耦合，拆分后需要反复同步；</li>
+<li>拆分和合并成本高于执行本身；</li>
+<li>不存在独立验收标准。</li>
+</ul>
+<blockquote>
+<p><strong>拆分是一种成本优化和可靠性手段，不是复杂任务的固定仪式。</strong></p>
+</blockquote>
+<h2 id="64">6.4 好的任务单元是什么</h2>
+<p>“以原子操作为标准”是一个好的起点，但工程上更准确的定义是：</p>
+<blockquote>
+<p><strong>一个任务单元应当能够独立执行、独立验证、独立重试，并具有明确输入、输出和副作用边界。</strong></p>
+</blockquote>
+<p>一个完整的 Task Contract 通常包含：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>id</code></td>
+<td>稳定标识</td>
+</tr>
+<tr>
+<td><code>goal</code></td>
+<td>子任务目标</td>
+</tr>
+<tr>
+<td><code>inputs</code></td>
+<td>必需输入和引用</td>
+</tr>
+<tr>
+<td><code>dependencies</code></td>
+<td>前置任务</td>
+</tr>
+<tr>
+<td><code>executor</code></td>
+<td>Tool、模型、Agent 或 Workflow</td>
+</tr>
+<tr>
+<td><code>outputs</code></td>
+<td>结构化输出或 Artifact</td>
+</tr>
+<tr>
+<td><code>success_criteria</code></td>
+<td>验收条件</td>
+</tr>
+<tr>
+<td><code>side_effects</code></td>
+<td>是否写入外部系统</td>
+</tr>
+<tr>
+<td><code>timeout</code></td>
+<td>最大执行时间</td>
+</tr>
+<tr>
+<td><code>retry_policy</code></td>
+<td>重试与回退策略</td>
+</tr>
+<tr>
+<td><code>risk_level</code></td>
+<td>权限和审批等级</td>
+</tr>
+</tbody>
+</table>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;research-competitor-a&quot;,
+  &quot;goal&quot;: &quot;收集竞品 A 最近六个月的产品更新&quot;,
+  &quot;inputs&quot;: {
+    &quot;competitor&quot;: &quot;A&quot;,
+    &quot;time_range&quot;: &quot;6 months&quot;
+  },
+  &quot;dependencies&quot;: [],
+  &quot;executor&quot;: &quot;research-agent&quot;,
+  &quot;outputs&quot;: {
+    &quot;type&quot;: &quot;artifact&quot;,
+    &quot;schema&quot;: &quot;competitor-update-list&quot;
+  },
+  &quot;success_criteria&quot;: [
+    &quot;至少包含两个独立来源&quot;,
+    &quot;每项更新包含发布日期和链接&quot;
+  ],
+  &quot;timeout_seconds&quot;: 120,
+  &quot;retry_policy&quot;: {
+    &quot;max_attempts&quot;: 2
+  },
+  &quot;risk_level&quot;: &quot;read-only&quot;
+}
+</code></pre>
+<h2 id="65">6.5 粒度：不能太粗，也不能太细</h2>
+<h3 id="651">6.5.1 粒度过粗</h3>
+<p>例如：</p>
+<blockquote>
+<p>调研所有竞品并写一份完整战略报告。</p>
+</blockquote>
+<p>问题包括：</p>
+<ul>
+<li>输入和输出范围过大；</li>
+<li>很难定义单步成功标准；</li>
+<li>失败后只能整体重试；</li>
+<li>无法充分并行；</li>
+<li>中间过程不可观测。</li>
+</ul>
+<h3 id="652">6.5.2 粒度过细</h3>
+<p>例如：</p>
+<ol>
+<li>打开搜索工具；</li>
+<li>输入一个关键词；</li>
+<li>点击搜索；</li>
+<li>读取第一条结果；</li>
+<li>复制一句话。</li>
+</ol>
+<p>问题包括：</p>
+<ul>
+<li>调度开销过高；</li>
+<li>模型调用次数增加；</li>
+<li>状态过于碎片化；</li>
+<li>每个步骤缺乏独立业务价值；</li>
+<li>整体连贯性下降。</li>
+</ul>
+<h3 id="653">6.5.3 合理粒度</h3>
+<p>更合理的子任务是：</p>
+<blockquote>
+<p>搜索竞品 A 最近六个月的官方产品更新，并输出带来源的结构化列表。</p>
+</blockquote>
+<p>它同时具备：</p>
+<ul>
+<li>明确目标；</li>
+<li>有限范围；</li>
+<li>独立输出；</li>
+<li>可验证标准；</li>
+<li>可重试性；</li>
+<li>可与其他竞品调研并行。</li>
+</ul>
+<h3 id="654">6.5.4 粒度判断清单</h3>
+<p>一个子任务如果同时满足多数条件，通常粒度较合适：</p>
+<ul>
+<li>可以由一个执行器在有限时间内完成；</li>
+<li>输入和输出能够结构化描述；</li>
+<li>有明确的 Done Definition；</li>
+<li>失败后可以局部重试；</li>
+<li>与其他任务通过有限接口交互；</li>
+<li>不需要持续共享大量隐含上下文；</li>
+<li>完成后能产生可复用的 Artifact。</li>
+</ul>
+<h2 id="66">6.6 静态拆分</h2>
+<p>静态拆分由开发者预先定义步骤和依赖，适合流程稳定、规则清晰的场景。</p>
+<pre class="mermaid">flowchart LR
+    IN[客户问题] --> C[意图分类]
+    C --> R[检索知识库]
+    R --> G[生成回答]
+    G --> S[安全检查]
+    S --> OUT[返回结果]
+</pre>
+
+<h3 id="661">6.6.1 优势</h3>
+<ul>
+<li>行为可预测；</li>
+<li>容易测试；</li>
+<li>成本和延迟容易估算；</li>
+<li>权限边界清晰；</li>
+<li>适合审计和合规。</li>
+</ul>
+<h3 id="662">6.6.2 局限</h3>
+<ul>
+<li>无法覆盖所有未知情况；</li>
+<li>流程变化需要修改代码；</li>
+<li>分支过多时维护复杂；</li>
+<li>不适合开放式目标。</li>
+</ul>
+<p>静态拆分通常由 Workflow、DAG 或状态机实现。</p>
+<h2 id="67">6.7 动态拆分</h2>
+<p>动态拆分由 Planner 根据目标和当前环境生成子任务。</p>
+<pre class="mermaid">flowchart TB
+    G[用户目标] --> P[LLM Planner]
+    P --> PLAN[生成任务列表或 DAG]
+    PLAN --> E[Executor]
+    E --> O[Observation]
+    O --> RP{需要重规划?}
+    RP -->|否| E
+    RP -->|是| P
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>无法预先确定步骤数量；</li>
+<li>不同输入需要完全不同的执行路径；</li>
+<li>任务依赖外部环境反馈；</li>
+<li>需要探索和动态决策。</li>
+</ul>
+<h3 id="671">6.7.1 优势</h3>
+<ul>
+<li>灵活；</li>
+<li>能处理开放式任务；</li>
+<li>可以根据新信息调整；</li>
+<li>适合长周期研究和编码任务。</li>
+</ul>
+<h3 id="672">6.7.2 局限</h3>
+<ul>
+<li>规划质量不稳定；</li>
+<li>可能遗漏关键步骤；</li>
+<li>可能产生无法执行的任务；</li>
+<li>容易过度拆分或拆分不足；</li>
+<li>Planner 调用增加成本和延迟。</li>
+</ul>
+<p>因此，动态计划必须经过 Schema 校验、依赖检查和可执行性检查。</p>
+<h2 id="68">6.8 分层拆分</h2>
+<p>复杂任务不适合一次性拆到最底层。更稳健的方法是分层规划：</p>
+<ol>
+<li>先生成高层里程碑；</li>
+<li>只展开当前里程碑；</li>
+<li>执行并验证；</li>
+<li>再展开下一层。</li>
+</ol>
+<pre class="mermaid">flowchart TB
+    G[战略报告] --> M1[资料收集]
+    G --> M2[对比分析]
+    G --> M3[报告生成]
+
+    M1 --> T11[竞品 A]
+    M1 --> T12[竞品 B]
+    M1 --> T13[行业趋势]
+
+    M2 --> T21[功能对比]
+    M2 --> T22[价格对比]
+    M2 --> T23[风险分析]
+</pre>
+
+<p>这和 Hierarchical Task Network 的思路很接近：</p>
+<ul>
+<li>高层任务描述目标；</li>
+<li>方法定义如何展开；</li>
+<li>叶子任务最终由 Tool、模型或 Agent 执行。</li>
+</ul>
+<h3 id="_2">分层拆分的优势</h3>
+<ul>
+<li>避免一次生成过长计划；</li>
+<li>降低早期错误影响范围；</li>
+<li>保留全局方向；</li>
+<li>可以按阶段分配预算；</li>
+<li>更适合长时间运行的 Agent。</li>
+</ul>
+<h2 id="69">6.9 增量拆分与滚动规划</h2>
+<p>滚动规划（Rolling Horizon Planning）不试图一次规划整个未来，而是：</p>
+<ol>
+<li>规划最近的若干步骤；</li>
+<li>执行其中一步或一个阶段；</li>
+<li>获取真实反馈；</li>
+<li>更新剩余计划；</li>
+<li>再向前展开。</li>
+</ol>
+<pre class="mermaid">flowchart LR
+    S[当前状态] --> P[规划近期步骤]
+    P --> E[执行下一步]
+    E --> O[获取反馈]
+    O --> U[更新状态]
+    U --> P
+</pre>
+
+<p>它适合环境变化快、远期信息不可靠的任务。</p>
+<p>与完整 Plan-and-Execute 相比：</p>
+<table>
+<thead>
+<tr>
+<th>完整计划</th>
+<th>滚动规划</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>一开始生成较完整步骤</td>
+<td>每次只规划有限范围</td>
+</tr>
+<tr>
+<td>全局可见性强</td>
+<td>对环境变化适应性强</td>
+</tr>
+<tr>
+<td>远期计划容易失效</td>
+<td>需要更多规划轮次</td>
+</tr>
+</tbody>
+</table>
+<h2 id="610">6.10 自适应拆分</h2>
+<p>自适应拆分根据运行情况动态决定：</p>
+<ul>
+<li>是否继续拆分；</li>
+<li>是否合并过细任务；</li>
+<li>是否重新规划；</li>
+<li>是否改变执行器；</li>
+<li>是否提高或降低并行度。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    T[当前任务] --> E[执行或试探]
+    E --> M[监控信号]
+    M --> D{是否需要调整粒度?}
+    D -->|任务过大或不确定| SPLIT[继续拆分]
+    D -->|任务过细或开销过高| MERGE[合并任务]
+    D -->|计划仍合适| KEEP[保持当前计划]
+    D -->|关键假设失效| REPLAN[重新规划]
+    SPLIT --> T
+    MERGE --> T
+    KEEP --> E
+    REPLAN --> T
+</pre>
+
+<h3 id="6101">6.10.1 自适应信号</h3>
+<h4 id="_3">不确定性</h4>
+<ul>
+<li>模型置信度低；</li>
+<li>候选方案差异大；</li>
+<li>输入信息不足；</li>
+<li>依赖关系不清晰。</li>
+</ul>
+<h4 id="_4">执行反馈</h4>
+<ul>
+<li>Tool 连续失败；</li>
+<li>输出无法通过验收；</li>
+<li>实际结果偏离计划；</li>
+<li>发现新的关键事实。</li>
+</ul>
+<h4 id="_5">资源压力</h4>
+<ul>
+<li>Context Window 接近上限；</li>
+<li>Token 或费用消耗过快；</li>
+<li>单个任务运行时间过长；</li>
+<li>并发资源不足。</li>
+</ul>
+<h4 id="_6">进度信号</h4>
+<ul>
+<li>多轮没有新增有效信息；</li>
+<li>相同步骤反复执行；</li>
+<li>任务之间出现重复工作；</li>
+<li>某些子任务长期阻塞。</li>
+</ul>
+<h3 id="6102">6.10.2 自适应策略</h3>
+<table>
+<thead>
+<tr>
+<th>信号</th>
+<th>可选策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>子任务目标过于宽泛</td>
+<td>继续向下拆分</td>
+</tr>
+<tr>
+<td>大量微任务只传递少量信息</td>
+<td>合并任务</td>
+</tr>
+<tr>
+<td>外部环境发生变化</td>
+<td>重规划受影响部分</td>
+</tr>
+<tr>
+<td>Context 压力过高</td>
+<td>外部化 Artifact、压缩或分阶段</td>
+</tr>
+<tr>
+<td>关键路径阻塞</td>
+<td>提高优先级或更换执行器</td>
+</tr>
+<tr>
+<td>多个任务重复检索</td>
+<td>共享 Artifact 或合并检索</td>
+</tr>
+<tr>
+<td>验证连续失败</td>
+<td>改变方法、升级模型或请求人工帮助</td>
+</tr>
+</tbody>
+</table>
+<h2 id="611-dag">6.11 依赖关系与任务 DAG</h2>
+<p>拆分完成后，必须分析子任务之间的依赖关系。</p>
+<p>设每个节点表示任务，每条有向边表示“后一个任务依赖前一个任务”，可以得到任务 DAG：</p>
+<pre class="mermaid">flowchart LR
+    A[收集竞品 A] --> D[产品对比]
+    B[收集竞品 B] --> D
+    C[收集行业趋势] --> E[趋势分析]
+    D --> F[生成报告]
+    E --> F
+    F --> G[事实与引用检查]
+</pre>
+
+<h3 id="6111">6.11.1 依赖类型</h3>
+<h4 id="_7">数据依赖</h4>
+<p>后续任务需要前置任务的输出。</p>
+<h4 id="_8">控制依赖</h4>
+<p>只有满足某个条件才执行后续任务。</p>
+<h4 id="_9">资源依赖</h4>
+<p>多个任务竞争相同的限流 API、数据库连接或执行环境。</p>
+<h4 id="_10">安全依赖</h4>
+<p>某个步骤必须在审批、认证或检查通过后执行。</p>
+<h3 id="6112-dag">6.11.2 DAG 校验</h3>
+<p>执行前至少需要检查：</p>
+<ul>
+<li>是否存在循环依赖；</li>
+<li>是否存在缺失节点；</li>
+<li>输入是否由前置步骤提供；</li>
+<li>是否有永远无法满足的条件；</li>
+<li>写操作顺序是否安全；</li>
+<li>并发执行是否会产生竞争。</li>
+</ul>
+<h2 id="612">6.12 并行执行</h2>
+<p>没有依赖的任务可以采用 Fan-out / Fan-in：</p>
+<pre class="mermaid">flowchart LR
+    P[Planner] --> A[任务 A]
+    P --> B[任务 B]
+    P --> C[任务 C]
+    A --> J[Join / Aggregate]
+    B --> J
+    C --> J
+</pre>
+
+<h3 id="6121">6.12.1 顺序执行时间</h3>
+<p>若任务依次执行，忽略调度开销时：</p>
+<p>$$
+T_{seq}=\sum_{i=1}^{n}d_i
+$$</p>
+<p>其中 <code>dᵢ</code> 是第 <code>i</code> 个任务的执行时间。</p>
+<h3 id="6122">6.12.2 理想并行时间</h3>
+<p>若所有任务互不依赖且资源充足，理想并行时间接近最慢任务：</p>
+<p>$$
+T_{parallel}\approx \max(d_1,d_2,\ldots,d_n)+T_{overhead}
+$$</p>
+<p>其中 <code>T_overhead</code> 包含调度、通信和结果合并开销。</p>
+<h3 id="6123">6.12.3 加速比</h3>
+<p>$$
+Speedup=\frac{T_{seq}}{T_{parallel}}
+$$</p>
+<p>并行节省比例为：</p>
+<p>$$
+Saving=1-\frac{T_{parallel}}{T_{seq}}
+$$</p>
+<h3 id="6124-40-60">6.12.4 为什么不能保证降低 40% 到 60%</h3>
+<p>并行收益取决于：</p>
+<ul>
+<li>可并行任务比例；</li>
+<li>最慢分支；</li>
+<li>任务依赖；</li>
+<li>API 限流；</li>
+<li>模型并发限制；</li>
+<li>调度与合并开销；</li>
+<li>失败和重试。</li>
+</ul>
+<p>Amdahl 定律可以表示理论上限：</p>
+<p>$$
+Speedup(k)=\frac{1}{(1-p)+\frac{p}{k}}
+$$</p>
+<p>其中：</p>
+<ul>
+<li><code>p</code> 是可并行部分比例；</li>
+<li><code>k</code> 是并行执行单元数量。</li>
+</ul>
+<p>因此，“关键路径时间降低 40% 到 60%”只能作为某个系统的实测结果，不能作为通用规律。</p>
+<h3 id="6125">6.12.5 具体示例</h3>
+<p>三个独立调研任务分别耗时 40 秒、50 秒和 60 秒，结果合并耗时 10 秒。</p>
+<p>顺序执行：</p>
+<p>$$
+T_{seq}=40+50+60+10=160
+$$</p>
+<p>理想并行执行：</p>
+<p>$$
+T_{parallel}=60+10=70
+$$</p>
+<p>该示例中的节省比例约为：</p>
+<p>$$
+Saving=1-\frac{70}{160}=56.25\%
+$$</p>
+<p>这里的 56.25% 来自这组具体数据，并不是所有任务都能达到的固定收益。</p>
+<h2 id="613">6.13 关键路径</h2>
+<p>任务 DAG 的总完成时间由最长依赖路径决定，这条路径称为 Critical Path。</p>
+<pre class="mermaid">flowchart LR
+    A[任务 A<br/>20s] --> C[任务 C<br/>40s]
+    B[任务 B<br/>50s] --> D[任务 D<br/>10s]
+    C --> E[汇总<br/>10s]
+    D --> E
+</pre>
+
+<p>两条主要路径：</p>
+<ul>
+<li>A → C → E：70 秒；</li>
+<li>B → D → E：70 秒。</li>
+</ul>
+<p>优化不在关键路径上的任务，可能不会降低整体完成时间。调度器应优先关注：</p>
+<ul>
+<li>关键路径上的慢任务；</li>
+<li>阻塞多个后续节点的任务；</li>
+<li>高失败率任务；</li>
+<li>稀缺资源任务。</li>
+</ul>
+<h2 id="614">6.14 并发不等于无限并行</h2>
+<p>无限提高并发可能导致：</p>
+<ul>
+<li>API 限流；</li>
+<li>数据库连接耗尽；</li>
+<li>Token 和费用瞬间增长；</li>
+<li>多个任务写入同一资源产生冲突；</li>
+<li>失败重试形成流量放大；</li>
+<li>汇总节点被大量结果淹没。</li>
+</ul>
+<p>生产系统需要：</p>
+<ul>
+<li>最大并发数；</li>
+<li>每个 Tool 的独立限流；</li>
+<li>优先级队列；</li>
+<li>Backpressure；</li>
+<li>超时和取消传播；</li>
+<li>并发写入控制；</li>
+<li>失败隔离。</li>
+</ul>
+<h2 id="615">6.15 任务之间如何传递结果</h2>
+<p>不应把每个子任务的完整对话直接复制给所有后续任务。更好的方式是生成结构化 Artifact。</p>
+<pre><code class="language-json">{
+  &quot;artifact_id&quot;: &quot;competitor-a-updates&quot;,
+  &quot;schema&quot;: &quot;competitor-update-list&quot;,
+  &quot;producer&quot;: &quot;research-competitor-a&quot;,
+  &quot;created_at&quot;: &quot;2026-08-28T16:00:00Z&quot;,
+  &quot;summary&quot;: &quot;竞品 A 最近六个月发布了三个主要更新&quot;,
+  &quot;data_uri&quot;: &quot;artifact://competitor-a-updates.json&quot;,
+  &quot;sources&quot;: [
+    &quot;https://example.com/source-1&quot;,
+    &quot;https://example.com/source-2&quot;
+  ]
+}
+</code></pre>
+<p>后续任务只读取：</p>
+<ul>
+<li>Artifact 摘要；</li>
+<li>必需字段；</li>
+<li>可追溯来源；</li>
+<li>需要时再加载完整内容。</li>
+</ul>
+<p>这可以降低上下文重复和信息污染。</p>
+<h2 id="616-plannerschedulerexecutor-verifier">6.16 Planner、Scheduler、Executor 与 Verifier</h2>
+<p>复杂任务的拆分系统，通常会把下面四类职责分开：</p>
+<pre class="mermaid">flowchart LR
+    G[Goal] --> P[Planner]
+    P --> DAG[Task DAG]
+    DAG --> S[Scheduler]
+    S --> E[Executors]
+    E --> V[Verifiers]
+    V -->|通过| ART[Artifacts]
+    V -->|局部失败| S
+    V -->|计划失效| P
+</pre>
+
+<h3 id="planner">Planner</h3>
+<p>负责：</p>
+<ul>
+<li>生成任务；</li>
+<li>确定依赖；</li>
+<li>指定验收条件；</li>
+<li>根据反馈重新规划。</li>
+</ul>
+<h3 id="scheduler">Scheduler</h3>
+<p>负责：</p>
+<ul>
+<li>找出当前可执行任务；</li>
+<li>控制并发；</li>
+<li>管理优先级；</li>
+<li>处理资源和限流；</li>
+<li>调度重试。</li>
+</ul>
+<h3 id="executor">Executor</h3>
+<p>可以是：</p>
+<ul>
+<li>Tool；</li>
+<li>普通程序；</li>
+<li>LLM；</li>
+<li>ReAct Agent；</li>
+<li>专业 Worker Agent。</li>
+</ul>
+<h3 id="verifier">Verifier</h3>
+<p>负责检查：</p>
+<ul>
+<li>输出 Schema；</li>
+<li>事实和引用；</li>
+<li>测试和规则；</li>
+<li>任务成功标准；</li>
+<li>安全和权限。</li>
+</ul>
+<p>将这些职责分开，比让一个 LLM 同时规划、执行、验证和调度更容易控制。</p>
+<h2 id="617">6.17 失败处理</h2>
+<p>子任务失败后不应只有“无限重试”一种策略。</p>
+<h3 id="6171">6.17.1 局部重试</h3>
+<p>适合临时网络错误、限流和偶发模型输出错误。</p>
+<h3 id="6172">6.17.2 参数调整</h3>
+<p>根据结构化错误修改查询、参数或超时。</p>
+<h3 id="6173">6.17.3 更换执行器</h3>
+<p>例如：</p>
+<ul>
+<li>小模型失败后升级强模型；</li>
+<li>搜索 API 失败后切换备用数据源；</li>
+<li>Agent 失败后进入人工处理。</li>
+</ul>
+<h3 id="6174">6.17.4 重新拆分</h3>
+<p>如果任务本身过大，可以拆成更小步骤。</p>
+<h3 id="6175">6.17.5 重新规划</h3>
+<p>如果关键假设失效，需要修改依赖和后续计划。</p>
+<h3 id="6176">6.17.6 补偿操作</h3>
+<p>对于已经产生副作用的操作，不能简单重试。需要设计：</p>
+<ul>
+<li>回滚；</li>
+<li>补偿事务；</li>
+<li>幂等键；</li>
+<li>人工确认。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    F[任务失败] --> C{失败类型}
+    C -->|临时错误| R[退避重试]
+    C -->|参数错误| A[调整参数]
+    C -->|任务过大| S[继续拆分]
+    C -->|计划失效| P[重新规划]
+    C -->|不可逆副作用| H[补偿或人工处理]
+</pre>
+
+<h2 id="618">6.18 自适应拆分控制器</h2>
+<p>一个能落地的自适应拆分控制器大致会这样运行：</p>
+<pre class="mermaid">flowchart TB
+    G[Goal] --> P[Hierarchical Planner]
+    P --> DAG[Task DAG]
+    DAG --> SCH[Scheduler]
+    SCH --> EX[Executor Pool]
+    EX --> OBS[Execution Observations]
+    OBS --> VER[Verifier]
+
+    VER --> MET[进度、质量、成本与风险指标]
+    MET --> CTRL{Adaptive Controller}
+
+    CTRL -->|保持| SCH
+    CTRL -->|继续拆分| P
+    CTRL -->|合并任务| DAG
+    CTRL -->|修改依赖| DAG
+    CTRL -->|计划失效| P
+    CTRL -->|预算耗尽| STOP[停止并报告]
+    CTRL -->|高风险| HUMAN[人工审核]
+</pre>
+
+<p>控制器不应只听 Planner 的自然语言判断，还应使用可观测指标：</p>
+<ul>
+<li>任务完成率；</li>
+<li>验证通过率；</li>
+<li>重试次数；</li>
+<li>重复调用比例；</li>
+<li>Context 使用量；</li>
+<li>Token 和费用；</li>
+<li>关键路径变化；</li>
+<li>阻塞时间；</li>
+<li>风险等级。</li>
+</ul>
+<h2 id="619">6.19 复杂研究任务示例</h2>
+<p>目标：</p>
+<blockquote>
+<p>调研三家竞品最近半年的产品、定价和市场动态，并形成带来源的比较报告。</p>
+</blockquote>
+<h3 id="6191">6.19.1 高层拆分</h3>
+<pre class="mermaid">flowchart TB
+    G[竞品研究报告] --> R[资料收集]
+    G --> A[对比分析]
+    G --> W[报告撰写]
+    G --> V[事实验证]
+</pre>
+
+<h3 id="6192">6.19.2 展开资料收集</h3>
+<pre class="mermaid">flowchart LR
+    R[资料收集] --> A1[竞品 A]
+    R --> B1[竞品 B]
+    R --> C1[竞品 C]
+    R --> T[行业趋势]
+</pre>
+
+<p>四个任务可以并行执行。</p>
+<h3 id="6193">6.19.3 结构化输出</h3>
+<p>每个竞品调研任务输出统一 Artifact：</p>
+<pre><code class="language-json">{
+  &quot;competitor&quot;: &quot;A&quot;,
+  &quot;product_updates&quot;: [],
+  &quot;pricing_changes&quot;: [],
+  &quot;market_events&quot;: [],
+  &quot;sources&quot;: [],
+  &quot;open_questions&quot;: []
+}
+</code></pre>
+<h3 id="6194">6.19.4 动态调整</h3>
+<p>如果竞品 A 出现重大收购事件：</p>
+<ol>
+<li>Planner 插入“收购事件专项调研”；</li>
+<li>Scheduler 将它设为高优先级；</li>
+<li>分析任务等待该 Artifact；</li>
+<li>报告结构增加“战略影响”章节。</li>
+</ol>
+<h3 id="6195">6.19.5 验证</h3>
+<p>最终报告生成前检查：</p>
+<ul>
+<li>关键结论是否至少有一个可靠来源；</li>
+<li>时间范围是否一致；</li>
+<li>不同竞品是否使用同一比较维度；</li>
+<li>是否区分事实、推断和建议；</li>
+<li>是否存在过时或冲突信息。</li>
+</ul>
+<h2 id="620">6.20 常见反模式</h2>
+<h3 id="_11">一次性生成几十个详细步骤</h3>
+<p>远期步骤建立在尚未验证的假设上，很快会失效。</p>
+<h3 id="task-contract">只有任务名称，没有 Task Contract</h3>
+<p>“调研竞品”无法明确判断是否完成。</p>
+<h3 id="_12">所有子任务共享完整上下文</h3>
+<p>导致成本上升、信息污染和权限扩大。</p>
+<h3 id="_13">所有任务都交给同一个大模型</h3>
+<p>忽略了普通代码、小模型、Tool 和专业 Agent 的成本优势。</p>
+<h3 id="_14">没有依赖分析就并行</h3>
+<p>可能读取未完成数据，或产生写入竞争。</p>
+<h3 id="_15">失败后从头开始</h3>
+<p>浪费已完成结果，也难以定位错误。</p>
+<h3 id="planner_1">Planner 自己验证自己的计划</h3>
+<p>容易共享相同盲点。应使用规则、Schema、独立 Verifier 或人工审核。</p>
+<h3 id="_16">把并发收益写成固定百分比</h3>
+<p>并行收益必须根据 DAG、关键路径和真实指标计算。</p>
+<h2 id="621_1">6.21 如何选择拆分策略</h2>
+<pre class="mermaid">flowchart TB
+    G[复杂任务] --> K{步骤是否已知且稳定?}
+    K -->|是| STATIC[静态 Workflow]
+    K -->|部分已知| HYBRID[固定骨架 + 动态子任务]
+    K -->|未知| DYNAMIC[动态 Planner]
+
+    DYNAMIC --> H{任务是否很长?}
+    H -->|是| HIER[分层 + 滚动规划]
+    H -->|否| PLAN[Plan-and-Execute]
+
+    STATIC --> DEP[构建依赖 DAG]
+    HYBRID --> DEP
+    HIER --> DEP
+    PLAN --> DEP
+
+    DEP --> PAR[并行调度]
+    PAR --> ADAPT[运行时自适应调整]
+</pre>
+
+<p>落地时通常按这个顺序收敛：</p>
+<ol>
+<li>优先确定性静态拆分；</li>
+<li>对未知部分使用动态 Planner；</li>
+<li>长任务采用分层和滚动规划；</li>
+<li>所有任务建立依赖 DAG；</li>
+<li>只并行真正独立的任务；</li>
+<li>用运行指标驱动自适应拆分。</li>
+</ol>
+<h2 id="622_1">6.22 评估任务拆分质量</h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Completion Rate</td>
+<td>子任务和整体任务完成率</td>
+</tr>
+<tr>
+<td>Validation Pass Rate</td>
+<td>子任务首次通过验收的比例</td>
+</tr>
+<tr>
+<td>Retry Locality</td>
+<td>失败是否只重试受影响部分</td>
+</tr>
+<tr>
+<td>Parallel Efficiency</td>
+<td>并行资源是否真正降低关键路径</td>
+</tr>
+<tr>
+<td>Planning Overhead</td>
+<td>规划成本占总成本的比例</td>
+</tr>
+<tr>
+<td>Context Efficiency</td>
+<td>每个任务是否只获得必要上下文</td>
+</tr>
+<tr>
+<td>Artifact Reuse</td>
+<td>中间结果是否被有效复用</td>
+</tr>
+<tr>
+<td>Replan Rate</td>
+<td>计划失效和重规划频率</td>
+</tr>
+<tr>
+<td>Duplicate Work</td>
+<td>不同任务重复工作的比例</td>
+</tr>
+<tr>
+<td>Recovery Time</td>
+<td>失败后恢复所需时间</td>
+</tr>
+</tbody>
+</table>
+<p>一个拆分方案不是任务数越多越好，而是：</p>
+<blockquote>
+<p><strong>以更低的总成本和风险，提高整体任务成功率与可恢复性。</strong></p>
+</blockquote>
+<h2 id="623_1">6.23 本章总结</h2>
+<p>复杂任务拆分可以分为三个层次：</p>
+<h3 id="_17">为什么拆</h3>
+<ul>
+<li>降低上下文和推理压力；</li>
+<li>支持独立验证；</li>
+<li>支持局部重试；</li>
+<li>支持并行和专业化。</li>
+</ul>
+<h3 id="_18">怎么拆</h3>
+<ul>
+<li>静态拆分适合稳定流程；</li>
+<li>动态拆分适合开放目标；</li>
+<li>分层拆分避免一次展开过深；</li>
+<li>滚动规划利用最新反馈；</li>
+<li>自适应拆分根据运行指标调整粒度。</li>
+</ul>
+<h3 id="_19">拆完之后</h3>
+<ul>
+<li>定义 Task Contract；</li>
+<li>建立依赖 DAG；</li>
+<li>分析关键路径；</li>
+<li>调度可并行任务；</li>
+<li>持久化 Artifact；</li>
+<li>设置验证、重试、回退和人工介入。</li>
+</ul>
+<p>归根结底，粒度要同时满足两个要求：</p>
+<blockquote>
+<p><strong>每个任务应当足够小，以便独立执行、验证和重试；同时足够大，能够产生有意义、可复用的业务结果。</strong></p>
+</blockquote>
+<h2 id="_20">参考资料</h2>
+<ul>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+<li><a href="https://www.langchain.com/blog/planning-agents">LangChain: Planning Agents</a></li>
+<li><a href="https://arxiv.org/abs/2312.04511">LLMCompiler: An LLM Compiler for Parallel Function Calling</a></li>
+<li><a href="https://arxiv.org/abs/2305.18323">ReWOO: Decoupling Reasoning from Observations for Efficient Augmented Language Models</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tokenizer · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Tokenizer — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>基础原理</span> / <span>Tokenizer</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="tokenizer">第五章：Tokenizer 分词器</h1>
+<h2 id="51-tokenizer">5.1 为什么需要 Tokenizer</h2>
+<p>大语言模型的本质是一个函数：<strong>输入一串整数（token ID 序列），输出下一个整数的概率分布</strong>，再把整数查表得到文字。</p>
+<p>整个过程里模型看到的全是整数，<strong>完全不认识字符串</strong>。</p>
+<pre class="mermaid">flowchart LR
+    TXT["人类文字<br/>「你好，世界」"] -->|编码 encode| IDS["token ID 序列<br/>[108386, 3837, 99489]"]
+    IDS --> MODEL["模型<br/>只认识整数"]
+    MODEL --> OUT["下一个 token 的<br/>概率分布"]
+    OUT -->|解码 decode| TXT2["人类文字"]
+
+    style MODEL fill:#e8f0fe
+</pre>
+
+<p>Tokenizer 就是<strong>连接人类文字和模型整数世界的桥梁</strong>，做两件事：编码与解码。</p>
+<h2 id="52">5.2 两种朴素方案都不行</h2>
+<h3 id="521">5.2.1 字符级：太碎</h3>
+<p>每个字母或汉字算一个 token。</p>
+<table>
+<thead>
+<tr>
+<th>优点</th>
+<th>问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>词汇表极小（英文才 26 个字母加标点）</td>
+<td><strong>序列变得非常长</strong>：「hello」就是 5 个 token，一篇文章能膨胀到上万 token</td>
+</tr>
+<tr>
+<td>永远不会有未登录词</td>
+<td>Attention 的 $O(N^2)$ 计算量大幅飙升</td>
+</tr>
+<tr>
+<td></td>
+<td><strong>语义信息太少</strong>：模型要从一堆离散字符里重新学出「单词」的概念，效率极低</td>
+</tr>
+</tbody>
+</table>
+<h3 id="522">5.2.2 词级：太散</h3>
+<p>每个完整单词算一个 token。</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>词汇表爆炸</strong></td>
+<td>光是 <code>cat / cats / catting / catty</code> 这种变形就要分别存，膨胀到几十万甚至几百万</td>
+</tr>
+<tr>
+<td><strong>OOV 未登录词</strong></td>
+<td>遇到训练时没见过的新词（专有名词、网络用语、拼写错误）直接无法处理，只能输出「未知词」标记，<strong>语义完全丢失</strong></td>
+</tr>
+<tr>
+<td><strong>中文更糟</strong></td>
+<td>要先做中文分词，分词错了下游全错——这正是 <a href="01-what-is-llm.html">第一章</a> 讲的传统 NLP pipeline 痛点</td>
+</tr>
+</tbody>
+</table>
+<h3 id="523">5.2.3 子词分词是甜蜜点</h3>
+<p><strong>字符级太碎，词级太散</strong>，子词（subword）级分词取中间：既控制词汇表大小，又能处理新词，同时保留比字符更多的语义信息。</p>
+<p>BPE 是最常见的一类，但不是唯一方案——SentencePiece / Unigram、WordPiece 也很常用。</p>
+<h2 id="53-bpe">5.3 BPE 算法</h2>
+<p>BPE（Byte Pair Encoding，字节对编码）原理很简单，三步：</p>
+<pre class="mermaid">flowchart TB
+    S1["① 初始化<br/>把语料拆成最小单元（单字节/字符）<br/>每个字符是一个基础 token"]
+    S1 --> S2["② 反复合并<br/>统计所有相邻 token pair 的频率<br/>把最高频的一对合并成新 token"]
+    S2 --> S3{"词汇表达到<br/>预设大小?"}
+    S3 -->|否| S2
+    S3 -->|是| S4["③ 结束<br/>得到词汇表 + 一组合并规则"]
+
+    style S4 fill:#e6f4ea
+</pre>
+
+<p><strong>合并过程举例</strong>：</p>
+<pre><code>「t」和「h」经常相邻   → 合并成「th」，加入词汇表
+「th」和「e」经常相邻  → 合并成「the」，加入词汇表
+...
+</code></pre>
+<p>每轮合并产生一条合并规则，同时词汇表增加一个 token。</p>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>词汇表大小</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPT-2</td>
+<td>50,257</td>
+</tr>
+<tr>
+<td>Llama 2</td>
+<td>32,000</td>
+</tr>
+<tr>
+<td>Llama 3</td>
+<td>128,000</td>
+</tr>
+<tr>
+<td>Qwen 2/3</td>
+<td>约 15 万</td>
+</tr>
+</tbody>
+</table>
+<h3 id="531-oov">5.3.1 为什么它能解决 OOV</h3>
+<p>以「lowest」为例，BPE 可能切成 <code>low</code> + <code>est</code>，因为两者都是高频子词。</p>
+<p>遇到训练时<strong>完全没见过</strong>的「lowest123」：</p>
+<pre><code>lowest123  →  low + est + 1 + 2 + 3
+</code></pre>
+<p><strong>不会出现 OOV</strong>。对于采用 byte-level BPE 的 tokenizer，最坏情况下会退化为若干字节 token；这些 token 只是可逆编码单元，不一定各自有语言学意义。</p>
+<p>这也是「Byte」这个词的含义：以字节为最小单位，<strong>任何 UTF-8 文本都能被表示</strong>，包括从未见过的表情符号和小语种。它并不保证 token 边界等于 Unicode 字符边界：一个汉字的 UTF-8 字节可能分属多个 token，单独解码中间 token 时甚至可能不是有效文本。</p>
+<h2 id="54">5.4 中文的特点</h2>
+<p>中文没有空格分隔，BPE 的处理方式和英文不同。</p>
+<p>在大多数主流模型的词汇表里：</p>
+<ul>
+<li><strong>常用汉字直接作为独立 token</strong>（每个汉字出现频率足够高，不需要拆）；</li>
+<li><strong>常见词语</strong>（如「人工智能」）可能被合并成单个 token，也可能是「人工」+「智能」两个——取决于训练数据里的频率。</li>
+</ul>
+<h3 id="541">5.4.1 一个经验规则和它的适用边界</h3>
+<p>粗估：<strong>1000 个汉字大约对应 1000–1500 个 token</strong>（汉字 token 化效率略低于英文，因为英文的合并词能覆盖更多字符）。</p>
+<blockquote>
+<p><strong>但这只是粗估。</strong> Qwen、Llama、OpenAI、Claude 的 tokenizer 完全不一样；中文、英文、代码、表格混在一起时比例会明显变化。<strong>正式算成本前一定要用目标模型的 tokenizer 实际跑一遍。</strong></p>
+</blockquote>
+<h2 id="55-token">5.5 特殊 Token</h2>
+<p>Tokenizer 里还有一些不来自文本的 token，用来给模型传递<strong>结构信息</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>特殊 Token</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BOS</strong>（Beginning of Sequence）</td>
+<td>标记序列开始</td>
+</tr>
+<tr>
+<td><strong>EOS</strong>（End of Sequence）</td>
+<td>标记序列结束，模型生成到它就停止输出</td>
+</tr>
+<tr>
+<td><strong>PAD</strong>（Padding）</td>
+<td>批量处理时对齐不同长度的序列</td>
+</tr>
+<tr>
+<td><strong>SEP</strong>（Separator）</td>
+<td>分隔不同部分</td>
+</tr>
+<tr>
+<td><code>&lt;\|im_start\|&gt;</code> / <code>&lt;\|im_end\|&gt;</code></td>
+<td>ChatML 格式里区分对话轮次和角色</td>
+</tr>
+</tbody>
+</table>
+<p><strong>模型对这些 token 有特殊的「意识」</strong>——它们的 embedding 在训练中被专门优化，所以模型能根据这些信号理解对话结构。</p>
+<p>这解释了一件很多人困惑的事：为什么把对话历史拼成一段纯文本喂给模型，效果会明显不如用标准的 messages 格式？因为后者会被渲染成带特殊 token 的模板，而模型在训练时就是按这个模板学的。</p>
+<h3 id="551-eos">5.5.1 EOS 与停止生成</h3>
+<p>EOS 是最值得单独说的一个：<strong>模型「知道该停下来」不是靠外部长度限制，而是靠它自己预测出 EOS token。</strong></p>
+<p>这也解释了一类线上故障：如果推理时用的 chat template 和训练时不一致，模型可能永远预测不出 EOS，表现为「停不下来一直说」，只能靠 <code>max_tokens</code> 硬截断。</p>
+<h2 id="56-tokenizer">5.6 Tokenizer 对工程的四个直接影响</h2>
+<p>理解 Tokenizer 不只是理论知识，搞不清楚就容易踩坑。</p>
+<h3 id="561-api">5.6.1 API 成本估算</h3>
+<p>主流 LLM API <strong>按 token 计费，不是按字数</strong>。</p>
+<table>
+<thead>
+<tr>
+<th>内容类型</th>
+<th>粗略比例</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>中文</td>
+<td>1000 字 ≈ 1000–1500 token</td>
+</tr>
+<tr>
+<td>英文</td>
+<td>1000 词 ≈ 1300 token</td>
+</tr>
+<tr>
+<td>代码</td>
+<td>效率更低，标点、缩进常单独成 token</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这些都只是经验值</strong>——要预估费用必须用目标模型的 tokenizer 数出来，不能只按字数拍脑袋。</p>
+<h3 id="562">5.6.2 上下文窗口管理</h3>
+<p>每个模型有最大 token 限制。字数和 token 数的比例取决于语言和内容类型，<strong>中文 + 代码混合内容很容易让你以为「才 5 万字应该不超」，实际已经 8 万 token 了</strong>。</p>
+<p>这种「直觉和实际不符」是新人最常见的坑。</p>
+<h3 id="563">5.6.3 避免截断重要信息</h3>
+<p>如果文档恰好卡在上下文边缘，<strong>按 token 长度截断可能落在词、Unicode 字符或 UTF-8 字节序列的内部</strong>。这不会产生一个可发送给模型的「半个 token」，但把已截断 token 单独解码、或交给只接受完整 Unicode 的下游系统时，可能得到替换字符、乱码或不完整词语。</p>
+<p>工程上要处理这种边界情况：<strong>保留几百 token 的安全 buffer</strong>，并且在语义边界（句号、段落）而不是 token 边界上截断。</p>
+<h3 id="564">5.6.4 影响模型的数学与字符级能力</h3>
+<p>一个经典现象：<strong>问模型「strawberry 里有几个 r」经常答错。</strong></p>
+<p>分词粒度会让这类任务更难：<code>strawberry</code> 可能被切成 <code>str</code> + <code>aw</code> + <code>berry</code> 这样的块，模型不一定逐字符操作。<strong>但这不是唯一原因</strong>；训练数据、位置表示和推理策略也会影响结果，不能据此把字符计数错误完全归因于 tokenizer。</p>
+<p>同理，数字的切分方式会直接影响算术能力。有些 tokenizer 把「12345」切成「123」+「45」，有些逐位切成「1」「2」「3」「4」「5」——后者对多位数运算明显更友好，所以不少新模型专门规定数字按固定位数切分。</p>
+<h2 id="57">5.7 常见错误</h2>
+<h3 id="571-tokenizer">5.7.1 说不出「为什么需要 Tokenizer」</h3>
+<p>模型只能处理整数、不认识字符串——这句铺垫先讲到，才说明抓住了本质。</p>
+<h3 id="572">5.7.2 说不清三种粒度的取舍</h3>
+<p>字符级太碎（序列长、语义少），词级太散（OOV 严重、词汇表爆炸），子词级是折中。这是 BPE 存在的动机。</p>
+<h3 id="573-bpe">5.7.3 认为 BPE 是唯一的子词方案</h3>
+<p>SentencePiece / Unigram、WordPiece 也很常用。BPE 是最常见的一类，不是全部。</p>
+<h3 id="574-token">5.7.4 用字数直接估算 token 数</h3>
+<p>比例随语言和内容类型变化很大。必须用目标模型的 tokenizer 实际跑。</p>
+<h3 id="575-token-chat-template">5.7.5 忽略特殊 token 与 chat template</h3>
+<p>拼纯文本 vs 用标准 messages 格式效果差别很大，因为模型训练时就是按模板学的。template 不一致还会导致模型停不下来。</p>
+<h3 id="576-tokenizer">5.7.6 不知道 tokenizer 会影响模型能力</h3>
+<p>「strawberry 有几个 r」答错、多位数运算不稳，根源都在切分方式，不是模型「笨」。</p>
+<h3 id="577-token">5.7.7 在 token 边界上截断</h3>
+<p>应先按 token 预算定位，再回退到可验证的 Unicode 与语义边界并留安全 buffer；不要假定 token 边界就是字符边界。</p>
+<h2 id="58">5.8 本章总结</h2>
+<ol>
+<li><strong>模型只认识整数</strong>，Tokenizer 是文字与整数世界之间的桥梁；</li>
+<li><strong>字符级太碎</strong>：序列长、$O(N^2)$ 计算量飙升、语义信息少；</li>
+<li><strong>词级太散</strong>：词汇表爆炸、OOV 严重、中文还要先分词；</li>
+<li><strong>BPE 三步</strong>：拆成最小单元 → 反复合并最高频相邻 pair → 达到预设词汇表大小；</li>
+<li><strong>byte-level BPE 解决 OOV 的方式</strong>是最坏退化到字节级，任何 UTF-8 文本都能表示；token 边界不保证等于字符边界；</li>
+<li><strong>中文常用汉字通常是独立 token</strong>，1000 字约 1000–1500 token，但必须用目标 tokenizer 实测；</li>
+<li><strong>特殊 token 传递结构信息</strong>，EOS 决定模型何时停止，chat template 不一致会导致停不下来；</li>
+<li><strong>四个工程影响</strong>：成本估算、上下文管理、截断边界、模型的字符级与数学能力。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1508.07909">Neural Machine Translation of Rare Words with Subword Units（BPE）</a></li>
+<li><a href="https://arxiv.org/abs/1808.06226">SentencePiece: A simple and language independent subword tokenizer</a></li>
+<li><a href="https://arxiv.org/abs/1804.10959">Subword Regularization: Improving NMT Models with Multiple Subword Candidates（Unigram）</a></li>
+<li><a href="https://huggingface.co/learn/nlp-course/chapter6/1">Hugging Face: Tokenizers 教程</a></li>
+<li><a href="https://github.com/openai/tiktoken">OpenAI tiktoken</a></li>
+<li><a href="https://arxiv.org/abs/2407.21783">The Llama 3 Herd of Models</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

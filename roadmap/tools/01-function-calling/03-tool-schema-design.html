@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>工具定义与 Schema 工程 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="工具定义与 Schema 工程 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Function Calling</span> / <span>工具定义与 Schema 工程</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="schema">第三章：工具定义与 Schema 工程</h1>
+<h2 id="31">3.1 为什么值得单独开一章</h2>
+<p><a href="01-function-calling.html">第一章</a> 说过，<code>description</code> 是模型判断的唯一依据。但在实际项目里，工具定义的影响远不止「模型选得准不准」这一件事——它同时决定了：</p>
+<ul>
+<li>模型选错工具的概率；</li>
+<li>参数填错的概率；</li>
+<li>每次请求固定消耗多少 token；</li>
+<li>出错时模型能不能自己恢复；</li>
+<li>上下文被工具结果撑爆的速度。</li>
+</ul>
+<p>一个反直觉的经验是：<strong>很多被归因为「模型不行」的问题，根源是工具定义写得不行</strong>。换更强的模型能盖住一部分，但成本高得多，而且盖不住全部。</p>
+<blockquote>
+<p><strong>工具定义是 Prompt 的一部分，应该按 Prompt 的标准去设计、评测和迭代。</strong></p>
+</blockquote>
+<h2 id="32">3.2 工具描述的写法</h2>
+<h3 id="321">3.2.1 写清楚能力边界，而不只是能力</h3>
+<p>人写 API 文档的习惯是描述「能做什么」。但对模型来说，<strong>「不能做什么」的信息量更大</strong>——它决定了模型什么时候该放弃调用。</p>
+<table>
+<thead>
+<tr>
+<th>写法</th>
+<th>模型行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"查询订单信息"</code></td>
+<td>用户问「我上个月的订单」也调，拿回单条数据后编造月度汇总</td>
+</tr>
+<tr>
+<td><code>"根据订单号查询单个订单的详情。不支持按时间范围、用户 ID 或状态批量查询。"</code></td>
+<td>模型识别边界，转而去找批量查询工具或向用户要订单号</td>
+</tr>
+</tbody>
+</table>
+<p>描述通常可以按这个顺序写：</p>
+<pre><code>&lt;这个工具做什么&gt;。&lt;返回什么内容&gt;。&lt;明确不支持什么&gt;。&lt;什么情况下应该改用其他工具&gt;。
+</code></pre>
+<p>最后一句尤其有用。当工具库里有多个相近工具时，在描述里直接写「如果需要模糊搜索，请改用 <code>search_orders</code>」，比指望模型自己悟出区别可靠得多。</p>
+<h3 id="322">3.2.2 用工具名承载语义</h3>
+<p>模型看到的第一个信号是工具名。命名混乱时，再好的描述也救不回来：</p>
+<pre><code class="language-python"># 差：名字看不出区别，模型只能靠 description 猜
+query_1, query_2, do_search
+
+# 好：动词 + 对象 + 限定，名字本身就在分流
+get_order_by_id
+search_orders_by_date_range
+cancel_order
+</code></pre>
+<p>命名约定尽量在整个工具库里保持一致：<code>get_*</code> 是按主键精确取，<code>search_*</code> 是模糊查多条，<code>list_*</code> 是无条件枚举，<code>create_/update_/delete_*</code> 是有副作用的写操作。这套一致性本身就是给模型的隐式提示。</p>
+<h3 id="323">3.2.3 在描述里给出使用示例</h3>
+<p>对语义复杂的工具，直接在 <code>description</code> 里塞一两个调用示例，效果往往比反复措辞更好：</p>
+<pre><code class="language-python">&quot;description&quot;: (
+    &quot;执行 SQL 查询并返回结果。只支持 SELECT，不支持写操作。\n&quot;
+    &quot;示例：查询昨天订单数 -&gt; &quot;
+    &quot;SELECT COUNT(*) FROM orders WHERE created_at &gt;= CURRENT_DATE - 1&quot;
+)
+</code></pre>
+<p>它相当于把 few-shot 示例塞进了工具定义里。代价是 token，收益是参数准确率，值不值得取决于这个工具被调用的频率和出错的成本。</p>
+<h2 id="33">3.3 参数设计</h2>
+<h3 id="331">3.3.1 扁平优于嵌套</h3>
+<p>模型填深层嵌套结构的错误率明显更高，而且错误往往是「结构对了但层级放错了」这种难排查的类型：</p>
+<pre><code class="language-python"># 差：三层嵌套
+{&quot;filter&quot;: {&quot;conditions&quot;: {&quot;date&quot;: {&quot;gte&quot;: &quot;2026-01-01&quot;}}}}
+
+# 好：扁平
+{&quot;start_date&quot;: &quot;2026-01-01&quot;, &quot;end_date&quot;: &quot;2026-01-31&quot;}
+</code></pre>
+<p>如果内部接口确实需要复杂结构，正确做法是<strong>在宿主侧做转换</strong>，而不是把复杂度暴露给模型。工具 Schema 是给模型看的接口，不是内部数据结构的镜像。</p>
+<h3 id="332-enum">3.3.2 能用 enum 就不用自由文本</h3>
+<pre><code class="language-python"># 差：模型可能填 &quot;已完成&quot;、&quot;completed&quot;、&quot;DONE&quot;、&quot;finish&quot;
+&quot;status&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;订单状态&quot;}
+
+# 好
+&quot;status&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: [&quot;pending&quot;, &quot;paid&quot;, &quot;shipped&quot;, &quot;completed&quot;, &quot;cancelled&quot;]}
+</code></pre>
+<p>除了减少错误，<code>enum</code> 还有个机制上的好处：主流推理框架会把 Schema 编译成约束解码的语法，在<strong>采样阶段</strong>就屏蔽非法 token。非法值不是「生成后被拒」，而是根本生成不出来。</p>
+<h3 id="333-required">3.3.3 required 要诚实</h3>
+<p>把所有参数都标成 <code>required</code>，模型遇到信息不全时会<strong>编造</strong>一个值填进去。把该必填的标成可选，模型又会漏填导致查询范围失控。</p>
+<p>正确做法是让 <code>required</code> 反映真实约束，并在描述里写清缺省行为：</p>
+<pre><code class="language-python">&quot;limit&quot;: {&quot;type&quot;: &quot;integer&quot;, &quot;description&quot;: &quot;返回条数，默认 20，最大 100&quot;}
+</code></pre>
+<h3 id="334">3.3.4 日期与时间是重灾区</h3>
+<p>模型没有可靠的「今天是几号」的概念。两种解法：</p>
+<ul>
+<li><strong>在 System Prompt 里注入当前时间</strong>，让模型自己算；</li>
+<li><strong>提供相对时间参数</strong>，如 <code>{"period": {"enum": ["today", "last_7_days", "this_month"]}}</code>，把日期计算收回到代码里。</li>
+</ul>
+<p>第二种更稳，尤其是涉及时区和月末边界的场景。</p>
+<h2 id="34">3.4 工具返回值的设计</h2>
+<p>工具的<strong>输出</strong>同样重要，但经常被忽略——它直接决定了上下文消耗和模型的下一步判断。</p>
+<h3 id="341">3.4.1 返回值也是给模型看的</h3>
+<pre><code class="language-python"># 差：把 ORM 对象整个序列化，30 个字段模型只用得到 3 个
+{&quot;id&quot;: 1, &quot;uuid&quot;: &quot;...&quot;, &quot;created_at&quot;: &quot;...&quot;, &quot;updated_at&quot;: &quot;...&quot;,
+ &quot;deleted_at&quot;: null, &quot;tenant_id&quot;: 7, &quot;shard_key&quot;: &quot;...&quot;, ...}
+
+# 好：只返回模型需要的
+{&quot;order_id&quot;: &quot;A1001&quot;, &quot;status&quot;: &quot;shipped&quot;, &quot;total&quot;: 299.0,
+ &quot;eta&quot;: &quot;2026-09-02&quot;}
+</code></pre>
+<p>工具返回值会<strong>原样进入上下文</strong>，并在后续每一轮里被重复计费。一个返回 5KB 冗余 JSON 的工具，在十轮对话里就吃掉了 50KB 的上下文预算。</p>
+<h3 id="342">3.4.2 大结果要截断并告知</h3>
+<p>返回 500 条记录不如返回前 20 条加一句提示：</p>
+<pre><code class="language-python">{&quot;items&quot;: [...20 条...],
+ &quot;total&quot;: 517,
+ &quot;note&quot;: &quot;结果过多，仅返回前 20 条。请缩小时间范围或增加筛选条件后重试。&quot;}
+</code></pre>
+<p>关键是那句 <code>note</code>。它不只是截断，而是<strong>告诉模型该怎么办</strong>。没有它，模型会以为总共就 20 条，直接基于不完整数据下结论。</p>
+<h3 id="343">3.4.3 错误必须结构化</h3>
+<pre><code class="language-python"># 差：抛异常中断整个流程
+raise ValueError(&quot;city not found&quot;)
+
+# 好：以工具结果的形式回填
+{&quot;error&quot;: &quot;city_not_found&quot;,
+ &quot;message&quot;: &quot;未找到城市「广洲」&quot;,
+ &quot;hint&quot;: &quot;可能的正确拼写：广州。请确认后重试。&quot;}
+</code></pre>
+<p>结构化错误让模型有机会自己纠正重试。直接抛异常等于放弃了模型的自我修复能力。<code>hint</code> 字段是关键——它把「出错了」变成了「出错了，这样改」。</p>
+<p>不过要设<strong>重试上限</strong>。模型有时会陷入「同样的错误参数反复重试」的循环，宿主侧应该记录同一工具的连续失败次数，超过两三次就中断并向上抛。</p>
+<h2 id="35">3.5 工具数量与上下文成本</h2>
+<h3 id="351">3.5.1 工具定义每次请求都要全量传</h3>
+<p>这里经常被低估的，是工具 Schema 的固定开销。工具 Schema 不会被「记住」，每一轮请求都要完整传一遍：</p>
+<table>
+<thead>
+<tr>
+<th>工具数</th>
+<th>平均每个 Schema</th>
+<th>每次请求的固定开销</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>5</td>
+<td>150 token</td>
+<td>750 token</td>
+</tr>
+<tr>
+<td>30</td>
+<td>150 token</td>
+<td>4,500 token</td>
+</tr>
+<tr>
+<td>100</td>
+<td>150 token</td>
+<td>15,000 token</td>
+</tr>
+</tbody>
+</table>
+<p>一个挂了 100 个工具的 Agent，在还没开始干活时就烧掉了 15K token，而且<strong>每一轮都烧一次</strong>。十轮对话就是 150K。</p>
+<h3 id="352">3.5.2 工具变多，准确率会下降</h3>
+<p>除了成本，选择准确率也会掉。功能相近的工具（<code>search_docs</code> vs <code>search_wiki</code> vs <code>search_kb</code>）尤其容易混淆。</p>
+<p>主流解法是<strong>动态工具筛选</strong>：</p>
+<pre class="mermaid">flowchart LR
+    Q[用户请求] --> R["路由层<br/>轻量分类 或 向量检索"]
+    POOL[("工具库<br/>100+ 工具")] --> R
+    R --> SEL["筛出 5-10 个相关工具"]
+    SEL --> M[模型]
+    M --> CALL[tool_calls]
+</pre>
+
+<p>路由层可以是向量检索（把工具描述做成 Embedding，用 query 去召回）、规则分类，或者一次廉价小模型调用。相比直接把 100 个工具全塞进去，这一次额外调用几乎总是划算的。</p>
+<h3 id="353-prompt">3.5.3 把工具定义放在 Prompt 最前面</h3>
+<p>工具 Schema 常是多轮对话中较稳定的部分。将稳定内容放在前面可提高支持前缀缓存的提供方/运行时的命中机会，但是否命中、计费和 TTL 以具体服务为准。</p>
+<p>顺序上的通行原则是：<strong>固定内容在前，动态内容在后</strong>。工具定义 → System Prompt → 历史对话 → 当前问题。详见 LLM 主题的 <a href="../../llm/03-inference-serving/14-kv-cache.html">KV Cache 与 Prompt Caching</a> 章节。</p>
+<h2 id="36">3.6 工具粒度：粗一点还是细一点</h2>
+<p>这是设计工具库时的核心取舍。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>细粒度</th>
+<th>粗粒度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>例子</td>
+<td><code>get_user</code>、<code>get_orders</code>、<code>get_address</code> 三个工具</td>
+<td><code>get_user_profile</code> 一个工具返回全部</td>
+</tr>
+<tr>
+<td>灵活性</td>
+<td>高，模型可自由组合</td>
+<td>低</td>
+</tr>
+<tr>
+<td>调用轮次</td>
+<td>多，延迟高</td>
+<td>少</td>
+</tr>
+<tr>
+<td>出错概率</td>
+<td>高（每一步都可能选错）</td>
+<td>低</td>
+</tr>
+<tr>
+<td>上下文消耗</td>
+<td>高（多轮累积）</td>
+<td>低</td>
+</tr>
+</tbody>
+</table>
+<p>实践中的判断标准是：<strong>看这几个操作是不是几乎总是一起出现</strong>。如果模型每次查用户都要接着查订单和地址，那就该合并成一个工具；如果三者独立使用的场景各占三分之一，就该拆开。</p>
+<p>一个常见的错误是把内部微服务的接口边界直接照搬成工具边界。内部服务的拆分依据是团队职责和数据归属，跟「模型该怎么用」没有关系。</p>
+<h2 id="37">3.7 一个完整的工具定义模板</h2>
+<pre><code class="language-python">{
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;function&quot;: {
+        &quot;name&quot;: &quot;search_orders&quot;,                      # 动词_对象，语义自解释
+        &quot;description&quot;: (
+            &quot;按时间范围和状态搜索订单，返回订单摘要列表。&quot;      # 做什么
+            &quot;每条包含订单号、状态、金额、下单时间。&quot;            # 返回什么
+            &quot;最多返回 50 条，超出时需要缩小范围。&quot;              # 限制
+            &quot;不支持按商品名搜索；若需按订单号精确查询，&quot;        # 边界
+            &quot;请改用 get_order_by_id。&quot;                       # 替代方案
+        ),
+        &quot;parameters&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;properties&quot;: {
+                &quot;start_date&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;description&quot;: &quot;起始日期，格式 YYYY-MM-DD，如 2026-08-01&quot;
+                },
+                &quot;end_date&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;description&quot;: &quot;结束日期，格式 YYYY-MM-DD，含当天&quot;
+                },
+                &quot;status&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;enum&quot;: [&quot;pending&quot;, &quot;paid&quot;, &quot;shipped&quot;, &quot;completed&quot;, &quot;cancelled&quot;],
+                    &quot;description&quot;: &quot;订单状态筛选，不传则返回所有状态&quot;
+                },
+                &quot;limit&quot;: {
+                    &quot;type&quot;: &quot;integer&quot;,
+                    &quot;description&quot;: &quot;返回条数，默认 20，最大 50&quot;
+                }
+            },
+            &quot;required&quot;: [&quot;start_date&quot;, &quot;end_date&quot;]     # 只标真正必需的
+        }
+    }
+}
+</code></pre>
+<h2 id="38">3.8 工具定义要做回归测试</h2>
+<p>工具描述改一个字，模型行为就可能变。这意味着它需要和代码一样被测试。</p>
+<p>最简单的落地方式，是维护一套用例集：</p>
+<table>
+<thead>
+<tr>
+<th>用例</th>
+<th>期望行为</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>「查一下 A1001 这个订单」</td>
+<td>调 <code>get_order_by_id</code>，不调 <code>search_orders</code></td>
+</tr>
+<tr>
+<td>「我这个月的订单有哪些」</td>
+<td>调 <code>search_orders</code>，日期范围正确</td>
+</tr>
+<tr>
+<td>「1+1 等于几」</td>
+<td><strong>不调任何工具</strong></td>
+</tr>
+<tr>
+<td>「帮我把订单 A1001 取消」</td>
+<td>调 <code>cancel_order</code>，且触发人工确认</td>
+</tr>
+</tbody>
+</table>
+<p>第三行是必须有的。没有「不该调工具」的用例，你测不出过度调用。</p>
+<p>改工具描述、加新工具、换模型这三种情况下都应该重跑这套用例。尤其是<strong>加新工具</strong>——一个新工具的描述可能意外地和已有工具重叠，导致原本正确的路由开始出错，而你不会在任何地方看到报错。</p>
+<h2 id="39">3.9 常见错误</h2>
+<h3 id="391-api-description">3.9.1 把内部 API 文档直接当 description</h3>
+<p>内部文档面向的是知道上下文的工程师，模型没有这些上下文。术语、缩写、隐含约定都要展开写。</p>
+<h3 id="392">3.9.2 只写能力不写边界</h3>
+<p>不写「不支持什么」，模型会在能力边界外硬调，然后基于错误数据编造答案。</p>
+<h3 id="393-orm">3.9.3 把 ORM 对象整个返回给模型</h3>
+<p>冗余字段会持续占用上下文并被重复计费。返回值应该按「模型需要什么」裁剪，而不是按「数据库里有什么」。</p>
+<h3 id="394">3.9.4 大结果只截断不提示</h3>
+<p>模型会把前 20 条当成全部，得出错误结论。截断必须伴随 <code>total</code> 和处理建议。</p>
+<h3 id="395">3.9.5 用异常代替结构化错误</h3>
+<p>抛异常中断流程，等于放弃模型的自我纠错能力。但也要记得设重试上限，防止死循环。</p>
+<h3 id="396">3.9.6 注册几十个工具不做筛选</h3>
+<p>既烧 token 又降准确率。超过 15–20 个工具就该考虑动态筛选。</p>
+<h3 id="397">3.9.7 改了工具描述不回归</h3>
+<p>这是最隐蔽的一类。工具描述的改动不会触发任何编译错误或类型检查，问题只会在线上以「模型偶尔选错工具」的形式出现。</p>
+<h2 id="310">3.10 本章总结</h2>
+<ol>
+<li><strong>工具定义是 Prompt 的一部分</strong>，很多「模型不行」的问题实际是工具定义不行；</li>
+<li><strong>描述要写清边界和替代方案</strong>，「不支持什么」比「支持什么」信息量更大；</li>
+<li><strong>参数扁平化、多用 enum、required 要诚实</strong>，日期时间尽量用相对枚举收进代码；</li>
+<li><strong>返回值按模型需求裁剪</strong>，大结果要截断并给出处理建议；</li>
+<li><strong>错误必须结构化并带 hint</strong>，同时设重试上限防死循环；</li>
+<li><strong>工具定义每轮全量传，成本随数量线性增长</strong>，超过 15–20 个应做动态筛选；</li>
+<li><strong>工具粒度按「是否总是一起用」判断</strong>，不要照搬内部微服务边界；</li>
+<li><strong>工具定义需要回归测试</strong>，用例集里必须包含「不该调工具」的场景。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Anthropic: Writing Effective Tools for Agents</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+<li><a href="https://platform.openai.com/docs/guides/function-calling">OpenAI: Function Calling 指南</a></li>
+<li><a href="https://json-schema.org/">JSON Schema 规范</a></li>
+<li><a href="https://gorilla.cs.berkeley.edu/leaderboard.html">Berkeley Function Calling Leaderboard</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

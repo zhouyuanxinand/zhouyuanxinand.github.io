@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多模态 RAG · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="多模态 RAG — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>高级与多模态</span> / <span>多模态 RAG</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rag">第二十一章：多模态 RAG</h1>
+<p>多模态 RAG 不只是“给 RAG 加图片”。它要让文本、页面图像、表格、图表、音频或视频证据在同一条可审计链路中被摄取、表示、检索、引用和评估。</p>
+<blockquote>
+<p><strong>多模态的难点不是能否识别媒体，而是能否把回答中的每个主张可靠地落回有权限、可定位、在查询时有效的原始证据。</strong></p>
+</blockquote>
+<h2 id="211">21.1 端到端链路</h2>
+<pre class="mermaid">flowchart LR
+    A[原始媒体] --> B[摄取与解析]
+    B --> C[多种表示与索引]
+    Q[问题] --> D[意图与模态路由]
+    C --> E[多路检索与融合]
+    D --> E
+    E --> F[Grounding 与引用校验]
+    F --> G[答案或拒答]
+</pre>
+
+<p>每个派生结果都应保留 <code>doc_id</code>、<code>version_id</code>、页/时间段、区域坐标、来源哈希、ACL 和解析器/模型版本。原始媒体是可复核证据；OCR、ASR、版面解析和 VLM 描述都是可出错的<strong>派生表示</strong>，不能替代原件。</p>
+<h2 id="212-ingestion">21.2 Ingestion：保留原件，再提取可检索单元</h2>
+<ol>
+<li><strong>不可变原件与版本</strong>：保存原始文件或媒体对象及内容哈希；变更时按<a href="../06-operations-security/19-dynamic-update.html">第十九章</a>构建新版本并原子切换 alias，不能只覆盖派生文本。</li>
+<li><strong>结构化解析</strong>：提取页面、段落、表格单元格、图表区域、图片说明、音频说话人和视频时间段；每个单元回链原始位置。</li>
+<li><strong>质量闸门</strong>：对 OCR/ASR 记录置信度、语言和失败原因；抽样比对原件，低质量单元可降权、回退到视觉检索或不参与高风险回答。</li>
+<li><strong>权限先行</strong>：在解析、索引和检索前携带租户和 ACL，不将无权原件、缩略图或文本副本泄入缓存、日志或引用。</li>
+</ol>
+<p>不要把一个页面或视频粗暴拼成一大段文本。表格关系、图表标注和时间顺序往往正是答案所需的证据。</p>
+<h2 id="213-representation">21.3 Representation：多表示不等于任意向量可比较</h2>
+<table>
+<thead>
+<tr>
+<th>证据单元</th>
+<th>常用表示</th>
+<th>适合的问题</th>
+<th>主要风险</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>文本、OCR、ASR</td>
+<td>稀疏索引 + 文本 embedding</td>
+<td>术语、段落事实、字幕检索</td>
+<td>识别错误和丢失布局</td>
+</tr>
+<tr>
+<td>图片、页面、图表</td>
+<td>视觉或图文共享 embedding</td>
+<td>“找这张图/这个界面/该图表”</td>
+<td>视觉相似不等于事实蕴含</td>
+</tr>
+<tr>
+<td>表格</td>
+<td>单元格/行列结构 + 文本表示</td>
+<td>数值、条件和比较</td>
+<td>扁平化后行列关系丢失</td>
+</tr>
+<tr>
+<td>视频</td>
+<td>镜头、关键帧、ASR 时间段</td>
+<td>事件和时序问题</td>
+<td>关键帧采样遗漏</td>
+</tr>
+</tbody>
+</table>
+<p>可以使用发布者声明的图文共享空间进行跨模态召回，也可以保留每种模态的专用索引后融合。两者都要求记录模型、版本、预处理、归一化和相似度度量；<strong>不能因维度相同就混算向量。</strong> 文本 Query/Document 的兼容性要求见<a href="../02-ingestion-indexing/07-embedding-selection.html">第七章</a>。</p>
+<h2 id="214-retrieval">21.4 Retrieval：按意图路由，证据级融合</h2>
+<p>查询可能是文本找文本（“退款规则是什么”）、文本找图（“这张错误截图属于什么界面”）、图找图，或需要表格和图表共同回答。稳妥流程是：</p>
+<ul>
+<li>根据 Query 与可用媒体决定启用的模态，而不是对所有索引盲搜；</li>
+<li>并行召回文本、视觉和结构化候选，并在<strong>证据单元</strong>而非整份文档上去重；</li>
+<li>用支持该模态的 reranker 或验证器判断 Query—证据关系；</li>
+<li>用标注业务集校准融合与拒答策略，不把某种融合算法或固定裸分当作通用标准（见<a href="../03-retrieval/13-hybrid-retrieval-rerank.html">第十三章</a>）；</li>
+<li>需要读数、比较或时序时，把原始区域/时间段交给专用解析或人工复核，不能只依赖相似度。</li>
+</ul>
+<h2 id="215-grounding">21.5 Grounding：答案必须落到可打开的媒体证据</h2>
+<p>多模态回答应为每个关键主张提供稳定引用：文档版本、页码或媒体时间段、区域/表格行列定位，以及用户有权访问的原件链接。生成前后都要验证：引用存在、用户可访问、证据确实蕴含主张、版本在查询时有效。</p>
+<p>模型对图表、视觉细节和 OCR 噪声尤其容易过度解读。证据不清晰、冲突或无法定位时，应说明不确定性、请求更高质量输入或拒答；不要将 VLM 的自然语言描述当成原始事实。幻觉和引用校验的通用防线见<a href="../05-generation-evaluation/17-generation-hallucination.html">第十七章</a>。</p>
+<h2 id="216-evaluation">21.6 Evaluation：同时测模态、证据和答案</h2>
+<p>除文本 RAG 的检索与生成指标外，多模态评测集应包含原始媒体、带位置的相关证据、查询时刻、ACL 和关键主张的引用标签。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>摄取质量</td>
+<td>OCR/ASR 词错率、表格结构与图表标注的人工抽检</td>
+</tr>
+<tr>
+<td>跨模态检索</td>
+<td>文本→图、图→文本、图表/表格问题的 Recall@K 与定位正确率</td>
+</tr>
+<tr>
+<td>Grounding 与 Citation</td>
+<td>主张是否由指定页、区域、行列或时间段支持；引用能否访问</td>
+</tr>
+<tr>
+<td>时效性</td>
+<td>新版本图表、替换图片和撤销视频在固定查询时刻是否正确生效</td>
+</tr>
+<tr>
+<td>鲁棒性</td>
+<td>压缩、旋转、裁剪、OCR 噪声、无关图片和冲突字幕下的结果变化</td>
+</tr>
+<tr>
+<td>安全与效用</td>
+<td>恶意图片文字、PDF 隐藏层、音频提示注入下的攻击成功率和正常任务效用</td>
+</tr>
+</tbody>
+</table>
+<p>不要只用“VQA 答对率”代表系统质量：它既看不到是否找到了正确媒体，也看不到答案是否引用了错误页、泄露了无权文件或使用了过期版本。评测设计和 Citation/时效/鲁棒性指标见<a href="../05-generation-evaluation/18-rag-evaluation.html">第十八章</a>。</p>
+<h2 id="217-security">21.7 Security：媒体同样是不可信输入</h2>
+<p>图片内文字、PDF 隐藏层、字幕、元数据和工具返回的 URL 都可能携带间接 Prompt Injection。视觉分隔框、<code>&lt;image&gt;</code> 标签或“以下内容只是数据”的提示可辅助归因，<strong>不是安全边界</strong>。主防线仍是检索 ACL、处理不可信媒体的能力隔离、确定性数据流/参数校验、出口控制和高风险操作确认（见<a href="../06-operations-security/20-rag-challenges-security.html">第二十章</a>与<a href="../../agent/05-production/15-agent-security.html">Agent 安全</a>）。</p>
+<p>特别注意：缩略图、OCR 文本、向量、缓存和日志都是原件的派生副本，必须受相同的租户、保留和删除策略约束。</p>
+<h2 id="218">21.8 本章总结</h2>
+<ol>
+<li>保留可版本化的原始媒体，并让所有派生单元可回链到页、区域或时间段；</li>
+<li>文本、视觉、表格和时序证据需要各自合适的表示；同维向量不自动兼容；</li>
+<li>多路检索与融合必须按任务实测和校准，低置信度应拒答或升级核验；</li>
+<li>Grounding 的标准是可访问、可定位且真正支撑主张的原始证据；</li>
+<li>评测覆盖摄取、跨模态检索、Citation、时效、鲁棒性与安全效用；</li>
+<li>媒体是潜在不可信输入，Prompt 分隔不能代替能力和数据流隔离。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2103.00020">Learning Transferable Visual Models From Natural Language Supervision (CLIP)</a></li>
+<li><a href="https://arxiv.org/abs/2407.01449">ColPali: Efficient Document Retrieval with Vision Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2510.12323">RAG-Anything: All-in-One RAG Framework</a></li>
+<li><a href="https://arxiv.org/abs/2005.11401">Retrieval-Augmented Generation for Knowledge-Intensive NLP Tasks</a></li>
+<li><a href="https://arxiv.org/abs/2302.12173">Not what you've signed up for: Compromising Real-World LLM-Integrated Applications with Indirect Prompt Injection</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

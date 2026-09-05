@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LangChain 与 LlamaIndex · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="LangChain 与 LlamaIndex — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>生态与演进</span> / <span>LangChain 与 LlamaIndex</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="langchain-llamaindex">第七章：LangChain 与 LlamaIndex 的分工</h1>
+<h2 id="71">7.1 为什么容易混淆</h2>
+<p>两个框架都支持模型调用、Tools、RAG、Agent 和 Workflow。只看功能清单，很容易得出「它们差不多」的结论。</p>
+<blockquote>
+<p>更有区分度的是设计重心：</p>
+<ul>
+<li><strong>LangChain</strong> 更关心如何<strong>统一模型与工具，并快速组装通用 Agent</strong>；</li>
+<li><strong>LlamaIndex</strong> 更关心如何把<strong>私有数据加工成高质量上下文</strong>，再交给模型或 Agent 使用。</li>
+</ul>
+</blockquote>
+<h2 id="72">7.2 核心区别</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>LangChain</th>
+<th>LlamaIndex</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>设计重心</strong></td>
+<td>通用 Agent 组装和工具集成</td>
+<td>数据接入与上下文增强</td>
+</tr>
+<tr>
+<td><strong>主要优势</strong></td>
+<td>模型、Tools、中间件和第三方集成</td>
+<td>文档处理、索引、检索和重排</td>
+</tr>
+<tr>
+<td><strong>常见场景</strong></td>
+<td>工具型 Agent、SQL Agent、业务助手</td>
+<td>企业知识库、文档 Agent、复杂 RAG</td>
+</tr>
+<tr>
+<td><strong>复杂流程</strong></td>
+<td>通过 LangGraph 管理状态、恢复和人工介入</td>
+<td>使用 Workflows，或与 LangGraph 组合</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>这张表比较的是优势重心，不是能力边界。</strong> LangChain 也有完整的 RAG 组件，LlamaIndex 也能创建 Agent；<strong>区别在于哪一套抽象更贴近项目的主要问题</strong>。</p>
+</blockquote>
+<h2 id="73-langchain">7.3 LangChain 强在哪里</h2>
+<p><strong>如果项目需要接入多个模型、搜索、数据库、浏览器、MCP Server 和公司内部 API</strong>，最大的工程成本往往是<strong>不同接口之间的适配</strong>。</p>
+<pre class="mermaid">flowchart TB
+    A["统一 Model / Message / Tool / Structured Output 接口<br/>屏蔽厂商差异"] --> B["create_agent 组装模型与工具"]
+    B --> C["Middleware 统一加入<br/>权限、重试、摘要、动态模型选择、人工审批"]
+    C --> D["流程复杂到需要精细控制分支、并行和恢复时<br/>继续下沉到 LangGraph<br/>不必推翻已定义好的模型与工具"]
+
+    style D fill:#e6f4ea
+</pre>
+
+<p><strong>它的主要难点</strong>：让模型<strong>选对工具、填对参数</strong>，并把权限、重试和审批统一接入调用过程。</p>
+<blockquote>
+<p><strong>LangGraph 是 LangChain Agent 的底层运行时。</strong> 简单的模型与工具循环用 <code>create_agent</code> 即可；出现复杂分支、并行、暂停恢复和人工审批时，才显式编写状态图。</p>
+</blockquote>
+<h2 id="74-llamaindex">7.4 LlamaIndex 强在哪里</h2>
+<p><strong>真实 RAG 项目的困难通常不止是把文档放进向量数据库。</strong></p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>真实困难</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>数据刚进来</strong></td>
+<td>PDF 表格、跨页内容、切分方式、元数据；同一制度多个版本，<strong>要判断哪一份仍然有效</strong></td>
+</tr>
+<tr>
+<td><strong>查询阶段</strong></td>
+<td>决定走向量检索、关键词检索还是结构化数据库</td>
+</tr>
+<tr>
+<td><strong>多路结果回来后</strong></td>
+<td>过滤、重排、<strong>处理冲突</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>难点沿着「数据进入 → 建立索引 → 发起检索 → 组织上下文」一路传递，而不是某一个向量库能单独解决。</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    A["数据接入"] --> B["解析与切分"] --> C["索引"] --> D["检索与重排"] --> E["Query Engine"] --> F["Agent"]
+
+    style B fill:#e8f0fe
+    style D fill:#e8f0fe
+</pre>
+
+<blockquote>
+<p><strong>LlamaIndex 把「如何得到高质量上下文」当作主要工程问题。</strong></p>
+</blockquote>
+<p>企业文档、多数据源路由和复杂检索是它更自然的应用入口。</p>
+<p>更准确地说，<strong>LlamaIndex 的优势重心在数据</strong>，而不是「只能做 RAG」——它同样提供 Agent 和事件驱动 Workflow。</p>
+<h2 id="75">7.5 应该如何选型</h2>
+<p>选型时先看项目最怕哪类风险。</p>
+<table>
+<thead>
+<tr>
+<th>项目主要风险</th>
+<th>优先评估</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>模型和业务工具太多，集成复杂</td>
+<td><strong>LangChain</strong></td>
+<td>通用组件和工具接口更自然</td>
+</tr>
+<tr>
+<td>文档解析、切分和检索质量差</td>
+<td><strong>LlamaIndex</strong></td>
+<td>数据与上下文链路抽象更细</td>
+</tr>
+<tr>
+<td>流程需要暂停恢复和人工审批</td>
+<td><strong>LangGraph</strong>，可搭配 LangChain</td>
+<td>状态与执行控制是核心能力</td>
+</tr>
+<tr>
+<td>同时需要复杂检索和复杂流程</td>
+<td><strong>LlamaIndex + LangChain/LangGraph</strong></td>
+<td>数据层与编排层分别选合适组件</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>如果只是简单知识库或单工具 Agent，没有必要为了架构完整同时引入两套框架。</strong></p>
+<p>组合会增加依赖、追踪和调试成本，<strong>只有当两边确实解决独立难题时才值得</strong>。</p>
+</blockquote>
+<h2 id="76">7.6 两者如何组合</h2>
+<p><strong>最常见的组合边界是 Tool。</strong></p>
+<pre><code class="language-python"># LlamaIndex Query Engine 被包装成 LangChain 可以调用的 Tool
+@tool
+def search_company_knowledge(question: str) -&gt; str:
+    &quot;&quot;&quot;查询企业知识库。&quot;&quot;&quot;
+    return str(query_engine.query(question))
+
+# LangChain Agent 负责判断何时查询知识库，何时调用订单工具
+agent = create_agent(
+    model=chat_model,
+    tools=[search_company_knowledge, lookup_order],
+)
+</code></pre>
+<table>
+<thead>
+<tr>
+<th>层</th>
+<th>谁负责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>数据加载、构建索引、Query Engine</td>
+<td><strong>LlamaIndex</strong></td>
+</tr>
+<tr>
+<td>判断什么时候调用、工具选择</td>
+<td><strong>LangChain Agent</strong></td>
+</tr>
+<tr>
+<td>审批、重试、恢复</td>
+<td><strong>LangGraph</strong></td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>这段代码表达的重点是职责边界。</strong> 生产环境还需要补充<strong>租户权限、引用来源、超时和可观测性</strong>。</p>
+</blockquote>
+<h2 id="77">7.7 常见错误</h2>
+<h3 id="771-langchain-chainllamaindex-rag">7.7.1 用「LangChain 做 Chain，LlamaIndex 做 RAG」这个过时标签</h3>
+<p><strong>两者都能做 Agent、工具调用和 RAG</strong>，区别是设计重心。</p>
+<h3 id="772-langchain-prompt-chain">7.7.2 以为 LangChain 只会把 Prompt 串成 Chain</h3>
+<p><strong>当前主线已经转向 Agent</strong>，固定流程才由 Runnable 和 LCEL 承担。</p>
+<h3 id="773-llamaindex">7.7.3 以为 LlamaIndex 是向量数据库</h3>
+<p><strong>它能连接向量库，但本身是数据处理、索引、检索与上下文组织的抽象。</strong></p>
+<h3 id="774">7.7.4 按功能清单比框架</h3>
+<p><strong>功能重叠不代表设计重心相同</strong>，要看哪套抽象更贴近你的主要难题。</p>
+<h3 id="775">7.7.5 认为必须二选一</h3>
+<p>可以通过 <strong>Tool 或服务接口</strong>组合。</p>
+<h3 id="776">7.7.6 为了架构完整同时引入两套</h3>
+<p><strong>简单知识库或单工具 Agent 不需要</strong>，多一套依赖只增加调试成本。</p>
+<h3 id="777-rag">7.7.7 把 RAG 难点简化成「选个向量库」</h3>
+<p><strong>难点沿数据进入 → 索引 → 检索 → 组上下文一路传递。</strong></p>
+<h3 id="778">7.7.8 组合时忘了生产要素</h3>
+<p>租户权限、引用来源、超时、可观测性<strong>都不会自动来</strong>。</p>
+<h2 id="78">7.8 本章总结</h2>
+<ol>
+<li><strong>不要再用过时标签</strong>，两者都能做 Agent、工具调用和 RAG；</li>
+<li><strong>真正的区别是设计重心</strong>：LangChain 偏通用 Agent 组装与工具集成，LlamaIndex 偏数据接入与上下文增强；</li>
+<li><strong>LangChain 的价值在屏蔽接口差异</strong>：统一 Model / Message / Tool / 结构化输出，再用 <code>create_agent</code> 组装，Middleware 统一横切；</li>
+<li><strong>复杂流程可以从 LangChain 下沉到 LangGraph</strong>，不必推翻已有模型与工具定义；</li>
+<li><strong>LlamaIndex 的价值在把「如何得到高质量上下文」当成核心工程问题</strong>，链路拆得更细；</li>
+<li><strong>RAG 的困难是链式传递的</strong>，不是某个向量库能单独解决；</li>
+<li><strong>选型先看项目最怕哪类风险</strong>，再决定优先评估谁；</li>
+<li><strong>最常见的组合边界是 Tool</strong>：LlamaIndex 管数据与检索，LangChain 管模型和工具选择，LangGraph 管状态与恢复；</li>
+<li><strong>组合有成本</strong>，只有两边各自存在独立难题时才值得。</li>
+</ol>
+<blockquote>
+<p>可以把分界记成这样：LangChain 先解决模型与工具怎么统一和调度，LlamaIndex 先解决私有数据怎么变成高质量上下文；两类问题同时存在时，再用 Tool 把它们接起来。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langchain/overview">LangChain 官方文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/agents">LangChain: Agents 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langchain/retrieval">LangChain: Retrieval 概念文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+<li><a href="https://docs.llamaindex.ai/">LlamaIndex 官方文档</a></li>
+<li><a href="https://docs.llamaindex.ai/en/stable/understanding/agent/">LlamaIndex: Building an Agent</a></li>
+<li><a href="https://docs.llamaindex.ai/en/stable/understanding/workflows/">LlamaIndex: Workflows</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

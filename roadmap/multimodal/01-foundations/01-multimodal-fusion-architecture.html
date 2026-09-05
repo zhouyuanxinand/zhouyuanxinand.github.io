@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多模态表征与融合架构 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="多模态表征与融合架构 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>多模态 AI</span> / <span>基础与架构</span> / <span>多模态表征与融合架构</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第一章：多模态表征与融合架构</h1>
+<blockquote>
+<p>本章聚焦"不同模态的信号如何在架构层面接入同一个模型"这一具体问题。多模态模型的整体训练/推理/评测/安全概览见 <a href="../../llm/06-multimodal/23-multimodal-models.html">LLM · 多模态模型</a>，本章只展开其中的融合架构维度，不重复该章已有内容。</p>
+</blockquote>
+<h2 id="11">1.1 融合发生在流水线的哪一步</h2>
+<p>“融合”指的是模态特征与语言表示合并、开始互相影响彼此计算的位置。这个位置越靠前，模型对跨模态交互建模的能力理论上越强，但训练成本、数据需求和工程复杂度也越高。</p>
+<pre class="mermaid">flowchart LR
+    subgraph Late["Late Fusion / Adapter"]
+        L1[冻结或微调的视觉编码器] --> L2[Projector] --> L3[语言模型主干]
+    end
+    subgraph Cross["Cross-Attention Fusion"]
+        C1[视觉编码器] --> C2[Resampler] --> C3["语言模型<br/>交叉注意力层"]
+    end
+    subgraph Early["Early Fusion / 统一 Token 化"]
+        E1[图像离散化] --> E4[统一 Token 序列]
+        E2[音频离散化] --> E4
+        E3[文本 Token] --> E4
+        E4 --> E5[单一 Transformer<br/>联合建模]
+    end
+</pre>
+
+<p>三条路线并非互斥的历史阶段，而是当前同时在用的三类工程取舍：</p>
+<table>
+<thead>
+<tr>
+<th>路线</th>
+<th>融合位置</th>
+<th>典型代表</th>
+<th>核心取舍</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Late Fusion / Adapter</td>
+<td>语言模型输入层，特征投影后与文本 token 拼接</td>
+<td>LLaVA、Qwen-VL 早期版本</td>
+<td>复用现成 LLM 和视觉 encoder，训练成本低；长序列占满上下文</td>
+</tr>
+<tr>
+<td>Cross-Attention Fusion</td>
+<td>语言模型中间层，通过专门的交叉注意力子层读取模态特征</td>
+<td>Flamingo、IDEFICS</td>
+<td>视觉 token 数不占用文本上下文；架构改动更大，需从头设计交叉层</td>
+</tr>
+<tr>
+<td>Early Fusion / 统一 Token 化</td>
+<td>输入层之前，多模态先统一离散化为同构 token 序列</td>
+<td>Chameleon、GPT-4o（原生多模态）</td>
+<td>单一目标函数联合建模所有模态；数据配比和训练稳定性要求高</td>
+</tr>
+</tbody>
+</table>
+<h2 id="12-late-fusion">1.2 Late Fusion：投影拼接架构</h2>
+<p>Late Fusion 架构把问题拆成两段：先用专门的编码器 $E_v$ 把图像编码为特征，再用一个轻量的 projector $C$（通常是 MLP 或线性层）把特征投影到语言模型的隐藏维度，最后与文本 token 拼接后一起送入语言模型：</p>
+<p>$$
+z=E_v(x_{\mathrm{img}}),\qquad h=C(z),\qquad
+p(y\mid x_{\mathrm{img}},x_t)=\mathrm{LLM}([h;\,\mathrm{Embed}(x_t)])
+$$</p>
+<p>LLaVA 的训练分两阶段：先只训练 projector，让视觉特征对齐到语言模型已有的词嵌入空间；再解冻语言模型（或用 LoRA）做指令微调，让模型学会用视觉证据回答问题、遵循格式。这个两阶段设计的关键前提是：语言模型的推理能力在预训练阶段已经具备，projector 只需要学会"翻译"，不需要重新教会模型如何推理。</p>
+<p>这条路线最大的工程痛点是<strong>视觉 token 数量</strong>。一张图像切分为 patch 后往往产生几百到上千个 token，多图或高分辨率输入会迅速占满上下文窗口、拉长 prefill 时间。Resampler（见 1.3 节）和 token 压缩/剪枝是常见的缓解手段。</p>
+<h2 id="13-cross-attention-fusion">1.3 Cross-Attention Fusion：不占用文本上下文的读取方式</h2>
+<p>Flamingo 提出的架构把语言模型本身冻结，在其内部插入新的 <strong>gated cross-attention</strong> 层：语言 token 作为 Query，通过交叉注意力从视觉特征中按需读取信息，而不是把视觉 token 拼接进输入序列。</p>
+<p>$$
+\mathrm{Attn}(Q,K,V)=\mathrm{softmax}!\left(\frac{QK^{\top}}{\sqrt{d_k}}\right)V,\qquad
+Q=W_qh_t,\ K=W_kz,\ V=W_vz
+$$</p>
+<p>其中 $h_t$ 是语言模型隐藏状态，$z$ 是视觉特征。新增的交叉注意力层用一个可学习的门控标量 $\tanh(\alpha)$ 加权，$\alpha$ 初始化为零，这样训练一开始新层的输出接近零，语言模型的原有能力不会被破坏，随训练逐步"学会"引入视觉信息。</p>
+<p>在把原始特征喂给交叉注意力之前，Flamingo 和后续工作（如 IDEFICS）通常先用一个 <strong>Perceiver Resampler</strong> 把变长、数量巨大的视觉特征压缩为固定数量（例如 64 个）的 latent token。Resampler 本身是一组可学习的 latent 向量，通过交叉注意力反复"查询"原始特征来提炼信息：</p>
+<p>$$
+\ell^{(i+1)}=\mathrm{CrossAttn}(\ell^{(i)},z)+\ell^{(i)}
+$$</p>
+<p>这种设计把"视觉 token 数量"和"原始特征分辨率"解耦：无论输入多少帧、多高分辨率，语言模型看到的始终是固定长度的压缩表示，代价是可能丢失细粒度细节（小物体、密集文字）。</p>
+<h2 id="14-early-fusion-token">1.4 Early Fusion：统一 Token 化架构</h2>
+<p>Late Fusion 和 Cross-Attention 都保留了"语言模型为主、视觉为辅"的不对称结构。Early Fusion 走另一条路：把图像（有时还包括音频）先离散化为和文本 token 同构的符号序列，再用<strong>同一个</strong> Transformer、<strong>同一个</strong>自回归目标联合建模所有模态。</p>
+<p>离散化通常基于 VQ-VAE / VQGAN 一类向量量化方法：编码器把图像映射到连续特征，再从一个学习到的 codebook ${e_k}_{k=1}^{K}$ 中找最近邻，把每个位置替换成离散编码索引：</p>
+<p>$$
+z_q=e_k,\quad k=\arg\min_j\lVert z_e-e_j\rVert_2
+$$</p>
+<p>得到的离散 token 序列可以和文本 token 直接拼接进同一个词表，模型不再区分"这是图像 token 还是文本 token"，而是统一做下一 token 预测。Meta 的 Chameleon 是这一路线的公开代表：图像和文本共享同一个 token 空间和同一个 Transformer 权重，训练目标从头就是混合模态的语言建模，而不是先训练纯文本模型再"外挂"视觉模块。OpenAI 的 GPT-4o 系统卡片同样将其描述为跨文本、视觉、音频端到端训练的原生模型，而非独立组件拼接的管线。</p>
+<p>Early Fusion 的收益是模型可以在同一组权重和注意力模式里自由建立跨模态关联，不受"projector 只做一次性翻译"或"cross-attention 只读取压缩特征"的结构限制；代价是训练数据配比、序列长度和优化稳定性的工程复杂度显著上升——图像离散化后的 token 序列通常远长于对应的文本描述，需要专门的数据配比和课程设计（详见 <a href="../05-data-training-evaluation/09-multimodal-data-alignment.html">第九章</a>）。</p>
+<h2 id="15-embedding">1.5 统一 Embedding 空间：对齐而非生成</h2>
+<p>以上三条路线都服务于"理解或生成"，还有一类架构目标不同：不产出文本，而是把不同模态映射到<strong>同一个可比较的向量空间</strong>，用于检索、路由和跨模态匹配。</p>
+<p>CLIP 用图文对比学习训练一对独立编码器 $E_v,E_t$，让匹配的图文对在同一空间里余弦相似度更高：</p>
+<p>$$
+\mathcal{L}=-\frac{1}{N}\sum_{i=1}^{N}\log\frac{\exp(\mathrm{sim}(v_i,t_i)/\tau)}{\sum_{j=1}^{N}\exp(\mathrm{sim}(v_i,t_j)/\tau)}
+$$</p>
+<p>这是标准的 InfoNCE 形式：$\mathrm{sim}$ 通常取归一化向量点积，$\tau$ 是温度系数，分母对一个批次内的所有图文对做归一化，让匹配对的相似度相对其余负样本最大化。SigLIP 用 sigmoid 损失替代了 softmax 版本的对比损失，去掉了对全局归一化项的依赖，使大批次训练更稳定、也更容易扩展。</p>
+<p>ImageBind 把这一思路扩展到六种模态（图像、文本、音频、深度、热成像、IMU），核心发现是：<strong>只需要把每种模态分别与图像对齐，就能让所有模态在同一空间里两两可比</strong>，不需要为每一对模态单独收集配对数据。这类统一 embedding 常被用作检索路由的第一层，而不是直接承担生成任务；多模态 RAG 中如何使用图文共享向量空间做召回，见 <a href="../../rag/04-advanced/21-multimodal-rag.html">RAG · 多模态 RAG</a>。</p>
+<h2 id="16">1.6 架构对比与选型</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Late Fusion</th>
+<th>Cross-Attention</th>
+<th>Early Fusion（统一 Token）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>训练成本</td>
+<td>低，可复用预训练 LLM</td>
+<td>中，需从头训练新增层</td>
+<td>高，通常需要从预训练阶段就联合设计</td>
+</tr>
+<tr>
+<td>上下文占用</td>
+<td>视觉 token 直接占用文本上下文</td>
+<td>可通过 Resampler 压缩为固定长度</td>
+<td>视觉 token 与文本 token 共享同一序列</td>
+</tr>
+<tr>
+<td>跨模态交互深度</td>
+<td>浅，仅输入层拼接</td>
+<td>中，语言模型每层都可查询视觉特征</td>
+<td>深，同一组权重联合建模</td>
+</tr>
+<tr>
+<td>工程复杂度</td>
+<td>低</td>
+<td>中</td>
+<td>高</td>
+</tr>
+<tr>
+<td>典型场景</td>
+<td>快速在现有 LLM 上加视觉能力</td>
+<td>需要处理多图/多帧、控制上下文成本</td>
+<td>追求原生统一的多模态生成与理解</td>
+</tr>
+</tbody>
+</table>
+<p>选型不是"哪个更先进"的问题，而是应该先问：现有语言模型能否复用、上下文预算是否紧张、是否需要模型原生生成图像/音频（而不仅是理解）。这三个问题的答案共同决定了合适的融合位置。</p>
+<h2 id="17">1.7 常见错误</h2>
+<h3 id="171">1.7.1 把"能接收图片输入"等同于某种特定融合架构</h3>
+<p>接口层面支持多模态输入的产品，底层可能是上述任意一种架构，甚至是"先用独立模型做 caption 再喂给纯文本 LLM"的外部管线。不看架构报告或技术卡片就假设某个能力（如多图交互、细粒度定位）默认存在，是常见的评测误判来源。</p>
+<h3 id="172-embedding">1.7.2 混淆"统一 Embedding 空间"与"统一生成架构"</h3>
+<p>CLIP、SigLIP、ImageBind 这类模型解决的是跨模态检索与对齐问题，不直接具备生成图像或文本的能力；Chameleon、GPT-4o 这类模型才是"同一组权重联合生成多模态输出"的架构。两者常被笼统称为"统一多模态模型"，但训练目标和适用任务完全不同。</p>
+<h3 id="173-resampler">1.7.3 认为 Resampler 压缩没有代价</h3>
+<p>固定数量的 latent token 提升了效率和上下文可控性，但对密集文字、小物体和精细空间关系的保留能力通常弱于未压缩的高分辨率 patch 特征。需要 OCR 级别精度的任务应实测该压缩是否损失了必要细节，相关评测口径见 <a href="../02-vision-document/03-ocr-document-ai.html">OCR 与 Document AI</a>。</p>
+<h2 id="18">1.8 本章总结</h2>
+<ol>
+<li>融合架构按"模态特征何时、何处与语言表示合并"可分为 Late Fusion、Cross-Attention Fusion 和 Early Fusion（统一 Token 化）三类；</li>
+<li>Late Fusion 用 projector 把视觉特征投影后拼接进文本序列，简单但占用上下文；</li>
+<li>Cross-Attention Fusion 通过新增的门控交叉注意力层和 Resampler，把视觉 token 压缩为固定长度、不占用文本上下文，代价是架构改动更大；</li>
+<li>Early Fusion 把多模态先离散化为同构 token，用单一 Transformer 联合建模，跨模态交互最深但训练工程复杂度最高；</li>
+<li>统一 Embedding 空间（CLIP、SigLIP、ImageBind）解决的是对齐与检索问题，与上述生成式架构是不同的问题维度，不应混为一谈。</li>
+</ol>
+<blockquote>
+<p>选融合架构时，先看现有 LLM 是否要复用、上下文预算是否紧张、是否需要原生生成；答案不同，对应的融合位置也不同。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2103.00020">CLIP: Learning Transferable Visual Models From Natural Language Supervision</a></li>
+<li><a href="https://arxiv.org/abs/2303.15343">Sigmoid Loss for Language Image Pre-Training (SigLIP)</a></li>
+<li><a href="https://arxiv.org/abs/2305.05665">ImageBind: One Embedding Space To Bind Them All</a></li>
+<li><a href="https://arxiv.org/abs/2204.14198">Flamingo: a Visual Language Model for Few-Shot Learning</a></li>
+<li><a href="https://arxiv.org/abs/2107.14795">Perceiver IO: A General Architecture for Structured Inputs &amp; Outputs</a></li>
+<li><a href="https://arxiv.org/abs/2304.08485">LLaVA: Visual Instruction Tuning</a></li>
+<li><a href="https://arxiv.org/abs/2405.09818">Chameleon: Mixed-Modal Early-Fusion Foundation Models</a></li>
+<li><a href="https://arxiv.org/abs/1711.00937">Neural Discrete Representation Learning (VQ-VAE)</a></li>
+<li><a href="https://arxiv.org/abs/2012.09841">Taming Transformers for High-Resolution Image Synthesis (VQGAN)</a></li>
+<li><a href="https://openai.com/index/gpt-4o-system-card/">OpenAI GPT-4o System Card</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

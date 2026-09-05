@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>高级 RAG 范式 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="高级 RAG 范式 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>高级与多模态</span> / <span>高级 RAG 范式</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rag">第十五章：高级 RAG 范式</h1>
+<h2 id="151-rag">15.1 三代 RAG 的演进逻辑</h2>
+<p>理解这些范式时，关键是看每一代解决了上一代的什么问题，而不是只列名字。</p>
+<pre class="mermaid">flowchart LR
+    N[Naive RAG<br/>检索一次 直接生成] --> A[Advanced RAG<br/>检索前后加优化环节]
+    A --> M[Modular RAG<br/>组件化 可编排 可循环]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>代际</th>
+<th>结构</th>
+<th>解决了什么</th>
+<th>遗留问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Naive RAG</td>
+<td>检索 → 拼接 → 生成，<strong>一次性、单向</strong></td>
+<td>让模型能用外部知识</td>
+<td>检索质量差、无质量把关</td>
+</tr>
+<tr>
+<td>Advanced RAG</td>
+<td>加入 Query 改写、混合召回、Rerank、上下文压缩</td>
+<td>大幅提升检索质量</td>
+<td><strong>流程仍是固定的一条直线</strong></td>
+</tr>
+<tr>
+<td>Modular RAG</td>
+<td>组件化，支持路由、循环、条件分支</td>
+<td>能按需组合与迭代</td>
+<td>复杂度和成本上升</td>
+</tr>
+</tbody>
+</table>
+<blockquote>
+<p><strong>从第二代到第三代的本质变化，是流程从「固定直线」变成了「可以根据中间结果改变走向」。</strong></p>
+</blockquote>
+<p>而当这个「改变走向」的决策权交给 LLM 自己时，就演变成了 Agentic RAG（15.6）。</p>
+<h2 id="152-self-rag">15.2 Self-RAG：让模型自己决定要不要检索、检索得对不对</h2>
+<p>Self-RAG 的做法是训练模型在生成过程中输出特殊的<strong>反思标记</strong>，用来自我判断：</p>
+<table>
+<thead>
+<tr>
+<th>判断</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>需不需要检索</td>
+<td>这个问题是否需要外部知识</td>
+</tr>
+<tr>
+<td>检索到的内容相关吗</td>
+<td>每个片段是否与问题相关</td>
+</tr>
+<tr>
+<td>生成的内容被材料支撑吗</td>
+<td>输出是否有依据</td>
+</tr>
+<tr>
+<td>这个回答有用吗</td>
+<td>整体质量评估</td>
+</tr>
+</tbody>
+</table>
+<p><strong>它解决的问题</strong>：Naive RAG 是「无条件检索、无条件使用」，既浪费（不需要检索时也检索），又危险（检索到不相关内容也硬用）。</p>
+<p>这些反思能力是<strong>训练出来的</strong>，需要专门的训练数据和微调流程。<strong>很多工程实现只是借用了它的思路（用提示让模型做类似判断），而不是复现原论文的训练方法</strong>，两者不能混为一谈。</p>
+<h2 id="153-crag">15.3 CRAG：检索质量不行时怎么补救</h2>
+<p>这里有一个常见的命名歧义：</p>
+<blockquote>
+<p><strong>Corrective RAG（一种方法）和 CRAG Benchmark（一个评测基准）是完全不同的两个东西，不要混淆。</strong></p>
+</blockquote>
+<p>Corrective RAG 的做法是用一个轻量的评估器给检索结果打分，再按分数分三档处理：</p>
+<pre class="mermaid">flowchart TB
+    R[检索结果] --> E[轻量评估器打分]
+    E -->|正确| C[精炼: 去掉无关部分 保留核心]
+    E -->|错误| W[丢弃 改用外部搜索]
+    E -->|模糊| A[两者结合]
+    C --> G[生成]
+    W --> G
+    A --> G
+</pre>
+
+<p><strong>它的价值在于承认了一个现实：检索是会失败的，系统需要有失败后的补救路径。</strong> 这比「检索到什么就用什么」进了一大步。</p>
+<p><strong>工程上的简化实现</strong>：不一定要训练专门的评估器，用 Rerank 分数做阈值判断 + 触发降级路径（换检索策略、扩大范围、或直接拒答），就能拿到大部分收益。</p>
+<h2 id="154-raptor">15.4 RAPTOR：把知识组织成树</h2>
+<p><strong>要解决的问题</strong>：普通 RAG 检索的是<strong>平铺的片段</strong>，无法回答需要综合整篇甚至整个语料的问题（「这份报告的核心结论是什么」）。</p>
+<p>RAPTOR 的流程如下：</p>
+<ol>
+<li>把所有 chunk 向量化后<strong>聚类</strong>；</li>
+<li>对每个簇用 LLM 生成<strong>摘要</strong>；</li>
+<li>把摘要也向量化，<strong>再聚类、再摘要</strong>，递归向上，形成一棵树；</li>
+<li>检索时<strong>同时在所有层级上检索</strong>——细节问题命中叶子节点，宏观问题命中高层摘要。</li>
+</ol>
+<pre class="mermaid">flowchart TB
+    ROOT[顶层摘要<br/>全局视角] --> M1[中层摘要 1]
+    ROOT --> M2[中层摘要 2]
+    M1 --> L1[原始 chunk]
+    M1 --> L2[原始 chunk]
+    M2 --> L3[原始 chunk]
+    M2 --> L4[原始 chunk]
+</pre>
+
+<p><strong>效果</strong>：在需要多段落综合的长文档问答任务上，公开评测显示有显著提升。</p>
+<p><strong>代价与适用边界</strong>：</p>
+<ul>
+<li><strong>索引阶段需要大量 LLM 调用</strong>（每个簇一次摘要，逐层递归）；</li>
+<li><strong>语料更新时树需要局部甚至整体重建</strong>；</li>
+<li><strong>语料规模小于两百页左右时，收益边际递减</strong>——因为整篇本来就装得下。</li>
+</ul>
+<h2 id="155">15.5 各范式对应的痛点</h2>
+<table>
+<thead>
+<tr>
+<th>范式</th>
+<th>治的痛点</th>
+<th>成本</th>
+<th>成熟度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Self-RAG</td>
+<td>无条件检索、无质量把关</td>
+<td>需要微调（或用提示近似）</td>
+<td>学术为主</td>
+</tr>
+<tr>
+<td>Corrective RAG</td>
+<td>检索失败无补救路径</td>
+<td>中</td>
+<td>思路已被工程广泛采纳</td>
+</tr>
+<tr>
+<td>RAPTOR</td>
+<td>无法回答需要全局综合的问题</td>
+<td>索引成本高</td>
+<td>学术为主</td>
+</tr>
+<tr>
+<td>Adaptive-RAG</td>
+<td>简单问题用重策略浪费</td>
+<td>低</td>
+<td><strong>思路易落地</strong></td>
+</tr>
+<tr>
+<td>GraphRAG</td>
+<td>无法做多跳和全局主题分析</td>
+<td><strong>很高</strong></td>
+<td>见第十六章</td>
+</tr>
+<tr>
+<td>Agentic RAG</td>
+<td>单轮检索无法处理复杂任务</td>
+<td>高</td>
+<td>快速发展中</td>
+</tr>
+</tbody>
+</table>
+<h2 id="156-agentic-rag-agent">15.6 Agentic RAG：把检索变成 Agent 的工具</h2>
+<p>这是 2025–2026 年关注度很高的方向之一。</p>
+<p>Agentic RAG 的关键转变是：</p>
+<blockquote>
+<p><strong>从「固定流程中的一个步骤」，变成「Agent 可以自主决定何时调用、调用几次、怎么用结果的一个工具」。</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    Q[用户问题] --> AG[Agent 推理]
+    AG --> D{需要更多信息?}
+    D -->|是| T[调用检索工具]
+    T --> OB[观察结果]
+    OB --> AG
+    D -->|否| ANS[生成答案]
+</pre>
+
+<p>它带来的能力包括：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>多轮检索</strong></td>
+<td>第一轮结果不够，基于已知信息发起新一轮检索</td>
+</tr>
+<tr>
+<td><strong>多跳推理</strong></td>
+<td>先查出 A 的 CEO 是谁，再查这个人的信息</td>
+</tr>
+<tr>
+<td><strong>自主分解</strong></td>
+<td>复杂问题自己拆成子问题</td>
+</tr>
+<tr>
+<td><strong>多源调度</strong></td>
+<td>在向量库、SQL、网页搜索、API 之间自主选择</td>
+</tr>
+<tr>
+<td><strong>自我纠错</strong></td>
+<td>发现检索结果不对，换个查询方式重试</td>
+</tr>
+</tbody>
+</table>
+<p>相应的代价也很明确：</p>
+<ul>
+<li><strong>延迟不可预测</strong>：可能一轮结束，也可能十轮；</li>
+<li><strong>成本不可预测</strong>：每轮都是完整的 LLM 调用；</li>
+<li><strong>可能陷入循环</strong>：反复检索却不收敛，<strong>必须设最大轮次上限</strong>；</li>
+<li><strong>调试困难</strong>：执行路径每次都不同。</li>
+</ul>
+<p>工程上通常会设置硬性的最大迭代次数、总 Token 预算和超时时间。这与 Agent 系统的通用要求一致（参见 Agent 部分的相关章节）。</p>
+<h2 id="157">15.7 什么时候该上高级范式</h2>
+<p>多数情况下，不需要一开始就引入这些高级范式。</p>
+<p>第十四章已经说过——<strong>先把基础五层做对，通常比盲目叠加高级范式更有效</strong>。高级范式应该在满足以下条件时才考虑：</p>
+<pre class="mermaid">flowchart TB
+    S{基础五层<br/>都做扎实了吗?} -->|没有| BASE[回去做基础<br/>第十四章]
+    S -->|做了| E{有评测集能<br/>量化收益吗?}
+    E -->|没有| EVAL[先建评测集]
+    E -->|有| N{失败案例属于<br/>基础方案的结构性缺陷吗?}
+    N -->|不是| TUNE[继续调基础参数]
+    N -->|是| ADV[评估对应的高级范式]
+</pre>
+
+<p><strong>「结构性缺陷」的判断标准</strong>：这个问题<strong>不是调参能解决的</strong>。例如：</p>
+<ul>
+<li>需要多跳推理 → 单轮检索<strong>结构上做不到</strong> → 考虑 Agentic RAG；</li>
+<li>需要全局主题综合 → 片段检索<strong>结构上做不到</strong> → 考虑 RAPTOR 或 GraphRAG；</li>
+<li>检索失败率高且无法降低 → 考虑加入补救路径。</li>
+</ul>
+<p><strong>反之，如果失败原因是「chunk 切得不好」「没有 BM25 那一路」，那再高级的范式也救不了。</strong></p>
+<h2 id="158">15.8 常见错误</h2>
+<h3 id="1581">15.8.1 罗列范式名字不讲解决什么痛点</h3>
+<p>如果只列出范式名而不说明它们分别在解决什么问题，通常很难支撑选型判断。</p>
+<h3 id="1582-corrective-rag-crag-benchmark">15.8.2 混淆 Corrective RAG 和 CRAG Benchmark</h3>
+<p>一个是方法，一个是评测基准，名字撞车但毫不相干。</p>
+<h3 id="1583-self-rag">15.8.3 说 Self-RAG 只是加个提示词</h3>
+<p>原论文是通过训练让模型输出反思标记。工程上的提示词近似实现应该说明是简化版。</p>
+<h3 id="1584-raptor">15.8.4 忽略 RAPTOR 的索引成本和更新代价</h3>
+<p>大量 LLM 调用 + 更新需重建树，在动态语料上代价很大。</p>
+<h3 id="1585-agentic-rag">15.8.5 Agentic RAG 不设迭代上限</h3>
+<p>会陷入循环，成本和延迟不可控。</p>
+<h3 id="1586">15.8.6 基础没做好就上高级范式</h3>
+<p>这是最常见的错误。基础缺陷不会被高级范式弥补，只会被掩盖并放大成本。</p>
+<h3 id="1587">15.8.7 不区分学术方案和生产方案</h3>
+<p>多数高级范式还在学术阶段。讨论它们时应明确成熟度，不宜直接写成“已广泛应用”。</p>
+<h2 id="159">15.9 本章总结</h2>
+<ol>
+<li><strong>三代演进</strong>：Naive（固定直线）→ Advanced（前后加优化）→ Modular（可路由可循环）；本质变化是<strong>流程能否根据中间结果改变走向</strong>；</li>
+<li><strong>Self-RAG</strong> 用反思标记让模型自判是否检索、内容是否相关、生成是否有依据；原论文靠训练实现；</li>
+<li><strong>Corrective RAG</strong> 给检索结果分档处理并提供失败补救路径；<strong>注意与 CRAG Benchmark 区分</strong>；工程上可用 Rerank 阈值简化实现；</li>
+<li><strong>RAPTOR</strong> 递归聚类摘要成树，多层级检索兼顾细节与全局；索引成本高，小语料收益递减；</li>
+<li><strong>Agentic RAG</strong> 把检索变成 Agent 的工具，支持多轮、多跳、多源和自我纠错；<strong>必须设迭代上限和预算</strong>；</li>
+<li><strong>上高级范式的前提</strong>：基础五层已做扎实 + 有评测集 + 失败原因是<strong>结构性缺陷</strong>而非调参问题；</li>
+<li><strong>要诚实说明各范式的成熟度</strong>，多数仍在学术阶段。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2310.11511">Self-RAG: Learning to Retrieve, Generate, and Critique through Self-Reflection</a></li>
+<li><a href="https://arxiv.org/abs/2401.15884">Corrective Retrieval Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2401.18059">RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval</a></li>
+<li><a href="https://arxiv.org/abs/2403.14403">Adaptive-RAG: Learning to Adapt Retrieval-Augmented Large Language Models through Question Complexity</a></li>
+<li><a href="https://arxiv.org/abs/2501.09136">Agentic Retrieval-Augmented Generation: A Survey on Agentic RAG</a></li>
+<li><a href="https://arxiv.org/abs/2305.06983">Active Retrieval Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2312.10997">Retrieval-Augmented Generation for Large Language Models: A Survey</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

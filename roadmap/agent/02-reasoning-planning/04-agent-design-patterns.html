@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 设计范式 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Agent 设计范式 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>推理、规划与反思</span> / <span>Agent 设计范式</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="agent">第四章：Agent 设计范式</h1>
+<h2 id="41-agent">4.1 什么是 Agent 设计范式</h2>
+<p>Agent 设计范式描述的是：</p>
+<blockquote>
+<p><strong>Agent 如何组织推理、规划、行动、观察、验证与重试。</strong></p>
+</blockquote>
+<p>它不是某个特定框架，也不只是一个 Prompt 模板，而是一种运行时控制策略。</p>
+<p>目前最常见的三类基础范式是：</p>
+<ol>
+<li><strong>ReAct</strong>：一边观察、一边决定下一步；</li>
+<li><strong>Plan-and-Execute</strong>：先建立全局计划，再执行和动态重规划；</li>
+<li><strong>Reflection / Reflexion</strong>：通过评估、反馈和经验总结改进下一次尝试。</li>
+</ol>
+<p>这三类范式经常混用，实际系统里更常见的是分层组合：</p>
+<pre class="mermaid">flowchart TB
+    G[用户目标] --> WF[Workflow / 安全边界]
+    WF --> P[Planner / 全局计划]
+    P --> E[Executor]
+    E --> R[局部 ReAct 循环]
+    R --> V[Verifier / Evaluator]
+    V -->|通过| DONE[完成]
+    V -->|局部失败| R
+    V -->|计划失效| P
+    V -->|需要人工判断| H[Human-in-the-loop]
+</pre>
+
+<h2 id="42-react">4.2 ReAct：推理与行动交替</h2>
+<p>ReAct（Reasoning and Acting）将推理与外部行动结合起来。经典表达是：</p>
+<blockquote>
+<p><strong>Thought → Action → Observation → Thought</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    T[Thought / Decide] --> A[Action]
+    A --> O[Observation]
+    O --> T
+    T --> F[Final Answer]
+</pre>
+
+<h3 id="421-react">4.2.1 一轮 ReAct 如何运行</h3>
+<h4 id="thought">Thought</h4>
+<p>模型分析当前目标、状态和观察结果，并决定下一步策略。</p>
+<h4 id="action">Action</h4>
+<p>模型生成结构化动作，例如调用搜索工具：</p>
+<pre><code class="language-json">{
+  &quot;tool_call&quot;: {
+    &quot;name&quot;: &quot;search_web&quot;,
+    &quot;arguments&quot;: {
+      &quot;query&quot;: &quot;竞品 A 最新产品更新&quot;
+    }
+  }
+}
+</code></pre>
+<h4 id="observation">Observation</h4>
+<p>Runtime 执行 Tool，并将真实结果或错误返回给模型。模型基于新证据进入下一轮决策。</p>
+<h3 id="422-thought">4.2.2 现代实现不应暴露完整 Thought</h3>
+<p>早期 ReAct 示例会让模型显式输出 Thought。现代系统通常不依赖向用户展示完整思维链，而是保留：</p>
+<ul>
+<li>当前目标；</li>
+<li>结构化计划；</li>
+<li>Tool Call；</li>
+<li>Observation；</li>
+<li>状态变化；</li>
+<li>简洁且可验证的行动理由。</li>
+</ul>
+<p>因此，工程实现中更合适的表达是：</p>
+<blockquote>
+<p><strong>Observe → Decide → Act → Observe</strong></p>
+</blockquote>
+<p>模型可以在内部完成推理，但系统应通过工具轨迹、证据和验证结果保证可解释性，而不是依赖展示全部隐藏推理。</p>
+<h3 id="423-react">4.2.3 ReAct 的决策形式</h3>
+<p>设当前目标为 $g$、状态为 $s_t$、观察为 $o_t$、可用上下文为 $c_t$，下一步动作可表示为：</p>
+<p>$$
+a_t \sim \pi_{\theta}(a\mid g,s_t,o_t,c_t)
+$$</p>
+<p>Runtime 执行动作后得到新的观察：</p>
+<p>$$
+o_{t+1}=Env(a_t)
+$$</p>
+<p>Agent 随后更新状态：</p>
+<p>$$
+s_{t+1}=Update(s_t,a_t,o_{t+1})
+$$</p>
+<h3 id="424-react">4.2.4 ReAct 的优势</h3>
+<ul>
+<li>实现简单；</li>
+<li>能及时利用最新环境反馈；</li>
+<li>适合无法预先获得完整信息的任务；</li>
+<li>工具失败后可以立即调整；</li>
+<li>对短任务和探索性任务非常有效。</li>
+</ul>
+<h3 id="425-react">4.2.5 ReAct 的局限</h3>
+<p>ReAct 常被概括为“走一步看一步”，其主要风险包括：</p>
+<ul>
+<li>缺少全局任务结构；</li>
+<li>每次 Tool Call 通常都需要再次调用模型；</li>
+<li>容易重复搜索或调用相同工具；</li>
+<li>长任务中目标和约束可能被上下文噪音稀释；</li>
+<li>局部合理的动作未必形成全局最优路径；</li>
+<li>完成条件模糊时容易过早停止或持续循环。</li>
+</ul>
+<p>这里的“局部最优”是一个直观类比，不是严格的优化保证。模型选择的动作甚至不一定是当前局部最优，只是根据当前上下文生成的候选动作。</p>
+<h3 id="426-react">4.2.6 改进 ReAct</h3>
+<p>生产系统通常加入：</p>
+<ul>
+<li>始终可见的目标和验收条件；</li>
+<li>结构化任务状态；</li>
+<li>Todo 或阶段检查点；</li>
+<li>Tool Call 去重；</li>
+<li>无进展检测；</li>
+<li>最大步骤、时间和费用预算；</li>
+<li>周期性全局目标复核；</li>
+<li>关键步骤的外部验证。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    O[Observation] --> D[Decide]
+    D --> C{动作是否重复或越权?}
+    C -->|是| RP[重新规划或停止]
+    C -->|否| A[Action]
+    A --> U[更新结构化状态]
+    U --> G{仍符合全局目标?}
+    G -->|是| O
+    G -->|否| RP
+</pre>
+
+<h2 id="43-plan-and-execute">4.3 Plan-and-Execute：规划与执行解耦</h2>
+<p>Plan-and-Execute 将全局规划与局部执行分开。成熟实现通常包含三个角色：</p>
+<ol>
+<li><strong>Planner</strong>：生成带依赖关系的计划；</li>
+<li><strong>Executor</strong>：执行一个或多个计划步骤；</li>
+<li><strong>Replanner</strong>：根据结果更新剩余计划或结束任务。</li>
+</ol>
+<p>Planner、Executor 和 Replanner 可以使用不同模型，也可以由同一个模型在不同上下文中承担。</p>
+<pre class="mermaid">flowchart TB
+    G[目标] --> P[Planner]
+    P --> PLAN[计划 / DAG]
+    PLAN --> E[Executor]
+    E --> O[执行结果]
+    O --> V{计划仍然有效?}
+    V -->|是| N{还有步骤?}
+    N -->|是| E
+    N -->|否| DONE[完成]
+    V -->|否| RP[Replanner]
+    RP --> PLAN
+</pre>
+
+<h3 id="431">4.3.1 计划不应只是自然语言列表</h3>
+<p>一个可靠的计划步骤最好包含：</p>
+<ul>
+<li>唯一 ID；</li>
+<li>目标；</li>
+<li>依赖步骤；</li>
+<li>所需输入；</li>
+<li>推荐 Tool 或执行器；</li>
+<li>预期输出；</li>
+<li>验收条件；</li>
+<li>风险等级；</li>
+<li>失败和回退策略。</li>
+</ul>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;compare-products&quot;,
+  &quot;goal&quot;: &quot;比较竞品 A 与竞品 B 的核心能力&quot;,
+  &quot;depends_on&quot;: [&quot;research-a&quot;, &quot;research-b&quot;],
+  &quot;inputs&quot;: [&quot;artifact://research-a&quot;, &quot;artifact://research-b&quot;],
+  &quot;success_criteria&quot;: [
+    &quot;至少覆盖功能、定价和目标用户&quot;,
+    &quot;每项关键结论包含来源&quot;
+  ]
+}
+</code></pre>
+<p>结构化计划比自由文本列表更容易调度、验证和恢复。</p>
+<h3 id="432">4.3.2 动态重规划</h3>
+<p>如果计划只生成一次就不再调整，Plan-and-Execute 很快会失效。每个关键步骤完成后，Replanner 应判断：</p>
+<ul>
+<li>执行结果是否达到验收条件；</li>
+<li>关键假设是否仍然成立；</li>
+<li>后续步骤是否仍有必要；</li>
+<li>是否需要插入、删除或重排步骤；</li>
+<li>是否可以并行执行；</li>
+<li>是否需要人工确认。</li>
+</ul>
+<p>设当前计划为 $P_t$，新观察为 $o_{t+1}$，重规划可以表示为：</p>
+<p>$$
+P_{t+1}=R(P_t,o_{t+1},g,s_t)
+$$</p>
+<p>其中 $R$ 表示 Replanner。</p>
+<h3 id="433">4.3.3 动态插入步骤示例</h3>
+<p>原始计划：</p>
+<pre><code class="language-text">1. 搜索竞品 A
+2. 搜索竞品 B
+3. 对比分析
+</code></pre>
+<p>执行第一步后发现竞品 A 刚发布重大版本，计划更新为：</p>
+<pre><code class="language-text">1. 搜索竞品 A
+2. 调研竞品 A 的重大版本更新
+3. 搜索竞品 B
+4. 对比分析
+</code></pre>
+<p>此时计划仍提供全局方向，但可以根据环境反馈演化。</p>
+<h3 id="434-plan-and-execute">4.3.4 Plan-and-Execute 的优势</h3>
+<ul>
+<li>对复杂任务具有更强的全局视野；</li>
+<li>可以显式表达步骤依赖；</li>
+<li>计划可以在执行前由人工审核；</li>
+<li>容易分配不同模型和工具；</li>
+<li>可以将独立步骤并行化；</li>
+<li>更适合 checkpoint 和故障恢复。</li>
+</ul>
+<h3 id="435-plan-and-execute">4.3.5 Plan-and-Execute 的局限</h3>
+<ul>
+<li>规划和重规划增加延迟与成本；</li>
+<li>初始计划可能建立在错误假设上；</li>
+<li>规划器可能生成不可执行或过度细化的步骤；</li>
+<li>频繁重规划可能退化成高成本 ReAct；</li>
+<li>Planner 与 Executor 之间可能出现语义偏差；</li>
+<li>长计划可能在环境变化后迅速失效。</li>
+</ul>
+<p>因此，计划粒度应与任务稳定性匹配：环境变化越快，计划越应保持高层和短周期。</p>
+<h2 id="44">4.4 更先进的规划执行变体</h2>
+<h3 id="441-rewoo">4.4.1 ReWOO</h3>
+<p>ReWOO（Reasoning Without Observation）让 Planner 预先生成带变量引用的计划，执行器可以将前一步结果绑定到变量，并在后续步骤中复用。</p>
+<pre><code class="language-text">E1 = Search[&quot;本年度决赛队伍&quot;]
+E2 = LLM[&quot;从 E1 中提取第一支队伍&quot;]
+E3 = Search[&quot;E2 的核心球员数据&quot;]
+</code></pre>
+<p>它的目标之一是减少每个 Tool 执行之间都调用大型规划模型的需要。</p>
+<h3 id="442-dag-planning">4.4.2 DAG Planning</h3>
+<p>当计划包含明确依赖时，可以将其表示为有向无环图：</p>
+<pre class="mermaid">flowchart LR
+    A[调研竞品 A] --> D[对比分析]
+    B[调研竞品 B] --> D
+    C[收集行业趋势] --> E[趋势影响分析]
+    D --> F[生成报告]
+    E --> F
+</pre>
+
+<p>没有依赖的步骤可以并行执行，从而降低总延迟。</p>
+<h3 id="443-llmcompiler">4.4.3 LLMCompiler</h3>
+<p>LLMCompiler 类架构通常包含：</p>
+<ul>
+<li>Planner：生成或流式输出任务 DAG；</li>
+<li>Task Fetching Unit：依赖满足后立即调度任务；</li>
+<li>Joiner：汇总结果，并决定结束还是重新规划。</li>
+</ul>
+<p>这类设计关注的不只是规划质量，也关注执行并行度、模型调用次数和总体延迟。</p>
+<h2 id="45-reflection">4.5 Reflection：通过反馈改进结果</h2>
+<p>Reflection 在生成或执行之后加入评估环节：</p>
+<pre class="mermaid">flowchart LR
+    G[Generate / Execute] --> E[Evaluate]
+    E --> D{达到标准?}
+    D -->|是| DONE[完成]
+    D -->|否| FB[生成反馈]
+    FB --> G
+</pre>
+
+<p>评估可以发生在：</p>
+<ul>
+<li>单个步骤完成后；</li>
+<li>一个里程碑完成后；</li>
+<li>整个任务完成后；</li>
+<li>只有高风险或低置信度时。</li>
+</ul>
+<h3 id="451">4.5.1 验证器的优先级</h3>
+<p>在工程实现里，Reflection 不能停留在“让同一个 LLM 再看一遍”。只要拿得到确定性或外部验证信号，就优先用这些信号：</p>
+<ol>
+<li>编译器、单元测试和静态分析；</li>
+<li>Schema、规则和约束检查；</li>
+<li>数据库或 API 返回的真实状态；</li>
+<li>人工审核；</li>
+<li>独立模型或 LLM-as-a-Judge；</li>
+<li>同一模型的自我评价。</li>
+</ol>
+<p>越靠前的信号通常越接近可验证的客观反馈。</p>
+<h3 id="452-reflection">4.5.2 Reflection 的适用场景</h3>
+<ul>
+<li>代码生成与修复；</li>
+<li>文案和报告优化；</li>
+<li>翻译；</li>
+<li>需要来源完整性的研究；</li>
+<li>具有明确评分规则的结构化输出；</li>
+<li>可以通过模拟器或测试环境验证的任务。</li>
+</ul>
+<h3 id="453-reflection">4.5.3 Reflection 的风险</h3>
+<ul>
+<li>评估模型可能与生成模型共享相同盲点；</li>
+<li>没有明确标准时，反思可能只是改写；</li>
+<li>多轮优化可能出现质量退化；</li>
+<li>反思文本可能污染后续上下文；</li>
+<li>Agent 可能针对评分规则“投机”而非真正完成目标；</li>
+<li>成本和延迟随轮数增加。</li>
+</ul>
+<p>因此，需要最大反思轮数、最低改进阈值和清晰的成功标准。</p>
+<h2 id="46-reflexion">4.6 Reflexion：带经验记忆的反思</h2>
+<p>Reflexion 是 Reflection 的一种具体范式。它不更新模型权重，而是把任务反馈转化为自然语言经验，并将其保存在情景记忆中供下一次尝试使用。</p>
+<p>常见实现会拆成四个角色：</p>
+<ul>
+<li><strong>Actor</strong>：执行任务；</li>
+<li><strong>Evaluator</strong>：评价轨迹或结果；</li>
+<li><strong>Self-Reflection</strong>：将失败信号总结为可操作经验；</li>
+<li><strong>Episodic Memory</strong>：在后续尝试中提供这些经验。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    A[Actor] --> ENV[环境 / 工具]
+    ENV --> TRAJ[执行轨迹与结果]
+    TRAJ --> E[Evaluator]
+    E --> PASS{成功?}
+    PASS -->|是| DONE[结束]
+    PASS -->|否| SR[Self-Reflection]
+    SR --> MEM[情景记忆]
+    MEM --> A
+</pre>
+
+<h3 id="461">4.6.1 “错题本”类比</h3>
+<p>普通重试可能只是再次生成；Reflexion 会先总结：</p>
+<ul>
+<li>哪个假设错误；</li>
+<li>哪一步行动无效；</li>
+<li>哪个反馈被忽略；</li>
+<li>下一次应该采用什么不同策略。</li>
+</ul>
+<p>这些经验作为额外上下文加入下一次尝试，因此类似“做错题、分析原因、带着经验重做”。</p>
+<h3 id="462-humaneval">4.6.2 HumanEval 结果应如何解读</h3>
+<p>Reflexion 论文报告：在其 2023 年的实验设置中，基于 GPT-4 的 Reflexion 在 HumanEval 上达到 <strong>91% pass@1</strong>，论文引用的 GPT-4 基线为 <strong>80%</strong>。</p>
+<p>这个数字说明反思与执行反馈在特定实验中具有价值，但不能直接推导为：</p>
+<ul>
+<li>所有模型都能从 80% 提升到 91%；</li>
+<li>所有代码任务都能获得相同提升；</li>
+<li>生产项目中的仓库级任务也有相同效果；</li>
+<li>增加反思轮次一定持续提高质量。</li>
+</ul>
+<p>模型版本、Prompt、测试生成方式、任务分布和基准污染都会影响结果。生产系统应以自己的评估集和成本指标为准。</p>
+<h3 id="463">4.6.3 记忆污染问题</h3>
+<p>模型生成的反思不一定正确。如果未经验证就写入长期记忆，错误经验可能影响未来任务。</p>
+<p>更安全的策略是：</p>
+<ol>
+<li>默认将反思保留在当前任务的临时记忆中；</li>
+<li>使用测试、环境反馈或人工审核验证；</li>
+<li>只有稳定、可复用的经验才晋升为长期记忆、Skill 或规则；</li>
+<li>为长期经验记录来源、版本和适用范围。</li>
+</ol>
+<h2 id="47">4.7 三种范式如何组合</h2>
+<p>实际系统里常见的分层组合如下：</p>
+<pre class="mermaid">flowchart TB
+    G[目标] --> P[Plan-and-Execute<br/>生成全局里程碑]
+    P --> S1[步骤 1]
+    P --> S2[步骤 2]
+    P --> S3[步骤 N]
+
+    S1 --> R1[ReAct<br/>局部探索与工具调用]
+    S2 --> R2[ReAct<br/>局部探索与工具调用]
+    S3 --> R3[ReAct<br/>局部探索与工具调用]
+
+    R1 --> V[Reflection / Verifier]
+    R2 --> V
+    R3 --> V
+
+    V -->|局部失败| RETRY[局部重试]
+    V -->|计划失效| P
+    V -->|通过| DONE[完成]
+</pre>
+
+<p>职责划分为：</p>
+<ul>
+<li><strong>Plan-and-Execute</strong>：保持全局方向；</li>
+<li><strong>ReAct</strong>：处理局部未知和工具反馈；</li>
+<li><strong>Reflection</strong>：检查质量并产生改进反馈；</li>
+<li><strong>Workflow</strong>：限制整体路径、权限和预算。</li>
+</ul>
+<h2 id="48-agentic-workflow">4.8 Agentic Workflow：生产环境里的常见做法</h2>
+<p>Agentic Workflow 用确定性流程包围概率性决策：</p>
+<pre class="mermaid">flowchart LR
+    IN[输入] --> V[校验]
+    V --> ROUTE[固定路由]
+    ROUTE --> AG[受限 Agent 节点]
+    AG --> CHECK[确定性验证]
+    CHECK -->|通过| OUT[输出]
+    CHECK -->|可修复| AG
+    CHECK -->|高风险| HUMAN[人工审核]
+</pre>
+
+<p>以客服系统为例：</p>
+<ul>
+<li>意图识别、权限检查和输出审核由 Workflow 控制；</li>
+<li>知识检索节点可以使用 ReAct 动态决定查询方式；</li>
+<li>复杂问题使用 Plan-and-Execute 拆分；</li>
+<li>最终答案使用引用检查或 Reflection；</li>
+<li>退款、改价等操作必须经过确定性规则和人工确认。</li>
+</ul>
+<p>这种方式将自主性限制在真正需要灵活性的局部范围内。</p>
+<h2 id="49">4.9 如何选择范式</h2>
+<table>
+<thead>
+<tr>
+<th>任务特征</th>
+<th>推荐范式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>步骤少、信息需要边做边获取</td>
+<td>ReAct</td>
+</tr>
+<tr>
+<td>步骤多、依赖复杂、需要全局视野</td>
+<td>Plan-and-Execute</td>
+</tr>
+<tr>
+<td>子任务存在明确依赖且可并行</td>
+<td>DAG Planning</td>
+</tr>
+<tr>
+<td>每次工具调用都咨询大模型成本过高</td>
+<td>ReWOO 或分层执行</td>
+</tr>
+<tr>
+<td>输出质量要求高且存在验收标准</td>
+<td>Reflection</td>
+</tr>
+<tr>
+<td>希望从失败经验中改进下一次尝试</td>
+<td>Reflexion</td>
+</tr>
+<tr>
+<td>主流程稳定、局部存在未知</td>
+<td>Agentic Workflow</td>
+</tr>
+<tr>
+<td>高风险、强合规、路径完全已知</td>
+<td>确定性 Workflow</td>
+</tr>
+</tbody>
+</table>
+<p>还可以从两个基础维度判断：</p>
+<pre class="mermaid">quadrantChart
+    title Task complexity and quality requirements
+    x-axis Low complexity --> High complexity
+    y-axis Low quality requirement --> High quality requirement
+    quadrant-1 Plan-and-Execute plus Reflection
+    quadrant-2 ReAct plus Reflection
+    quadrant-3 Simple workflow
+    quadrant-4 Plan-and-Execute
+    ReAct: [0.30, 0.40]
+    Plan-and-Execute: [0.78, 0.48]
+    Reflection: [0.40, 0.82]
+    Hybrid Agent: [0.82, 0.85]
+</pre>
+
+<p>二维图只是帮助理解。实际选择还需考虑风险、延迟、成本、可验证性和环境变化速度。</p>
+<h2 id="410">4.10 停止、预算与无进展检测</h2>
+<p>所有范式都必须具有停止条件：</p>
+<ul>
+<li>达到明确成功标准；</li>
+<li>达到最大步骤数；</li>
+<li>达到 Token 或费用预算；</li>
+<li>超过运行时间；</li>
+<li>连续多轮没有产生新信息；</li>
+<li>重复相同 Tool Call；</li>
+<li>反思后评分不再改善；</li>
+<li>触发安全策略；</li>
+<li>需要人工判断；</li>
+<li>用户主动取消。</li>
+</ul>
+<p>可以定义一个受限执行预算：</p>
+<p>$$
+B=(N_{max},T_{max},C_{max},R_{max})
+$$</p>
+<p>其中：</p>
+<ul>
+<li>$N_{max}$：最大步骤数；</li>
+<li>$T_{max}$：最大运行时间；</li>
+<li>$C_{max}$：最大费用或 Token；</li>
+<li>$R_{max}$：最大重试或反思次数。</li>
+</ul>
+<p>当预算耗尽时，系统应明确报告未完成状态和已有结果，而不是伪装成成功。</p>
+<h2 id="411">4.11 生产级设计检查表</h2>
+<h3 id="react">ReAct</h3>
+<ul>
+<li>是否持续保留目标和成功标准？</li>
+<li>是否检测重复动作和无进展循环？</li>
+<li>Observation 是否来自真实工具结果？</li>
+<li>Tool 错误是否以结构化形式返回？</li>
+</ul>
+<h3 id="plan-and-execute">Plan-and-Execute</h3>
+<ul>
+<li>计划是否具有依赖、输入和验收条件？</li>
+<li>是否存在 Replanner？</li>
+<li>什么事件会触发重规划？</li>
+<li>能否只重规划受影响的局部步骤？</li>
+</ul>
+<h3 id="reflection-reflexion">Reflection / Reflexion</h3>
+<ul>
+<li>是否有客观验证器？</li>
+<li>评价标准是否明确？</li>
+<li>最大优化轮数是多少？</li>
+<li>反思是否可能污染长期记忆？</li>
+<li>改进是否值得额外延迟和成本？</li>
+</ul>
+<h3 id="agentic-workflow">Agentic Workflow</h3>
+<ul>
+<li>哪些节点必须确定执行？</li>
+<li>哪些节点确实需要 Agent 自主性？</li>
+<li>高风险动作是否经过审批？</li>
+<li>是否保留完整 Trace、状态和审计记录？</li>
+</ul>
+<h2 id="412-anthropic">4.12 Anthropic 原则的准确理解</h2>
+<p>“能用 Workflow 解决，就不要用 Agent”是对 Anthropic 工程建议的通俗概括，但不是原文中的绝对规则。</p>
+<p>更接近原意的说法是：</p>
+<blockquote>
+<p><strong>从能够满足需求的最简单方案开始，只有在更高复杂度能够带来可测量收益时，才升级为多步 Workflow 或自主 Agent。</strong></p>
+</blockquote>
+<p>Anthropic 的区分是：</p>
+<ul>
+<li>路径明确、需要一致性和可预测性时，优先使用 Workflow；</li>
+<li>路径无法预先确定、需要模型动态决策时，才使用 Agent；</li>
+<li>很多问题通过单次 LLM 调用、检索和示例优化就能解决。</li>
+</ul>
+<p>复杂度本身不是能力。只有当任务成功率、质量或可扩展性得到可验证提升时，增加 Agent 自主性才有价值。</p>
+<h2 id="413">4.13 本章总结</h2>
+<p>ReAct、Plan-and-Execute 与 Reflection 分别解决三个不同问题：</p>
+<ol>
+<li><strong>ReAct</strong>：如何根据最新环境反馈选择下一步；</li>
+<li><strong>Plan-and-Execute</strong>：如何维持复杂任务的全局结构；</li>
+<li><strong>Reflection / Reflexion</strong>：如何利用验证和失败经验提升质量。</li>
+</ol>
+<p>生产级 Agent 通常将它们组合在受控 Workflow 中：</p>
+<blockquote>
+<p><strong>Workflow 控制边界，Planner 保持方向，ReAct 处理局部未知，Verifier 提供客观反馈，Reflection 负责有限优化。</strong></p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2210.03629">ReAct: Synergizing Reasoning and Acting in Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2303.11366">Reflexion: Language Agents with Verbal Reinforcement Learning</a></li>
+<li><a href="https://www.langchain.com/blog/planning-agents">LangChain: Planning Agents</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

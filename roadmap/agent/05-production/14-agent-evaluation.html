@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 评估与 Benchmark · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Agent 评估与 Benchmark — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>评估与安全</span> / <span>Agent 评估与 Benchmark</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="agent-benchmark">第十四章：Agent 评估与 Benchmark</h1>
+<h2 id="141-agent">14.1 为什么 Agent 评估是独立问题</h2>
+<p>评估普通 LLM 和评估 Agent 是两件事。</p>
+<p>评估 LLM 时，输入是一段 Prompt，输出是一段文本，可以直接和参考答案比较。评估 Agent 时，输入是一个目标，输出是<strong>一整条执行轨迹</strong>：调用了哪些 Tool、传了什么参数、读到了什么结果、中途改了几次方向、最后改动了哪些外部状态。</p>
+<p>这带来四个普通 LLM 评估不存在的困难。</p>
+<p><strong>第一，没有唯一正确路径。</strong> 同一个任务可以先搜索再读文件，也可以先读文件再搜索，两条路径都对。因此不能用「轨迹是否匹配参考轨迹」来打分。</p>
+<p><strong>第二，结果不只是文本。</strong> Agent 可能改了数据库、提交了代码、发了邮件。正确性必须在<strong>环境状态</strong>上验证，而不是在输出文本上验证。</p>
+<p><strong>第三，行为不确定。</strong> 同一个任务跑两次可能走不同路径、得到不同结果。单次运行的分数没有统计意义。</p>
+<p><strong>第四，失败有多种形态。</strong> 任务失败、工具调用格式错误、无限循环、超预算、越权操作，这些是不同的失败，不能合并成一个「错误率」。</p>
+<pre class="mermaid">flowchart TB
+    LLM[LLM 评估] --> L1[输入: Prompt]
+    LLM --> L2[输出: 文本]
+    LLM --> L3[比较: 与参考答案]
+
+    AG[Agent 评估] --> A1[输入: 目标 + 环境]
+    AG --> A2[输出: 轨迹 + 环境状态变化]
+    AG --> A3[比较: 状态断言 + 多次采样]
+</pre>
+
+<h2 id="142">14.2 评估的四个层次</h2>
+<p>一个完整的 Agent 评估体系应该覆盖四层，从下到上分别是：</p>
+<pre class="mermaid">flowchart BT
+    L1[L1 组件层<br/>单个 Tool / Prompt / 检索] --> L2[L2 轨迹层<br/>决策序列是否合理]
+    L2 --> L3[L3 任务层<br/>端到端是否达成目标]
+    L3 --> L4[L4 系统层<br/>成本 / 延迟 / 稳定性 / 安全]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>评估对象</th>
+<th>典型指标</th>
+<th>何时用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>L1 组件层</td>
+<td>单个 Tool、单条 Prompt、检索模块</td>
+<td>参数正确率、召回率、Schema 合规率</td>
+<td>改动某个组件时的回归</td>
+</tr>
+<tr>
+<td>L2 轨迹层</td>
+<td>决策序列</td>
+<td>步数、冗余调用比例、路径合理性</td>
+<td>定位「结果对但过程差」的问题</td>
+</tr>
+<tr>
+<td>L3 任务层</td>
+<td>端到端结果</td>
+<td>任务成功率、pass@k、pass^k</td>
+<td>版本发布前的主指标</td>
+</tr>
+<tr>
+<td>L4 系统层</td>
+<td>整体运行特性</td>
+<td>Token 成本、P95 延迟、越权率、循环率</td>
+<td>上线后的持续监控</td>
+</tr>
+</tbody>
+</table>
+<p>工程里很容易只盯 L3 端到端成功率。这样做的问题是：成功时说不清为什么成功，失败时也难定位卡在哪一步。L1 和 L2 的价值就在于<strong>归因</strong>，能把一个「任务失败」继续拆到「第 3 步检索没召回」或「第 5 步工具参数填错」。</p>
+<h2 id="143-agent-benchmark">14.3 主流 Agent Benchmark 全景</h2>
+<p>理解学术基准的价值不在于刷分，而在于它们各自<strong>定义了一类能力</strong>，可以借鉴其评测设计思路来构造自己的业务评测集。</p>
+<pre class="mermaid">flowchart TB
+    B[Agent Benchmark] --> CODE[代码工程]
+    B --> WEB[网页与检索]
+    B --> GUI[操作系统与 GUI]
+    B --> TOOL[工具与对话]
+    B --> GEN[通用助手]
+
+    CODE --> SWE[SWE-bench / SWE-Lancer / Terminal-Bench]
+    WEB --> WA[WebArena / BrowseComp]
+    GUI --> OS[OSWorld]
+    TOOL --> TAU[tau-bench / tau2-bench]
+    GEN --> GA[GAIA / AgentBench / HLE]
+</pre>
+
+<h3 id="1431">14.3.1 代码工程类</h3>
+<p><strong>SWE-bench</strong> 是影响力最大的 Agent 基准。它从真实 GitHub 仓库中抽取 Issue 与对应的修复 Commit，要求 Agent 在完整仓库中定位问题、修改代码，最后用<strong>仓库自带的测试用例</strong>判定是否修复成功。</p>
+<p>它的设计有两个关键点值得借鉴：</p>
+<ol>
+<li><strong>用可执行测试而非文本相似度做判定</strong>，彻底避免了主观打分；</li>
+<li><strong>提供完整仓库而非孤立文件</strong>，迫使 Agent 具备检索与导航能力。</li>
+</ol>
+<p>由于原始数据集中存在部分描述不充分或测试不可靠的样例，后续出现了人工筛选过的 <strong>SWE-bench Verified</strong> 子集（500 题），目前是更常被引用的口径。<strong>引用分数时必须说明是哪个子集</strong>，Full、Lite、Verified 的分数不可直接比较。</p>
+<p><strong>SWE-Lancer</strong> 把任务换成真实自由职业市场上的付费软件任务，用「能赚到多少美元」作为聚合指标，更接近经济价值口径。</p>
+<p><strong>Terminal-Bench</strong> 关注纯终端环境中的任务完成能力，覆盖编译、调试、系统配置等场景。</p>
+<h3 id="1432">14.3.2 网页与检索类</h3>
+<p><strong>WebArena</strong> 构建了可复现的自托管网站环境（电商、论坛、代码托管等），任务用程序化的状态断言判定，而不是看模型说了什么。</p>
+<p><strong>BrowseComp</strong> 走向另一个方向：题目答案简短且易于验证，但需要在网络上进行<strong>深度、多跳的检索</strong>才能找到，专门用来测量「持续搜索并交叉验证」的能力。</p>
+<h3 id="1433-gui">14.3.3 操作系统与 GUI 类</h3>
+<p><strong>OSWorld</strong> 在真实操作系统中评测多模态 Agent，任务涉及跨应用操作（在浏览器里查资料再填进表格），判定同样基于最终的文件与系统状态。这类基准的难度显著高于纯文本环境，也最能暴露长程执行的稳定性问题。</p>
+<h3 id="1434">14.3.4 工具与对话类</h3>
+<p><strong>tau-bench</strong> 模拟客服场景，特点是引入了三方交互：Agent、用户模拟器、以及一份必须遵守的<strong>领域政策</strong>。它同时考察三件事：能否正确调用工具、能否与用户澄清信息、以及<strong>能否在用户提出不合规要求时拒绝</strong>。</p>
+<p><strong>tau²-bench</strong> 是其后继，引入「双向控制」：用户侧也能执行动作，Agent 需要指导用户完成操作，更贴近真实的技术支持场景。</p>
+<h3 id="1435">14.3.5 通用助手类</h3>
+<p><strong>GAIA</strong> 的设计理念是「对人类简单、对 AI 困难」。题目需要组合网页浏览、多模态理解、文件处理与推理，但答案是唯一确定的短字符串，便于自动判定。</p>
+<p><strong>AgentBench</strong> 覆盖操作系统、数据库、知识图谱、游戏等八类环境，用于横向比较不同模型的 Agent 能力。</p>
+<p><strong>Humanity's Last Exam (HLE)</strong> 不是 Agent 基准，而是极高难度的学科知识基准，常被用来配合工具使用能力做联合评测。</p>
+<h3 id="1436">14.3.6 基准对比表</h3>
+<table>
+<thead>
+<tr>
+<th>基准</th>
+<th>领域</th>
+<th>判定方式</th>
+<th>主要考察</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SWE-bench</td>
+<td>代码修复</td>
+<td>单元测试</td>
+<td>仓库导航 + 代码修改</td>
+</tr>
+<tr>
+<td>SWE-Lancer</td>
+<td>软件任务</td>
+<td>测试 + 经济价值</td>
+<td>端到端交付能力</td>
+</tr>
+<tr>
+<td>Terminal-Bench</td>
+<td>终端操作</td>
+<td>状态断言</td>
+<td>命令行与系统能力</td>
+</tr>
+<tr>
+<td>WebArena</td>
+<td>网页操作</td>
+<td>状态断言</td>
+<td>多步网页交互</td>
+</tr>
+<tr>
+<td>BrowseComp</td>
+<td>深度检索</td>
+<td>精确答案匹配</td>
+<td>多跳搜索与交叉验证</td>
+</tr>
+<tr>
+<td>OSWorld</td>
+<td>桌面 GUI</td>
+<td>文件/系统状态</td>
+<td>跨应用长程操作</td>
+</tr>
+<tr>
+<td>tau-bench</td>
+<td>客服对话</td>
+<td>数据库状态 + 政策</td>
+<td>工具 + 澄清 + 合规拒绝</td>
+</tr>
+<tr>
+<td>tau²-bench</td>
+<td>双向对话</td>
+<td>状态断言</td>
+<td>指导用户执行动作</td>
+</tr>
+<tr>
+<td>GAIA</td>
+<td>通用助手</td>
+<td>精确答案匹配</td>
+<td>多模态 + 多工具组合</td>
+</tr>
+<tr>
+<td>AgentDojo</td>
+<td>安全</td>
+<td>任务成功 + 攻击成功</td>
+<td>抗 Prompt Injection</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1437">14.3.7 学术基准的局限</h3>
+<p>必须清楚学术基准<strong>不能替代业务评测集</strong>，原因有四个：</p>
+<ol>
+<li><strong>数据污染</strong>：公开基准的题目和答案可能已进入模型训练语料，分数被高估；</li>
+<li><strong>分布不匹配</strong>：你的业务任务分布与基准分布几乎必然不同；</li>
+<li><strong>过拟合风险</strong>：针对某个基准做的 Scaffold 优化不一定能迁移；</li>
+<li><strong>口径混乱</strong>：不同报告使用不同子集、不同尝试次数、不同工具集，分数不可比。</li>
+</ol>
+<p><strong>正确的用法是：用学术基准的评测设计思路，构造自己的业务评测集。</strong> 具体借鉴点包括「用可执行断言代替主观打分」「在真实环境状态上验证」「把安全违规单独计分」。</p>
+<h2 id="144">14.4 核心指标定义</h2>
+<h3 id="1441">14.4.1 任务成功率</h3>
+<p>最基础的指标。设评测集有 $N$ 个任务，第 $i$ 个任务的判定函数为 $s_i \in \lbrace 0, 1 \rbrace$，则：</p>
+<p>$$
+\mathrm{SuccessRate} = \frac{1}{N}\sum_{i=1}^{N} s_i
+$$</p>
+<p>关键在于 $s_i$ 必须由<strong>可执行的断言</strong>给出，而不是人工主观判断或让另一个 LLM 随口评价。</p>
+<h3 id="1442-passk">14.4.2 pass@k：至少一次做对的机会</h3>
+<p>从同一任务的 $n$ 次独立运行中，若有 $c_i$ 次成功，则从其中任选 $k$ 次时“至少一次成功”的无偏估计为：</p>
+<p>$$
+\mathrm{pass@}k = \frac{1}{N}\sum_{i=1}^{N}\left(1 - \frac{\binom{n-c_i}{k}}{\binom{n}{k}}\right), \quad n \geq k
+$$</p>
+<p>它估计的是允许多次尝试并任选一个成功结果时的成功概率，衡量<strong>能力上界</strong>。适用于有人工审核或可安全挑选候选的场景，例如工程师从多个补丁中选择一个。</p>
+<h3 id="1443-passk">14.4.3 pass^k：连续运行的一致性</h3>
+<p>令 $p_i$ 为任务 $i$ 的单次成功概率，$\mathrm{pass}^{k}$ 的定义是同一任务独立运行 $k$ 次都成功的平均概率：</p>
+<p>$$
+\mathrm{pass}^{k} = \frac{1}{N}\sum_{i=1}^{N}p_i^k
+$$</p>
+<p>用同一任务的 $n$ 次观测估计时，$c_i$ 次成功给出的无偏有限样本估计为：</p>
+<p>$$
+\widehat{\mathrm{pass}^{k}} = \frac{1}{N}\sum_{i=1}^{N}\frac{\binom{c_i}{k}}{\binom{n}{k}}, \quad n \geq k
+$$</p>
+<p>这不是 $\mathrm{pass@}k$，也不写成含糊的 “pass hat k”。对于无人值守生产 Agent，$\mathrm{pass}^{k}$ 才衡量连续可依赖性。tau-bench 的实验揭示：$\mathrm{pass@}1$ 看起来不错时，$k$ 增大，$\mathrm{pass}^{k}$ 仍可能急剧下降，说明行为一致性低于单次能力上限。</p>
+<pre class="mermaid">flowchart LR
+    P1["pass@k<br/>k 次中至少一次成功"] --> U1[衡量能力上界]
+    U1 --> S1[适用: 有人工审核的场景]
+
+    P2["pass^k<br/>k 次全部成功"] --> U2[衡量行为一致性]
+    U2 --> S2[适用: 无人值守自动化]
+</pre>
+
+<p><strong>工程审查要点</strong>：为什么 Agent 的 $\mathrm{pass}^{k}$ 衰减比普通 LLM 更严重？因为 Agent 是多步执行，每一步的随机性都会累积。设每步正确率为 $p$，$m$ 步任务的成功率约为 $p^m$，$p = 0.95$ 且 $m = 20$ 时成功率仅约 $0.36$。<strong>降低单步方差比提升单步能力更能改善端到端稳定性。</strong></p>
+<h3 id="1444">14.4.4 轨迹层指标</h3>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>定义</th>
+<th>诊断什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>平均步数</td>
+<td>完成任务的平均循环轮次</td>
+<td>是否绕路</td>
+</tr>
+<tr>
+<td>冗余调用率</td>
+<td>重复或无效的 Tool 调用占比</td>
+<td>是否在原地打转</td>
+</tr>
+<tr>
+<td>工具选择准确率</td>
+<td>选对工具的步数占比</td>
+<td>Tool 描述是否清晰</td>
+</tr>
+<tr>
+<td>参数合规率</td>
+<td>参数通过 Schema 校验的比例</td>
+<td>Schema 设计与模型能力</td>
+</tr>
+<tr>
+<td>循环终止率</td>
+<td>因触达最大轮次而终止的比例</td>
+<td>停止条件是否失效</td>
+</tr>
+<tr>
+<td>恢复率</td>
+<td>出错后成功自我纠正的比例</td>
+<td>错误处理是否有效</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1445-agentic-trajectory">14.4.5 Agentic trajectory：正确、合规且可恢复</h3>
+<p>最终状态通过不代表轨迹一定可接受。对有副作用的 Agent，评估用例还应断言：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>证据与授权链</strong></td>
+<td>每次高风险调用能关联用户目标、允许来源和审批记录</td>
+</tr>
+<tr>
+<td><strong>策略合规</strong></td>
+<td>未越权、未调用禁用工具，审批发生在执行前</td>
+</tr>
+<tr>
+<td><strong>状态转移正确性</strong></td>
+<td>中间写入满足不变量；失败后没有留下半完成或重复副作用</td>
+</tr>
+<tr>
+<td><strong>恢复与幂等</strong></td>
+<td>超时/重试后能恢复，重复执行不重复扣款、发信或删除</td>
+</tr>
+<tr>
+<td><strong>最小充分性</strong></td>
+<td>在完成任务前提下避免冗余调用、无关数据读取和多余权限</td>
+</tr>
+</tbody>
+</table>
+<p>轨迹不应与单一“黄金步骤序列”逐字比对；应通过这些可执行约束判断不同合法路径。含检索与引用的 Agent 还应复用 <a href="../../rag/05-generation-evaluation/18-rag-evaluation.html">RAG 评估</a> 的 Citation、时效和鲁棒性用例。</p>
+<h3 id="1446">14.4.6 成本与延迟</h3>
+<p>$$
+\mathrm{CostPerTask} = \frac{\sum_{i=1}^{N}\left(c_{\mathrm{in}} \cdot T_{\mathrm{in}}^{(i)} + c_{\mathrm{out}} \cdot T_{\mathrm{out}}^{(i)}\right)}{N}
+$$</p>
+<p>其中 $c_{\mathrm{in}}$、$c_{\mathrm{out}}$ 是输入输出单价，$T^{(i)}$ 是任务 $i$ 的 Token 消耗。</p>
+<p><strong>成本必须和成功率一起报告。</strong> 只报成功率会鼓励无限增加反思轮次和搜索宽度。实践中常用的联合指标是「单位成功任务的成本」：</p>
+<p>$$
+\mathrm{CostPerSuccess} = \frac{\mathrm{CostPerTask}}{\mathrm{SuccessRate}}
+$$</p>
+<p>即把总成本摊到成功任务上。一个成功率 90% 但单任务成本 0.5 美元的方案，实际优于成功率 95% 但单任务成本 2 美元的方案。同理，延迟应报告 P50 与 P95 而非平均值，因为 Agent 的延迟分布通常是长尾的。</p>
+<h2 id="145">14.5 判定方式：如何决定一次运行算不算成功</h2>
+<p>这是构建评测集时最关键的设计决策。</p>
+<pre class="mermaid">flowchart TB
+    J[判定方式] --> E[程序化断言]
+    J --> L[LLM-as-Judge]
+    J --> H[人工评估]
+
+    E --> E1[最可靠 成本最低]
+    L --> L1[覆盖主观任务 需校准]
+    H --> H1[质量最高 无法规模化]
+</pre>
+
+<h3 id="1451">14.5.1 程序化断言（首选）</h3>
+<p>用代码检查最终状态是否满足条件：</p>
+<ul>
+<li>单元测试是否通过；</li>
+<li>数据库中是否存在预期记录；</li>
+<li>生成的文件是否包含指定字段；</li>
+<li>是否<strong>没有</strong>调用禁止的工具。</li>
+</ul>
+<p><strong>优先级最高。</strong> 只要任务能定义出可执行的断言，就不要用 LLM 打分。断言可靠、便宜、可重复，而且不会随模型版本漂移。</p>
+<p>一个实用技巧是<strong>同时写正向断言和负向断言</strong>：正向检查「做到了什么」，负向检查「没有做不该做的事」（如没有删除其他数据、没有越权调用）。</p>
+<h3 id="1452-llm-as-judge">14.5.2 LLM-as-Judge（次选）</h3>
+<p>对于报告质量、回答有用性这类无法程序化判定的任务，只能用模型评分。工程上必须处理它的四个已知偏差：</p>
+<table>
+<thead>
+<tr>
+<th>偏差</th>
+<th>表现</th>
+<th>缓解手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>位置偏差</td>
+<td>偏好排在前面的候选</td>
+<td>交换顺序各评一次取平均</td>
+</tr>
+<tr>
+<td>长度偏差</td>
+<td>偏好更长的回答</td>
+<td>在 Rubric 中显式声明长度不加分</td>
+</tr>
+<tr>
+<td>自我偏好</td>
+<td>偏好同族模型的输出</td>
+<td>用与被测模型不同的裁判模型</td>
+</tr>
+<tr>
+<td>尺度漂移</td>
+<td>不同批次分数不可比</td>
+<td>用固定锚点样例校准</td>
+</tr>
+</tbody>
+</table>
+<p><strong>必须做的一步是校准</strong>：先人工标注 100 条左右的样本，计算裁判模型与人工标注的一致率（如 Cohen's Kappa）。一致率过低时，Judge 的分数没有参考价值，应先优化 Rubric 而不是直接使用。</p>
+<p>另外，<strong>尽量让 Judge 做二元判定或少档位判定，而不是打 1–10 分</strong>。模型在「是否满足这条具体标准」上远比在连续打分上可靠。</p>
+<h3 id="1453">14.5.3 人工评估</h3>
+<p>作为金标准，用于校准 Judge、抽查线上样本、以及处理争议样例。不应作为主要的回归手段。</p>
+<h2 id="146">14.6 评测集的构建</h2>
+<h3 id="1461">14.6.1 分层设计</h3>
+<p>评测集应该分层，不同层次有不同的运行频率：</p>
+<pre class="mermaid">flowchart LR
+    S[Smoke 10-20 条] --> R[Regression 100-300 条]
+    R --> F[Full 1000+ 条]
+
+    S --> S1[每次提交]
+    R --> R1[每次发布]
+    F --> F1[每周 / 重大变更]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>规模</th>
+<th>频率</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Smoke</td>
+<td>10–20</td>
+<td>每次代码提交</td>
+<td>快速发现明显崩溃</td>
+</tr>
+<tr>
+<td>Regression</td>
+<td>100–300</td>
+<td>每次发布</td>
+<td>防止已修复问题回归</td>
+</tr>
+<tr>
+<td>Full</td>
+<td>1000+</td>
+<td>每周或重大变更</td>
+<td>全面评估与横向对比</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1462">14.6.2 样例来源</h3>
+<p>优先级从高到低：</p>
+<ol>
+<li><strong>线上真实失败样例</strong>（价值最高，直接反映生产分布）；</li>
+<li>线上真实成功样例（用于防回归）；</li>
+<li>领域专家构造的边界样例；</li>
+<li>模型合成的样例（用于扩充覆盖，需人工抽检）。</li>
+</ol>
+<p><strong>每修复一个线上 Bug，就把对应场景固化成一条回归用例。</strong> 这是评测集最健康的增长方式。</p>
+<h3 id="1463">14.6.3 每条用例应包含什么</h3>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;refund-001&quot;,
+  &quot;goal&quot;: &quot;为订单 A123 办理退款并通知用户&quot;,
+  &quot;initial_state&quot;: { &quot;orders&quot;: [ { &quot;id&quot;: &quot;A123&quot;, &quot;status&quot;: &quot;shipped&quot; } ] },
+  &quot;assertions&quot;: [
+    { &quot;type&quot;: &quot;db&quot;, &quot;check&quot;: &quot;orders.A123.status == 'refunded'&quot; },
+    { &quot;type&quot;: &quot;tool_called&quot;, &quot;name&quot;: &quot;send_email&quot; },
+    { &quot;type&quot;: &quot;tool_not_called&quot;, &quot;name&quot;: &quot;delete_order&quot; }
+  ],
+  &quot;policy&quot;: [&quot;已发货订单退款需先确认用户已退货&quot;],
+  &quot;budget&quot;: { &quot;max_steps&quot;: 15, &quot;max_tokens&quot;: 60000 },
+  &quot;tags&quot;: [&quot;refund&quot;, &quot;policy-check&quot;]
+}
+</code></pre>
+<p>关键字段是 <code>initial_state</code>（保证可复现）、<code>assertions</code>（含正向与负向）、<code>budget</code>（超预算即失败）。</p>
+<h3 id="1464">14.6.4 环境隔离与可复现</h3>
+<p>评测环境必须与生产环境隔离，且每条用例运行前重置到确定的初始状态。常见做法是用容器快照或数据库事务回滚。<strong>如果两次运行同一条用例的初始状态不同，这条用例的分数就没有意义。</strong></p>
+<h2 id="147">14.7 在线评估与可观测性</h2>
+<p>离线评测集覆盖不了所有真实情况，必须配合线上监控。</p>
+<h3 id="1471">14.7.1 必须落库的字段</h3>
+<p>每次 Agent 运行应记录完整轨迹：</p>
+<table>
+<thead>
+<tr>
+<th>字段</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>trace_id / span_id</td>
+<td>关联完整调用链</td>
+</tr>
+<tr>
+<td>每步的 Action、Observation、结构化决策理由/状态摘要</td>
+<td>复盘可审计决策过程；理由必须是显式生成且允许记录的摘要</td>
+</tr>
+<tr>
+<td>Tool 名称、参数、返回、耗时、是否报错</td>
+<td>定位组件级问题；按敏感级别脱敏与访问控制</td>
+</tr>
+<tr>
+<td>输入输出 Token 数与模型版本</td>
+<td>成本归因与版本对比</td>
+</tr>
+<tr>
+<td>终止原因</td>
+<td>区分正常完成 / 超轮次 / 超时 / 报错</td>
+</tr>
+<tr>
+<td>用户反馈信号</td>
+<td>隐式（是否重问、是否采纳）与显式（点赞点踩）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>不得保存或要求模型暴露隐藏 Thought / 私有 CoT。</strong> 它既不是可靠解释，也可能包含敏感上下文；用工具调用、可见观察、状态变化和专门生成的简短理由摘要完成审计。终止原因同样不能遗漏，否则「失败率 8%」无法进一步拆解。</p>
+<h3 id="1472">14.7.2 线上核心监控指标</h3>
+<ul>
+<li>任务完成率与用户重问率；</li>
+<li>P50 / P95 延迟；</li>
+<li>单任务成本；</li>
+<li>循环终止率（触达最大轮次的比例）；</li>
+<li>工具错误率（按工具分组）；</li>
+<li>安全拦截率与越权尝试次数。</li>
+</ul>
+<h3 id="1473-ab">14.7.3 灰度与 A/B</h3>
+<p>Agent 的改动（换模型、改 Prompt、加工具）应通过灰度发布验证。由于 Agent 输出方差大，A/B 实验需要比传统功能更大的样本量才能达到统计显著。<strong>改动前先估算所需样本量，否则容易被噪声误导。</strong></p>
+<h3 id="1474">14.7.4 追踪标准</h3>
+<p>OpenTelemetry 已经定义了 GenAI 语义约定，覆盖模型调用与工具调用的属性命名。<strong>优先采用标准字段名而不是自定义</strong>，这样 LangSmith、Langfuse、Phoenix 等平台可以直接消费你的 Trace，避免锁定在单一厂商。</p>
+<h2 id="148">14.8 评估驱动开发</h2>
+<p>把评估放在开发流程的前面，而不是后面。</p>
+<pre class="mermaid">flowchart LR
+    A[发现问题场景] --> B[写成评测用例]
+    B --> C[确认当前失败]
+    C --> D[修改 Prompt/Tool/流程]
+    D --> E[跑评测集]
+    E --> F{通过且无回归?}
+    F -->|否| D
+    F -->|是| G[灰度发布]
+    G --> H[线上监控]
+    H --> A
+</pre>
+
+<p>这个闭环的关键是第 3 步：<strong>先确认新用例在当前版本下确实失败</strong>。如果一条新用例一开始就通过，它就没有区分度，不应加入回归集。</p>
+<h2 id="149">14.9 常见错误</h2>
+<h3 id="1491">14.9.1 只报单次运行结果</h3>
+<p>Agent 行为不确定，单次运行的分数是噪声。<strong>至少跑 3–5 次并报告均值与方差。</strong></p>
+<h3 id="1492">14.9.2 只看端到端成功率</h3>
+<p>无法归因。需要同时看轨迹层指标才能知道问题出在哪一步。</p>
+<h3 id="1493">14.9.3 只报成功率不报成本</h3>
+<p>会导致不断增加反思轮次和搜索宽度来刷分，上线后成本失控。</p>
+<h3 id="1494-llm-as-judge">14.9.4 用 LLM-as-Judge 但不做校准</h3>
+<p>未经校准的 Judge 分数可能与人工判断严重不一致，此时优化的是「讨好裁判」而非真实质量。</p>
+<h3 id="1495">14.9.5 评测集被污染</h3>
+<p>用同一批数据既做 Prompt 调优又做最终评估，等于用训练集测分数。<strong>必须保留一个从不用于调优的 Holdout 集。</strong></p>
+<h3 id="1496">14.9.6 直接引用学术基准分数作为业务能力承诺</h3>
+<p>基准分数与业务表现之间没有可靠的映射关系。</p>
+<h3 id="1497">14.9.7 忽略安全指标</h3>
+<p>一个成功率 95% 但偶尔会执行越权删除的 Agent，比成功率 85% 但从不越权的 Agent 危险得多。<strong>安全违规应该是独立的、一票否决的指标</strong>，不能被平均进成功率里。</p>
+<h2 id="1410">14.10 本章总结</h2>
+<p>Agent 评估与 LLM 评估的根本区别在于：前者看的不是一段文本，而是<strong>整条轨迹和环境状态</strong>。</p>
+<p>工程上更实用的做法，是把评估拆成四层：组件层负责归因，轨迹层看过程质量，任务层给端到端结论，系统层持续盯成本、延迟和安全。判定顺序也尽量固定：能用程序化断言就别交给模型打分，必须用 LLM-as-Judge 时先做校准；人工评估更适合做抽查和校准基线。</p>
+<p>无人值守场景别只看 $\mathrm{pass@}k$，还要看 $\mathrm{pass}^{k}$、单位成功成本、P95 延迟，以及轨迹里的授权、状态转移和恢复是否站得住。评测集也要分层运行：Smoke、Regression、Full 各跑各的频率，线上失败样例持续回流。上线后还要把完整轨迹和终止原因落库，并把越权、违规这类安全问题单独计分，不和成功率平均。</p>
+<p>学术基准更适合借鉴评测设计，真正做版本决策还得靠自己的业务评测集。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2310.06770">SWE-bench: Can Language Models Resolve Real-World GitHub Issues?</a></li>
+<li><a href="https://arxiv.org/abs/2502.12115">SWE-Lancer: Can Frontier LLMs Earn $1 Million from Real-World Freelance Software Engineering?</a></li>
+<li><a href="https://arxiv.org/abs/2311.12983">GAIA: a benchmark for General AI Assistants</a></li>
+<li><a href="https://arxiv.org/abs/2406.12045">tau-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains</a></li>
+<li><a href="https://arxiv.org/abs/2506.07982">tau^2-Bench: Evaluating Conversational Agents in a Dual-Control Environment</a></li>
+<li><a href="https://arxiv.org/abs/2404.07972">OSWorld: Benchmarking Multimodal Agents for Open-Ended Tasks in Real Computer Environments</a></li>
+<li><a href="https://arxiv.org/abs/2307.13854">WebArena: A Realistic Web Environment for Building Autonomous Agents</a></li>
+<li><a href="https://arxiv.org/abs/2504.12516">BrowseComp: A Simple Yet Challenging Benchmark for Browsing Agents</a></li>
+<li><a href="https://arxiv.org/abs/2308.03688">AgentBench: Evaluating LLMs as Agents</a></li>
+<li><a href="https://arxiv.org/abs/2410.07095">MLE-bench: Evaluating Machine Learning Agents on Machine Learning Engineering</a></li>
+<li><a href="https://arxiv.org/abs/2501.14249">Humanity's Last Exam</a></li>
+<li><a href="https://arxiv.org/abs/2406.13352">AgentDojo: A Dynamic Environment to Evaluate Prompt Injection Attacks and Defenses for LLM Agents</a></li>
+<li><a href="https://github.com/open-telemetry/semantic-conventions-genai">OpenTelemetry: Generative AI Semantic Conventions</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+<li><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Anthropic: How we built our multi-agent research system</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

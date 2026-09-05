@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>A2A 协议 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="A2A 协议 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Agent 通信</span> / <span>A2A 协议</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="a2a">第十一章：A2A 协议</h1>
+<h2 id="111-agent">11.1 单个 Agent 的三个天花板</h2>
+<p>一个 Agent 可以近似看成 <strong>一个 LLM + 一组工具 + 一段上下文窗口</strong>。这三个维度各有上限：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>上限表现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>工具数量</strong></td>
+<td>装 100 个工具，模型选择准确率显著下降，且工具定义每轮全量重传（见 <a href="../01-function-calling/03-tool-schema-design.html">第三章</a>）</td>
+</tr>
+<tr>
+<td><strong>上下文窗口</strong></td>
+<td>复杂任务的中间产物（搜索结果、草稿、反思记录）会迅速填满窗口</td>
+</tr>
+<tr>
+<td><strong>专业能力</strong></td>
+<td>同一个 Agent 既做代码审查又做市场分析，不如各自专精的 Agent</td>
+</tr>
+</tbody>
+</table>
+<p>举个具体任务：<strong>「做一份 AI 编程工具的竞品分析报告，要有行业趋势、技术对比、商业模式分析和 SWOT」</strong>。</p>
+<p>单 Agent 做这件事的问题是：搜索结果和草稿会把上下文撑满，等写到 SWOT 时，前面的行业趋势分析早已被挤出有效注意力范围；而且市场调研和技术分析需要不同的知识侧重。</p>
+<h3 id="1111-agent">11.1.1 多 Agent 在上下文层面的真正收益</h3>
+<p>有个值得追问的问题：<strong>拆成多个 Agent，上下文压力就真的变小了吗？</strong></p>
+<p>关键在于<strong>中间过程被隔离了</strong>：</p>
+<pre class="mermaid">flowchart LR
+    subgraph SINGLE["单 Agent"]
+        S1["上下文里堆着：<br/>几十个网页原文<br/>+ 多版草稿<br/>+ 反思记录<br/>+ 最终结论"]
+    end
+
+    subgraph MULTI["多 Agent"]
+        O["调度 Agent<br/>上下文里只有<br/>三份几百字摘要"]
+        A1["市场 Agent<br/>几十个网页在<br/>它自己的上下文里"]
+        A2["技术 Agent<br/>工具文档在<br/>它自己的上下文里"]
+        O --> A1
+        O --> A2
+        A1 -.只回传结论.-> O
+        A2 -.只回传结论.-> O
+    end
+
+    style S1 fill:#fce8e6
+    style O fill:#e6f4ea
+</pre>
+
+<p>市场 Agent 自己去搜几十个网页、写草稿、反复迭代，这些<strong>中间过程全在它自己的上下文里</strong>。任务完成后只把一份几百字的结论回传。</p>
+<p>调度 Agent 的上下文里只多了一份摘要，而不是几十个网页原文。<strong>这就是多 Agent 协作在上下文层面的核心收益：把调研过程的上下文压力隔离在专业 Agent 内部。</strong></p>
+<h2 id="112-agent">11.2 基础问题：Agent 之间怎么互相认识</h2>
+<p>Agent A 要把任务委托给 Agent B，前提是它得知道 B 能做什么。</p>
+<p>最直接但也最难维护的方案，是把配置写死：A 的代码里硬编码「B 可以做竞品分析」。B 的能力一变，A 的代码就得改。</p>
+<p><strong>A2A 的方案</strong>是让 B 主动「发名片」——<strong>Agent Card</strong>。</p>
+<h3 id="1121-agent-card">11.2.1 Agent Card</h3>
+<p>Agent Card 是 JSON 能力声明。部署可通过配置、目录或 <code>/.well-known/agent-card.json</code> 等发现约定取得它；调用方应使用已知或可信的 Card URL，而非把任意网络位置自动视为可信。</p>
+<pre><code class="language-json">{
+  &quot;name&quot;: &quot;Market Research Agent&quot;,
+  &quot;description&quot;: &quot;面向科技行业的市场趋势与竞品调研&quot;,
+  &quot;url&quot;: &quot;https://agents.example.com/market&quot;,
+  &quot;version&quot;: &quot;1.2.0&quot;,
+  &quot;capabilities&quot;: {
+    &quot;streaming&quot;: true,
+    &quot;pushNotifications&quot;: true
+  },
+  &quot;skills&quot;: [
+    {
+      &quot;id&quot;: &quot;competitor-analysis&quot;,
+      &quot;name&quot;: &quot;竞品分析&quot;,
+      &quot;description&quot;: &quot;针对指定产品品类，输出竞品清单、定位对比与差异化分析&quot;,
+      &quot;examples&quot;: [&quot;分析国内 AI 编程助手的竞争格局&quot;]
+    },
+    {
+      &quot;id&quot;: &quot;trend-analysis&quot;,
+      &quot;name&quot;: &quot;行业趋势分析&quot;,
+      &quot;description&quot;: &quot;基于公开数据与新闻，输出指定行业未来 12 个月的趋势判断&quot;
+    }
+  ]
+}
+</code></pre>
+<p>名片里最关键的是 <strong>skills 列表</strong>。调度 Agent 靠这些描述做路由决策——「这个任务和哪个 Agent 的哪个 skill 最匹配」。</p>
+<p>这和 <a href="../01-function-calling/03-tool-schema-design.html">工具的 description</a> 起的作用完全一致：<strong>都是在被选择的那一刻，对方唯一能看到的信息</strong>。写得含糊，这个 Agent 就很难被正确路由到任务。</p>
+<blockquote>
+<p>注意这里的 <code>skills</code> 和 <a href="../03-skills/08-what-is-skill.html">第八章</a> 讲的 Agent Skill <strong>不是一回事</strong>。A2A 的 skill 是「对外声明的能力条目」，Agent Skill 是「Agent 内部的流程知识模块」。名字撞车，层次完全不同。</p>
+</blockquote>
+<h3 id="1122">11.2.2 可插拔是这套机制的价值</h3>
+<p>新加一个 Agent 后，支持相同发现机制的调用方可以读取其 Agent Card 并考虑调用它；是否自动接纳仍应经过信任、认证和策略检查。</p>
+<p>这和 MCP 的 <code>tools/list</code> 自动发现是同一个思路——<a href="../02-mcp/04-what-is-mcp.html">第四章</a> 里说过，「自动发现」才是标准化协议真正的价值所在。</p>
+<h2 id="113-task-a2a">11.3 Task 是 A2A 的一等公民</h2>
+<p>A2A 里任务协作的基本单位是 <strong>Task</strong>：调度 Agent 委托任务 = 创建一个 Task；接收方执行；完成后把产出（<strong>artifacts</strong>，可以是文本、文件等）返回。</p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --> submitted: 调度 Agent 提交
+    submitted --> working: 接收方开始执行
+    working --> input_required: 需要补充信息
+    input_required --> working: 调用方补充后继续
+    working --> completed: 执行成功
+    working --> failed: 执行失败
+    working --> canceled: 调用方取消
+    completed --> [*]
+    failed --> [*]
+    canceled --> [*]
+</pre>
+
+<h3 id="1131">11.3.1 为什么需要这么完整的状态机</h3>
+<p>因为 <strong>A2A 是专门为长时间任务设计的</strong>。</p>
+<p>一个「竞品分析」任务可能要跑几分钟：先搜索、再整理、再写报告。不可能让调度 Agent 同步阻塞等着。</p>
+<p>所以调度 Agent 提交任务后可以去处理别的事，通过两种方式得知完成：</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>说明</th>
+<th>适用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>轮询</strong></td>
+<td>定期查 Task 状态</td>
+<td>实现简单，任务不多时够用</td>
+</tr>
+<tr>
+<td><strong>Push Notification</strong></td>
+<td>接收方完成时主动回调调用方</td>
+<td>任务多、耗时长，避免空轮询</td>
+</tr>
+<tr>
+<td><strong>流式</strong></td>
+<td>HTTP/JSON-RPC binding 通常用 SSE，gRPC binding 用 server streaming</td>
+<td>需要给用户展示进度</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1132">11.3.2 黑盒是解耦的意义</h3>
+<p>调度 Agent 的视角非常干净：<strong>提交 Task → 查状态 → 取 artifacts</strong>。</p>
+<p>它完全不需要知道接收方内部用了什么工具、调了几次 LLM、是不是又委托给了别的 Agent。每个专业 Agent 的实现对外不可见——这正是解耦的价值。</p>
+<h2 id="114-agent">11.4 架构本质：Agent 的微服务化</h2>
+<p>有后端经验的话，A2A 会很眼熟——<strong>它就是 Agent 世界里的微服务架构</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>微服务</th>
+<th>A2A</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>独立部署的服务（HTTP、gRPC 等）</td>
+<td>独立部署的 Agent</td>
+</tr>
+<tr>
+<td>API 文档 / OpenAPI</td>
+<td>Agent Card</td>
+</tr>
+<tr>
+<td>服务注册中心的一条记录</td>
+<td><code>/.well-known/agent-card.json</code></td>
+</tr>
+<tr>
+<td>异步消息队列</td>
+<td>Task 状态机 + Push Notification</td>
+</tr>
+<tr>
+<td>服务间多种 RPC/HTTP 调用</td>
+<td>Agent 间 A2A 调用</td>
+</tr>
+</tbody>
+</table>
+<p>一个 A2A Agent 可通过 JSON-RPC、HTTP/REST、gRPC 或协商的 custom binding 暴露服务。兼容调用方可在完成发现、认证和策略检查后提交任务并接收结果；A2A 不绑定特定 AI 框架或编程语言。</p>
+<p>这个理念和 MCP 一脉相承：<strong>MCP 让工具成为独立标准化服务，A2A 让 Agent 成为独立标准化服务。</strong></p>
+<p>A2A 由 Google 在 2025 年 4 月提出，同年 6 月捐给 Linux 基金会独立治理——这一步和 MCP 走的路径也很像：先由一家推出，再交给中立组织维护，以争取生态采纳。</p>
+<h2 id="115-a2a-protocol-binding">11.5 A2A 的多种 protocol binding</h2>
+<p>A2A 把<strong>数据模型与操作</strong>和网络 binding 分开。v1.0.0 定义 JSON-RPC、gRPC、HTTP/REST binding，并允许自定义 binding；同一 Task、Message、Part、Artifact 语义不应因 binding 改变。</p>
+<table>
+<thead>
+<tr>
+<th>binding</th>
+<th>常见用途</th>
+<th>流式更新</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>JSON-RPC</strong></td>
+<td>复用 RPC 方法与错误模型</td>
+<td><code>message/stream</code> 使用 SSE</td>
+</tr>
+<tr>
+<td><strong>HTTP/REST</strong></td>
+<td>Web 网关与资源式 HTTP 集成</td>
+<td>SSE 传递 Task/Artifact 更新</td>
+</tr>
+<tr>
+<td><strong>gRPC</strong></td>
+<td>强类型服务间调用</td>
+<td>server streaming RPC</td>
+</tr>
+<tr>
+<td><strong>Custom binding</strong></td>
+<td>双方已协商的特定环境</td>
+<td>由扩展定义</td>
+</tr>
+</tbody>
+</table>
+<p>WebSocket <strong>不是 A2A 核心 binding</strong>；需要它的双方可定义 custom binding 或用它承载自己的会话层，但不能据此宣称通用 A2A 互操作。WebRTC 同样不是 A2A binding：A2A 可通过 file URI 或文件 Part 交换音频/视频等内容，实时媒体协商与传输需由应用另行设计。</p>
+<h2 id="116-a2a-mcp">11.6 A2A 与 MCP：一纵一横</h2>
+<p>理清两者关系最简单的方式是<strong>看方向</strong>：</p>
+<pre class="mermaid">flowchart TB
+    A1["市场分析 Agent"]
+    A2["技术研究 Agent"]
+    ORCH["调度 Agent"]
+
+    ORCH <-->|"A2A · 横向"| A1
+    ORCH <-->|"A2A · 横向"| A2
+
+    A1 -->|"MCP · 纵向"| T1[(搜索引擎)]
+    A1 -->|"MCP · 纵向"| T2[(浏览器)]
+    A2 -->|"MCP · 纵向"| T3[(代码执行器)]
+    A2 -->|"MCP · 纵向"| T4[(GitHub)]
+
+    style ORCH fill:#e6f4ea
+    style A1 fill:#e8f0fe
+    style A2 fill:#e8f0fe
+</pre>
+
+<table>
+<thead>
+<tr>
+<th></th>
+<th>连接方向</th>
+<th>对端是谁</th>
+<th>解决什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>MCP</strong></td>
+<td>向下（纵向）</td>
+<td>工具、数据源</td>
+<td>Agent 怎么获得外部能力</td>
+</tr>
+<tr>
+<td><strong>A2A</strong></td>
+<td>向外（横向）</td>
+<td>其他 Agent</td>
+<td>Agent 之间怎么分工协作</td>
+</tr>
+</tbody>
+</table>
+<p>类比：<strong>MCP 是每个员工的工具箱</strong>，决定这个人能用什么工具干活；<strong>A2A 是公司的协作流程</strong>，决定不同岗位的人怎么分工交接。工具箱和协作流程是两回事，缺哪个都不行。</p>
+<p>复杂系统里两者同时在用：MCP 管纵向连接，A2A 管横向协作。</p>
+<h3 id="1161">11.6.1 一个自然的推论</h3>
+<p>既然一个 Agent 对外是 A2A 服务、对下用 MCP 连工具，那么<strong>能不能把一个 Agent 直接包装成 MCP Server 给别的 Agent 用</strong>？</p>
+<p>技术上可以，而且社区里确实有这种做法。但两者的语义不同：</p>
+<ul>
+<li><strong>包成 MCP 工具</strong>：调用方把它当成一次同步的函数调用，期待快速返回。适合能力边界窄、执行快的 Agent；</li>
+<li><strong>走 A2A</strong>：有完整的任务生命周期、异步、可取消、可补充输入、可流式。适合长时间、多轮、需要澄清的复杂委托。</li>
+</ul>
+<p>判断依据是：<strong>这个委托更像「调一次接口」还是「派一个活」</strong>。</p>
+<h2 id="117">11.7 常见错误</h2>
+<h3 id="1171-a2a-mcp">11.7.1 把 A2A 当成 MCP 的竞品</h3>
+<p>这是最容易混淆的点。两者面向的对象完全不同——一个连工具，一个连 Agent。它们互补，而且经常同时出现。</p>
+<h3 id="1172-a2a-http-api">11.7.2 只把 A2A 当成一种 HTTP API</h3>
+<p>A2A 定义的是跨实现共享的数据模型、任务生命周期、发现和安全语义，不只是一组 HTTP endpoint。v1.0 提供 JSON-RPC、HTTP/REST、gRPC 和 custom binding；SSE 是相应 binding 的流式承载方式，WebSocket/WebRTC 不属于核心 binding。</p>
+<h3 id="1173-task">11.7.3 忽略 Task 状态机的设计动机</h3>
+<p>状态机不是为了把协议做得完整好看，而是因为 A2A 专门面向<strong>长时间异步任务</strong>。如果调用天然就是同步阻塞，确实用不上这么细的状态管理。</p>
+<h3 id="1174-a2a-skill-agent-skill">11.7.4 把 A2A 的 skill 和 Agent Skill 混为一谈</h3>
+<p>名字撞车但层次不同：A2A 的 skill 是对外的能力声明条目，Agent Skill 是 Agent 内部的流程知识模块。</p>
+<h3 id="1175-a2a-a2a">11.7.5 认为有了 A2A 就必须用 A2A</h3>
+<p>绝大多数多 Agent 系统跑在<strong>单进程内</strong>（比如 LangGraph 的多节点图），Agent 之间直接传共享状态就行，根本不需要跨进程协议。A2A 的价值出现在<strong>Agent 由不同团队开发、独立部署、跨组织协作</strong>的时候。为一个单进程系统引入 A2A 是过度设计。</p>
+<h3 id="1176-agent-card">11.7.6 忽略 Agent Card 的描述质量</h3>
+<p>和工具 description 一样，写得含糊的 Agent Card 会导致这个 Agent 要么永远派不到活，要么被派到不该做的活。</p>
+<h2 id="118">11.8 本章总结</h2>
+<ol>
+<li><strong>A2A 解决的是单 Agent 的三个天花板</strong>：工具数量、上下文窗口、专业能力；</li>
+<li><strong>多 Agent 在上下文层面的真正收益是中间过程隔离</strong>，调度 Agent 只收结论不收原始素材；</li>
+<li><strong>Agent Card 实现能力声明与发现</strong>；可通过已知 URL、配置或 well-known 约定取得，skills 描述可辅助路由；</li>
+<li><strong>Task 是一等公民</strong>，完整状态机是为异步长任务设计的，支持轮询、回调、流式三种感知方式；</li>
+<li><strong>架构本质是 Agent 的微服务化</strong>：Agent Card 对应 API 文档，Task 状态机对应异步消息队列；</li>
+<li><strong>多 binding 保持同一语义</strong>：JSON-RPC、HTTP/REST、gRPC 是核心 binding；SSE 用于相应 binding 的流式更新，WebSocket/WebRTC 不属于核心 binding；</li>
+<li><strong>与 MCP 是一纵一横</strong>：MCP 向下连工具，A2A 向外连 Agent，互补不竞争；</li>
+<li><strong>不是所有多 Agent 系统都需要 A2A</strong>，单进程内协作用共享状态更简单，A2A 面向跨团队跨部署的场景。</li>
+</ol>
+<blockquote>
+<p><strong>可以把它理解成：MCP 负责给 Agent 接工具，A2A 负责让 Agent 之间交接任务；一个管纵向能力，一个管横向协作。</strong></p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://a2a-protocol.org/">A2A 协议官网</a></li>
+<li><a href="https://a2a-protocol.org/v1.0.0/specification">A2A v1.0.0 规范</a></li>
+<li><a href="https://developers.googleblog.com/en/a2a-a-new-era-of-agent-interoperability/">Google: Announcing the Agent2Agent Protocol</a></li>
+<li><a href="https://www.linuxfoundation.org/press/linux-foundation-launches-the-agent2agent-protocol-project-to-enable-secure-intelligent-communication-between-ai-agents">Linux Foundation: A2A Project</a></li>
+<li><a href="https://modelcontextprotocol.io/docs/getting-started/intro">Model Context Protocol 官方文档</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

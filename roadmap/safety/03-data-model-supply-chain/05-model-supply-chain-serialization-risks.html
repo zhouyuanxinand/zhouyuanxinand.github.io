@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模型供应链与序列化风险 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模型供应链与序列化风险 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI 安全与治理</span> / <span>数据与模型供应链</span> / <span>模型供应链与序列化风险</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第五章：模型供应链与序列化风险</h1>
+<h2 id="51">5.1 模型也是一种依赖</h2>
+<p>现代 AI 应用很少从零训练模型，而是从模型仓库（Hugging Face、云厂商模型市场等）下载预训练权重、适配器（LoRA）、Tokenizer 和评测脚本，再叠加自己的微调和 Prompt 工程。这意味着<strong>模型和它的配套文件应该被当作软件依赖来管理</strong>，需要与开源库依赖同等级别的供应链治理——但现实中很多团队只对代码依赖做扫描，对模型文件毫无审查。OWASP 将其列为 LLM03（Supply Chain Vulnerabilities）。</p>
+<pre class="mermaid">flowchart TB
+    subgraph SC["模型供应链"]
+        S1[预训练权重来源] --> S2[微调/LoRA 适配器]
+        S2 --> S3[Tokenizer/配置文件]
+        S3 --> S4[推理框架/依赖库]
+    end
+    SC --> R1[来源篡改<br/>5.2]
+    SC --> R2[反序列化 RCE<br/>5.3]
+    SC --> R3[依赖投毒<br/>5.4]
+    R1 --> D[防御：签名/出处/ML-BOM<br/>5.5]
+    R2 --> D
+    R3 --> D
+</pre>
+
+<h2 id="52">5.2 来源篡改：模型仓库不是可信根</h2>
+<p>任何人都可以在公开模型仓库上传文件，仓库平台的「下载量」「点赞数」不构成安全审查。已被公开报告的风险包括：</p>
+<ul>
+<li><strong>仿冒模型</strong>：上传与知名模型同名或极相似名称的权重，内容被植入后门（见第四章）或直接是恶意程序；</li>
+<li><strong>看似正常但携带后门的微调版本</strong>：某个热门开源模型的「优化版」实际上被植入了触发器；</li>
+<li><strong>账号劫持后的恶意更新</strong>：合法维护者账号被盗后，原本可信的模型条目被替换为恶意版本，而下游应用如果没有锁定具体版本/哈希，会静默拉取新内容。</li>
+</ul>
+<p><strong>防御</strong>：拉取模型前验证发布者身份（组织认证、历史提交记录）；锁定具体的 commit hash 或版本号而非 <code>latest</code>/<code>main</code> 分支；对权重文件计算并核对哈希；内部维护一份「已审查模型」的私有镜像仓库，生产环境只允许从私有镜像拉取。</p>
+<h2 id="53-pickle">5.3 反序列化风险：Pickle 与安全格式的选择</h2>
+<p>历史上最常见的模型文件格式（PyTorch 的 <code>.pt</code>/<code>.bin</code>）默认基于 Python 的 <code>pickle</code> 序列化。<strong>Pickle 的反序列化过程本身可以执行任意代码</strong>——攻击者只需构造一个包含恶意 <code>__reduce__</code> 方法的对象并序列化，加载该文件时（哪怕只是"加载模型权重"这一个操作）就会触发任意代码执行，这与文件是否被当作"模型"没有关系，纯粹是反序列化机制的固有缺陷。</p>
+<pre class="mermaid">sequenceDiagram
+    participant A as 攻击者
+    participant F as 恶意 .pt/.bin 文件
+    participant V as 受害者环境
+    A->>F: 构造带 __reduce__ 的对象并 pickle
+    V->>F: torch.load() / pickle.load()
+    F-->>V: 反序列化时执行任意代码
+</pre>
+
+<p><strong>防御要点</strong>：</p>
+<ul>
+<li><strong>优先使用不可执行代码的序列化格式</strong>，例如 <code>safetensors</code>——它只存储张量数据，不支持任意 Python 对象反序列化，从格式层面消除了这一类风险；</li>
+<li>如果必须加载 <code>pickle</code>/<code>.bin</code> 格式的历史模型，使用具备恶意对象扫描能力的工具做静态检查，或在沙箱环境（见第八章）中隔离加载；</li>
+<li>框架层面优先使用支持 <code>weights_only=True</code> 等安全加载模式的新版本 API，并保持推理框架本身的及时更新，历史上多个推理框架都修复过与模型加载相关的反序列化漏洞；</li>
+<li>不要因为「文件扩展名是 .bin/.pt 看起来像模型」就降低警惕，模型文件的可信度评估标准应该与任意可执行文件一致。</li>
+</ul>
+<h2 id="54">5.4 依赖与工具链投毒</h2>
+<p>模型之外，整个 AI 应用的依赖链同样是攻击面：</p>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>依赖混淆（Dependency Confusion）</td>
+<td>内部私有包名被发布到公共仓库的同名恶意包抢注，构建时被错误拉取公共版本</td>
+</tr>
+<tr>
+<td>恶意 MCP Server / Tool 包</td>
+<td>与 <a href="../../tools/02-mcp/15-tool-protocol-security.html">Tool Protocol 安全 15.3.2</a> 描述的工具投毒相同思路，扩展到「工具本身作为软件包分发」的场景，需在安装前审查来源、版本与请求权限</td>
+</tr>
+<tr>
+<td>恶意评测/预处理脚本</td>
+<td>模型仓库附带的 <code>tokenizer.py</code>、自定义 <code>modeling_*.py</code> 等「远程代码」（<code>trust_remote_code</code>）文件本身可以包含任意逻辑</td>
+</tr>
+<tr>
+<td>CI/CD 供应链</td>
+<td>模型训练、评测、发布流水线中的任一环节（构建镜像、依赖安装脚本）被污染，都能影响最终产出物</td>
+</tr>
+</tbody>
+</table>
+<p><strong>关于「远程自定义代码」的特别提醒</strong>：部分模型仓库允许模型附带自定义 Python 代码（用于自定义架构或 Tokenizer 逻辑），加载时如果开启了信任远程代码的选项，这段代码会被直接执行——这和执行任意脚本没有区别，应仅对来源明确、经过审查的模型开启，且应在隔离环境中首次执行。</p>
+<h2 id="55-ml-bom">5.5 出处、签名与 ML-BOM</h2>
+<p>供应链治理的核心手段是让「这份工件从哪来、经过了谁的手、内容是否被篡改」变得可验证，而不是依赖信任。</p>
+<table>
+<thead>
+<tr>
+<th>手段</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>模型签名</strong></td>
+<td>对发布的模型文件做数字签名（如基于 Sigstore 一类的透明签名生态），下游在加载前验证签名与发布者身份</td>
+</tr>
+<tr>
+<td><strong>ML-BOM（Machine Learning Bill of Materials）</strong></td>
+<td>参照软件 SBOM 的思路，记录模型的训练数据来源、基础模型血缘、依赖库版本、评测结果，作为可审计的物料清单</td>
+</tr>
+<tr>
+<td><strong>模型卡/数据集卡</strong></td>
+<td>记录用途、已知局限、训练数据特征、评测结果，是治理和事后追责的基础文档（详见第十章）</td>
+</tr>
+<tr>
+<td><strong>可复现构建</strong></td>
+<td>记录训练所用的精确代码版本、超参数、随机种子和数据快照，使得关键模型可以独立复现验证</td>
+</tr>
+<tr>
+<td><strong>内部制品库</strong></td>
+<td>私有镜像仓库统一管理已审查通过的模型、适配器和工具版本，生产环境禁止直接从公网拉取</td>
+</tr>
+</tbody>
+</table>
+<h2 id="56">5.6 上线检查表</h2>
+<ul>
+<li>[ ] 模型、适配器、Tokenizer 均锁定具体版本/哈希，而非跟随最新分支自动更新；</li>
+<li>[ ] 生产环境模型来自内部已审查的私有镜像，而非直接从公网仓库拉取；</li>
+<li>[ ] 优先使用 <code>safetensors</code> 等不可执行代码的序列化格式；仍需加载 pickle/.bin 格式时经过沙箱隔离或恶意对象扫描；</li>
+<li>[ ] 默认关闭「信任远程自定义代码」，确需开启时仅对审查过的来源放行；</li>
+<li>[ ] 依赖扫描覆盖模型文件、工具包、MCP Server 及其传递依赖，防范依赖混淆；</li>
+<li>[ ] 关键模型具备可复现构建记录或 ML-BOM，供事后审计。</li>
+</ul>
+<h2 id="57">5.7 常见错误</h2>
+<h3 id="571">5.7.1 只扫描代码依赖，不扫描模型文件</h3>
+<p>模型权重、适配器、Tokenizer 配置都应纳入供应链安全管理范围，与代码依赖同等对待。</p>
+<h3 id="572">5.7.2 认为下载量高、点赞多的模型天然可信</h3>
+<p>平台的热度指标不构成安全审查，账号劫持和仿冒模型在热门条目上同样会发生。</p>
+<h3 id="573">5.7.3 默认信任远程自定义代码</h3>
+<p>开启该选项等同于执行任意脚本，必须仅对来源明确、经过审查的模型开启。</p>
+<h3 id="574">5.7.4 混淆"模型来源可信"与"文件格式安全"</h3>
+<p>即便模型来源可信，pickle 格式本身的反序列化机制依然存在被篡改利用的风险，两者需要分别把关。</p>
+<h2 id="58">5.8 本章总结</h2>
+<ol>
+<li>模型、适配器、Tokenizer 和相关脚本应被当作软件依赖管理，供应链风险覆盖来源篡改、反序列化漏洞和依赖投毒三类；</li>
+<li>模型仓库的热度指标不构成安全审查，应验证发布者身份、锁定版本哈希，并优先使用内部审查过的私有镜像；</li>
+<li>Pickle 格式的反序列化机制本身可执行任意代码，应优先迁移到 <code>safetensors</code> 等不可执行代码的格式；</li>
+<li>「信任远程自定义代码」选项等同于执行任意脚本，默认应关闭；</li>
+<li>模型签名、ML-BOM、模型卡和可复现构建是让供应链可验证、可审计的核心手段，为第十章的治理与审计提供基础物料。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://genai.owasp.org/llmrisk/llm03-supply-chain/">OWASP LLM03:2025 Supply Chain Vulnerabilities</a></li>
+<li><a href="https://huggingface.co/docs/hub/security-pickle">Hugging Face: Pickle Scanning and Safetensors</a></li>
+<li><a href="https://blog.trailofbits.com/2024/06/11/exploiting-ml-models-with-pickle-file-attacks-part-1/">Sleepy Pickle: Exploiting Machine Learning Pickle Files</a></li>
+<li><a href="https://atlas.mitre.org/techniques/AML.T0010">MITRE ATLAS: ML Supply Chain Compromise</a></li>
+<li><a href="https://cyclonedx.org/capabilities/mlbom/">CycloneDX: Machine Learning Bill of Materials (ML-BOM)</a></li>
+<li><a href="https://www.sigstore.dev/">Sigstore: Software Signing for Everyone</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

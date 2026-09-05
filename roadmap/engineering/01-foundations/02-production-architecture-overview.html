@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI 应用生产架构 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="AI 应用生产架构 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>基础与生产架构</span> / <span>AI 应用生产架构</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="ai">第二章：AI 应用生产架构全景</h1>
+<h2 id="21-api">2.1 从「调用一次 API」到「一个生产系统」</h2>
+<p>Demo 阶段的 LLM 应用往往就是一次 <code>client.chat.completions.create()</code> 调用。要撑住真实流量，这一次调用的前后会长出一整条链路：网关、编排、输出校验、可观测性、评测和发布都得补上。</p>
+<pre class="mermaid">flowchart TB
+    U["用户 / 上游服务"] --> GW["模型网关<br/>路由 · 回退 · 鉴权 · 限流"]
+    GW --> ORCH["编排层<br/>Agent / RAG / 工具调用"]
+    ORCH --> PROVIDER["模型供应商<br/>OpenAI / Anthropic / 自研部署"]
+    PROVIDER --> VALIDATE["输出校验<br/>契约 · Guardrails"]
+    VALIDATE -->|通过| RESP["返回用户"]
+    VALIDATE -->|不通过| DEGRADE["降级路径"]
+    DEGRADE --> RESP
+
+    ORCH -.trace/metrics.-> OBS["可观测性<br/>日志 · 指标 · Trace"]
+    VALIDATE -.trace/metrics.-> OBS
+    GW -.trace/metrics.-> OBS
+
+    OBS --> EVAL["离线评测<br/>黄金测试集"]
+    EVAL --> CICD["发布流水线<br/>灰度 / Canary / A-B"]
+    CICD --> GW
+    CICD --> ORCH
+
+    RESP -.用户反馈.-> FEEDBACK["反馈闭环"]
+    FEEDBACK --> EVAL
+    FEEDBACK --> DATA["训练/微调数据"]
+
+    style GW fill:#e8f0fe
+    style VALIDATE fill:#fff3cd
+    style OBS fill:#e6f4ea
+    style CICD fill:#fce8e6
+</pre>
+
+<p>这张图不是某一家公司的具体实现，而是把 OpenAI、Anthropic 官方生产指南和大厂工程博客（Netflix、Uber、Stripe 等）里反复出现的模块抽象出来的<strong>共性骨架</strong>。沿着请求链路往下看，先是网关和编排层，再到输出校验、可观测性、评测、发布和反馈回流。</p>
+<h2 id="22">2.2 请求路径：网关、编排、供应商</h2>
+<p>请求进来先经过<strong>模型网关</strong>：统一鉴权、按策略路由到具体模型、失败时回退到备用模型。网关本身怎么搭建（多模型统一接口、限流配额、Key 管理）属于 <a href="../../tools/05-transport-gateway/14-llm-gateway.html">Tools · LLM 网关</a>，本主题<a href="../02-request-reliability/03-model-gateway-routing-fallback.html">第 3 章</a>讲的是路由策略和回退链路怎么设计,<a href="../02-request-reliability/04-retry-timeout-idempotency-circuit-breaker.html">第 4 章</a>讲调用失败时的重试与熔断。</p>
+<p>网关之后是<strong>编排层</strong>——单次问答可能只是一次模型调用，但 Agent 需要多轮工具调用与规划（见 <a href="../../agent/">Agent</a>），知识密集型任务需要先检索再生成（见 <a href="../../rag/">RAG</a>）。编排层最终落到具体的<strong>模型供应商</strong>：可能是托管 API，也可能是自研部署（部署细节见 <a href="../../llm/03-inference-serving/">LLM · 推理与部署</a>）。</p>
+<h2 id="23">2.3 输出侧：校验、降级</h2>
+<p>模型返回的文本不能直接信任。<strong>输出校验</strong>检查它是否符合下游期望的结构化契约（<a href="../03-output-safety/05-structured-output-contracts.html">第 5 章</a>），以及是否触发了安全护栏（<a href="../03-output-safety/06-guardrails-degradation.html">第 6 章</a>）。校验不通过不代表直接报错给用户——降级路径可能是换用更保守的模型重试、返回缓存答案或模板化兜底回复,这也是第 6 章的核心内容。</p>
+<h2 id="24">2.4 反馈支路：可观测性、评测、发布</h2>
+<p>图中三条虚线（trace/metrics）汇入<strong>可观测性</strong>层——这是整条链路能不能被排查、被优化的前提,详见<a href="../04-evaluation-observability/08-online-observability-tracing.html">第 8 章</a>。可观测性积累的线上数据反过来喂给<strong>离线评测</strong>(<a href="../04-evaluation-observability/07-offline-eval-eval-driven-development.html">第 7 章</a>),评测通过与否决定<strong>发布流水线</strong>是否放行一次 Prompt/模型/路由变更(<a href="../05-release-pipeline/09-prompt-model-data-versioning.html">第 9</a>、<a href="../05-release-pipeline/10-llm-cicd-canary-ab.html">10 章</a>)。</p>
+<p>最外层的<strong>反馈闭环</strong>把用户的显式反馈(点赞/纠正)和隐式行为(重试、放弃)重新汇入评测数据集,长期看甚至会成为微调数据的来源,这是<a href="../06-performance-operations/13-feedback-loop-data-flywheel.html">第 13 章</a>的主题。</p>
+<h2 id="25">2.5 贯穿全图的两条隐藏关注点</h2>
+<p>架构图没有画出、但每个方框都必须考虑的两件事:</p>
+<table>
+<thead>
+<tr>
+<th>关注点</th>
+<th>体现在哪些方框</th>
+<th>对应章节</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>性能与成本</strong></td>
+<td>网关路由决策、编排层的批处理、缓存</td>
+<td><a href="../06-performance-operations/11-caching-batching-throughput-cost.html">第 11 章</a></td>
+</tr>
+<tr>
+<td><strong>稳定性运营</strong></td>
+<td>整条链路的 SLO、容量规划、事故响应</td>
+<td><a href="../06-performance-operations/12-slo-capacity-incident-response.html">第 12 章</a></td>
+</tr>
+</tbody>
+</table>
+<p>这两点解释了为什么本主题最后一个模块叫「性能、成本与运营」而不是挂在某一个具体方框下——它们是横切关注点,和请求路径上任何一环都有关。</p>
+<h2 id="26">2.6 小规模团队的精简版架构</h2>
+<p>不是每个团队都需要图 2.1 的全部模块。一个精简但仍然「生产可用」的起点:</p>
+<pre class="mermaid">flowchart LR
+    U[用户] --> GW["轻量网关<br/>(可先用开源网关代替自建)"]
+    GW --> M[单一模型供应商]
+    M --> V["最基本的<br/>JSON Schema 校验"]
+    V --> R[返回]
+    V -.失败样本.-> LOG[结构化日志]
+    LOG -.人工定期抽查.-> EVAL[小型评测集]
+
+    style GW fill:#e8f0fe
+</pre>
+
+<p>关键取舍是:<strong>网关可以先用开源方案(如 LiteLLM)顶上而不是自建;可观测性最低限度是把每次调用的输入输出结构化落盘;评测可以从人工定期抽查几十条样本开始,不必一开始就上自动化流水线。</strong> 随着流量增长,再按图 2.1 逐步补齐路由回退、自动化评测门禁、灰度发布这些能力——<strong>过早搭建全套基础设施本身就是一种浪费</strong>,这一点在第 12 章的容量规划里还会展开。</p>
+<h2 id="27">2.7 常见错误</h2>
+<h3 id="271-demo">2.7.1 把 Demo 架构直接套用到生产</h3>
+<p>Demo 里「一次 API 调用直接返回」在生产里必须补上路由回退、输出校验、可观测性,否则任何一次供应商抖动或模型输出异常都会直接影响用户。</p>
+<h3 id="272">2.7.2 把所有能力一步到位建齐</h3>
+<p>小团队一上来就搭建灰度发布、自动化评测门禁、多模型路由,投入产出比很低。应该按第 2.6 节的精简版起步,随流量和风险增长补齐。</p>
+<h3 id="273">2.7.3 把可观测性当成事后补救</h3>
+<p>不少团队等出了生产事故才想起来加日志和 Trace。可观测性应该在架构设计阶段就规划好数据边界(见第 8 章),而不是事后补丁。</p>
+<h3 id="274">2.7.4 反馈闭环只停留在「收集」,没有「回流」</h3>
+<p>收集了用户点赞点踩却从不用来更新评测集,反馈闭环就是摆设。收集到的信号必须真正流回评测和发布决策,才算闭环。</p>
+<h2 id="28">2.8 本章总结</h2>
+<ol>
+<li><strong>生产架构是 Demo 的一次调用「长出」的一整条链路</strong>:网关 → 编排 → 供应商 → 输出校验 → 返回,外加可观测性、评测、发布、反馈四条支路;</li>
+<li><strong>本主题每一章对应图中一个方框</strong>:第 3–4 章讲请求路径可靠性,第 5–6 章讲输出质量与安全,第 7–8 章讲评测与可观测性,第 9–10 章讲版本与发布,第 11–13 章讲性能成本与运营;</li>
+<li><strong>性能成本、稳定性运营是横切关注点</strong>,不属于某个具体方框,而是贯穿整条链路;</li>
+<li><strong>架构不是一步到位的</strong>,小团队应从精简版起步,随规模增长逐步补齐;</li>
+<li><strong>反馈闭环必须真正回流</strong>到评测和发布决策,否则收集反馈没有意义。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://platform.openai.com/docs/guides/production-best-practices">OpenAI: Production best practices</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building effective agents</a></li>
+<li><a href="https://sre.google/sre-book/introduction/">Google SRE Book: Chapter 1 - Introduction</a></li>
+<li><a href="https://www.uber.com/blog/michelangelo-machine-learning-platform/">Uber Engineering: Michelangelo Machine Learning Platform</a></li>
+<li><a href="https://martinfowler.com/articles/cd4ml.html">Martin Fowler: Continuous Delivery for Machine Learning</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

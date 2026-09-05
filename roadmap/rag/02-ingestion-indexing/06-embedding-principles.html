@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embedding 原理 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Embedding 原理 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>摄取与索引</span> / <span>Embedding 原理</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="embedding">第六章：Embedding 原理与技术演进</h1>
+<h2 id="61-embedding">6.1 Embedding 到底在做什么</h2>
+<p>可以先记住一句话：<strong>把文本映射成一个稠密向量，使得语义相近的文本在向量空间中距离更近。</strong></p>
+<p>这句话里有两个关键点，缺一个都不完整：</p>
+<ol>
+<li><strong>稠密</strong>：几百到几千维的实数向量，每一维没有独立的可解释含义，语义分布在整个向量上；</li>
+<li><strong>语义相近 → 距离近</strong>：这是靠训练目标<strong>刻意造出来的</strong>性质，不是自动出现的。</li>
+</ol>
+<p>第二点是理解 Embedding 的关键。<strong>「猫」和「狗」的向量之所以接近，不是因为模型显式存着「它们都属于动物」这条知识，而是因为训练时它们大量出现在相似的上下文中，参数被优化成给出相近的表示。</strong></p>
+<h2 id="62-rag">6.2 为什么 RAG 需要它</h2>
+<p>关键词检索只能匹配<strong>字面</strong>。用户问「怎么请年假」，而文档写的是「带薪休假申请流程」——没有一个词重合，关键词检索直接失效。</p>
+<p>Embedding 把两者都映射到「休假申请」这个语义区域，从而能匹配上。</p>
+<blockquote>
+<p><strong>这就是 RAG 用向量检索的根本原因：它跨越了「同一个意思的不同说法」这道鸿沟。</strong></p>
+</blockquote>
+<p>但也要提前说明：<strong>向量检索并非全面优于关键词检索</strong>。精确的产品型号、错误码、人名、专有术语，关键词检索反而更可靠——这是第十一章要展开的内容。</p>
+<h2 id="63">6.3 技术演进：四代</h2>
+<pre class="mermaid">flowchart LR
+    G1[第一代<br/>静态词向量] --> G2[第二代<br/>上下文词向量]
+    G2 --> G3[第三代<br/>句向量 双塔]
+    G3 --> G4[第四代<br/>后期交互 多向量]
+</pre>
+
+<p>按代际看，更容易理解为什么后面的架构会变成这样。</p>
+<h3 id="631">6.3.1 第一代：静态词向量</h3>
+<p>代表：Word2Vec、GloVe、FastText。</p>
+<p><strong>核心思想</strong>：一个词的含义由它周围经常出现的词决定。通过预测上下文（或用上下文预测中心词）来学习词向量。</p>
+<p><strong>贡献</strong>：第一次让「语义相似度」变成可以计算的数值。</p>
+<p><strong>致命局限</strong>：<strong>一词一向量，无法处理多义词。</strong></p>
+<p>「苹果」在「吃苹果」和「苹果发布会」里是完全不同的意思，但静态词向量给它同一个表示——这个向量是两种含义的妥协平均，对两边都不准。</p>
+<h3 id="632">6.3.2 第二代：上下文相关的词向量</h3>
+<p>代表：ELMo、BERT。</p>
+<p><strong>核心突破</strong>：<strong>同一个词在不同句子里有不同的向量</strong>。BERT 通过双向 Transformer 编码整个句子，每个 Token 的表示都依赖于它的具体上下文。</p>
+<p>多义词问题就此解决。</p>
+<p>这里需要单独区分一个常见误解：</p>
+<blockquote>
+<p><strong>BERT 不能直接用于 RAG 检索。</strong></p>
+</blockquote>
+<p>原因有两个：</p>
+<p><strong>第一，原生 BERT 的句向量质量差。</strong> 直接取 <code>[CLS]</code> 位置的向量或对所有 Token 向量做平均，得到的句向量在语义相似度任务上表现很差——因为 BERT 的预训练目标（掩码语言建模）<strong>根本没有优化句子级的相似度</strong>。</p>
+<p><strong>第二，也是更致命的：交互式架构在检索场景下不可用。</strong></p>
+<p>BERT 判断两句话是否相似的标准做法，是把两句话<strong>拼在一起</strong>送进模型（cross-encoder）。这意味着：</p>
+<pre class="mermaid">flowchart TB
+    subgraph CE[Cross-Encoder 交互式]
+        Q1[Query] --> CAT[拼接]
+        D1[文档] --> CAT
+        CAT --> M1[模型] --> S1[相似度分数]
+        N1[必须对每个文档算一次<br/>百万文档 = 百万次推理]
+    end
+
+    subgraph BE[Bi-Encoder 双塔]
+        Q2[Query] --> ME1[模型] --> V1[Query 向量]
+        D2[文档] --> ME2[模型] --> V2[文档向量<br/>离线预先算好]
+        V1 --> SIM[向量距离]
+        V2 --> SIM
+        N2[文档向量离线算好<br/>在线只算 Query]
+    end
+</pre>
+
+<p><strong>百万级文档库中，cross-encoder 每次查询要做百万次模型推理，完全不可行。</strong> 这就是为什么必须有第三代。</p>
+<h3 id="633">6.3.3 第三代：专门优化的句向量模型（双塔）</h3>
+<p>代表：Sentence-BERT、SimCSE、BGE、E5、GTE、Qwen3-Embedding。</p>
+<p><strong>两个关键改进：</strong></p>
+<p><strong>改进一：架构改成双塔（bi-encoder）。</strong> Query 和文档<strong>分别独立编码</strong>，各自得到一个向量，用向量距离衡量相似度。这样文档向量可以在离线阶段全部算好并建索引，在线只需算一次 Query 向量。</p>
+<p><strong>这是让向量检索在工程上可行的决定性一步。</strong></p>
+<p><strong>改进二：训练目标改成对比学习。</strong> 用「相似句子对」作为正样本、「不相似句子对」作为负样本，直接优化「相似的靠近、不相似的远离」这个目标。</p>
+<p>SimCSE 展示了一个非常简洁的做法：<strong>同一个句子过两次模型，因为 Dropout 是随机的，会得到两个略有差异的向量，把这一对当作正样本</strong>；同一批次里的其他句子作为负样本。不需要人工标注就能大幅提升句向量质量。</p>
+<p><strong>这一代是当前 RAG 的标准配置。</strong></p>
+<p><strong>代价</strong>：双塔的 Query 和文档从未"见面"，无法建模细粒度的词级交互，所以精度低于 cross-encoder。</p>
+<blockquote>
+<p><strong>这正是 RAG 采用「双塔粗排 + cross-encoder 精排」两阶段架构的根本原因</strong>——用双塔的速度缩小范围，用 cross-encoder 的精度定顺序。第一章 1.5 节的漏斗结构，在这里得到了技术上的解释。</p>
+</blockquote>
+<h3 id="634">6.3.4 第四代：后期交互与多向量</h3>
+<p>代表：ColBERT、ColBERTv2、ColPali。</p>
+<p><strong>核心思想</strong>：在「单向量双塔」和「拼接式 cross-encoder」之间取中间路线。</p>
+<p>文档不再压缩成<strong>一个</strong>向量，而是保留<strong>每个 Token 的向量</strong>。检索时计算 Query 每个 Token 与文档所有 Token 向量的最大相似度，再求和。</p>
+<pre class="mermaid">flowchart TB
+    A[单向量双塔] -->|精度低 速度快| B[后期交互 多向量]
+    B -->|精度接近 速度可接受| C[Cross-Encoder]
+    A -.->|文档压成 1 个向量| A1[细粒度信息丢失]
+    B -.->|文档保留 N 个向量| B1[存储成本高 N 倍]
+    C -.->|Query 文档拼接| C1[无法离线预计算]
+</pre>
+
+<p><strong>优点</strong>：保留了词级匹配信息，精度显著高于单向量，同时文档表示仍可离线预计算。</p>
+<p><strong>缺点</strong>：<strong>存储开销是单向量的几十倍</strong>，且需要专门的索引支持。</p>
+<p><strong>第四代的一个重要衍生是把它用到视觉上</strong>：直接对文档<strong>页面图像</strong>做多向量嵌入，绕开 OCR 和版面解析（第三章 3.5 节讨论过）。</p>
+<h2 id="64">6.4 相似度怎么算</h2>
+<table>
+<thead>
+<tr>
+<th>度量</th>
+<th>说明</th>
+<th>备注</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>余弦相似度</td>
+<td>只看方向不看长度</td>
+<td>RAG 最常用</td>
+</tr>
+<tr>
+<td>点积</td>
+<td>同时受方向和模长影响</td>
+<td>归一化后与余弦等价</td>
+</tr>
+<tr>
+<td>欧氏距离</td>
+<td>空间直线距离</td>
+<td>归一化后与余弦单调等价</td>
+</tr>
+</tbody>
+</table>
+<p><strong>实践要点</strong>：多数 Embedding 模型输出的向量已经归一化，此时三者在排序上等价，<strong>选哪个不影响结果</strong>。但必须<strong>与向量库的索引配置保持一致</strong>——建库时用点积、查询时用余弦，会得到错误的排序。</p>
+<h2 id="65">6.5 使用时的几个硬性约束</h2>
+<h3 id="651">6.5.1 建库和查询必须用同一个模型</h3>
+<p>不同模型的向量位于不同的语义空间，跨空间计算距离<strong>没有任何意义</strong>，且不会报错——只会静默地返回一堆不相关结果。</p>
+<p><strong>推论：换 Embedding 模型 = 全量重建索引。</strong> 这是选型时必须提前考虑的成本。</p>
+<h3 id="652">6.5.2 注意输入长度上限</h3>
+<p>多数模型有最大输入长度（常见 512 Token），<strong>超出部分被静默截断</strong>。第四章已经强调过，这里再次提醒：这是最隐蔽的一类 bug。</p>
+<h3 id="653">6.5.3 注意指令前缀</h3>
+<p>不少现代 Embedding 模型（E5、BGE、Qwen3-Embedding 系列）要求给 Query 加特定前缀（如 <code>query:</code> / <code>为这个句子生成表示以用于检索相关文章：</code>），而文档不加或加另一个前缀。</p>
+<p><strong>不按模型卡的要求加前缀，会明显掉点。</strong> 这是实践中极常见的低级错误。</p>
+<h3 id="654">6.5.4 对称与非对称检索是两回事</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>场景</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>对称检索</td>
+<td>句子 vs 句子</td>
+<td>两侧长度和形式相近，如相似问题匹配</td>
+</tr>
+<tr>
+<td>非对称检索</td>
+<td>短 Query vs 长文档</td>
+<td><strong>RAG 的典型场景</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>RAG 需要的是非对称检索能力。</strong> 用在对称任务上训练的模型做 RAG，效果会打折扣——这也是为什么不能只看模型在通用相似度榜单上的分数。</p>
+<h2 id="66">6.6 常见错误</h2>
+<h3 id="661-bert-rag">6.6.1 说「BERT 就能做 RAG 检索」</h3>
+<p>原生 BERT 句向量质量差，且 cross-encoder 架构在大规模检索中不可用。这也是检索架构里最容易混淆的一点。</p>
+<h3 id="662">6.6.2 不知道为什么需要双塔</h3>
+<p>答不出「文档向量必须能离线预计算」，说明没理解检索的工程约束。</p>
+<h3 id="663-embedding-rerank">6.6.3 把 Embedding 模型和 Rerank 模型混为一谈</h3>
+<p>前者是双塔、离线可预计算；后者是 cross-encoder、必须在线成对计算。架构完全不同。</p>
+<h3 id="664">6.6.4 忘记加指令前缀</h3>
+<p>模型卡明确要求的前缀不加，会明显掉点。</p>
+<h3 id="665">6.6.5 混用不同模型的向量</h3>
+<p>不报错，但结果全错。</p>
+<h3 id="666">6.6.6 只记模型名不讲演进逻辑</h3>
+<p>「有 Word2Vec、BERT、BGE」这种罗列没有信息量。<strong>要说清每一代解决了上一代的什么问题。</strong></p>
+<h2 id="67">6.7 本章总结</h2>
+<ol>
+<li><strong>Embedding 把文本映射为稠密向量，让语义相似度可计算</strong>；这个性质来自训练目标，不是自动出现的；</li>
+<li><strong>第一代</strong>静态词向量解决了「语义可计算」，但<strong>一词一向量、无法处理多义</strong>；</li>
+<li><strong>第二代</strong>上下文词向量（BERT）解决了多义问题，但<strong>句向量质量差 + cross-encoder 架构无法用于大规模检索</strong>；</li>
+<li><strong>第三代</strong>双塔句向量模型是当前 RAG 标配：<strong>架构上可离线预计算，训练上用对比学习直接优化相似度</strong>；</li>
+<li><strong>第四代</strong>后期交互（ColBERT 系）保留 Token 级向量，精度更高但<strong>存储成本高几十倍</strong>；其视觉版本可绕开文档解析；</li>
+<li><strong>两阶段架构的技术根源</strong>：双塔快但粗，cross-encoder 准但慢，所以粗排精排分离；</li>
+<li><strong>硬性约束</strong>：同一模型建库查询、注意长度上限、按模型卡加指令前缀、区分对称与非对称检索。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1301.3781">Efficient Estimation of Word Representations in Vector Space</a></li>
+<li><a href="https://arxiv.org/abs/1810.04805">BERT: Pre-training of Deep Bidirectional Transformers for Language Understanding</a></li>
+<li><a href="https://arxiv.org/abs/1908.10084">Sentence-BERT: Sentence Embeddings using Siamese BERT-Networks</a></li>
+<li><a href="https://arxiv.org/abs/2104.08821">SimCSE: Simple Contrastive Learning of Sentence Embeddings</a></li>
+<li><a href="https://arxiv.org/abs/2004.04906">Dense Passage Retrieval for Open-Domain Question Answering</a></li>
+<li><a href="https://arxiv.org/abs/2112.01488">ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction</a></li>
+<li><a href="https://arxiv.org/abs/2407.01449">ColPali: Efficient Document Retrieval with Vision Language Models</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

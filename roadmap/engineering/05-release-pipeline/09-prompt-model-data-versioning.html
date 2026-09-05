@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Prompt、模型与数据版本 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Prompt、模型与数据版本 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI Engineering</span> / <span>版本管理与发布</span> / <span>Prompt、模型与数据版本</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="prompt">第九章：Prompt / 模型 / 数据版本管理</h1>
+<h2 id="91-prompt">9.1 为什么 Prompt 也需要像代码一样版本化</h2>
+<p>Prompt 决定了系统行为,但很多团队把它当成字符串常量随手改,改完直接生效,没有版本号,没有变更记录,出问题时无法确定"上一个还工作的版本是哪个"。<strong>Prompt、模型选择、检索数据这三者任何一个变化,都可能改变系统输出</strong>,理应像应用代码一样接受版本管理的约束。</p>
+<pre class="mermaid">flowchart LR
+    P["Prompt 变更"] --> V["三者任一变化都应触发版本升级"]
+    M["模型/路由变更"] --> V
+    D["数据/知识库变更"] --> V
+    V --> R["新版本号 + 变更记录 + 可回滚"]
+</pre>
+
+<h2 id="92-prompt">9.2 Prompt 版本管理</h2>
+<h3 id="921">9.2.1 版本号不是可选项</h3>
+<pre><code class="language-python">PROMPT_REGISTRY = {
+    &quot;order_extraction.v3&quot;: {
+        &quot;template&quot;: &quot;...&quot;,
+        &quot;schema_version&quot;: &quot;order_extraction.v2&quot;,  # 对应第5章的输出契约版本
+        &quot;created_at&quot;: &quot;2026-08-20&quot;,
+        &quot;eval_score&quot;: 0.94,           # 来自第7章的离线评测
+        &quot;changelog&quot;: &quot;修复金额单位歧义,新增币种字段约束&quot;,
+    },
+}
+</code></pre>
+<p>Prompt 版本和它期望的输出 Schema 版本(<a href="../03-output-safety/05-structured-output-contracts.html">第 5 章</a>)应该分开编号但显式关联——<strong>改 Prompt 不一定改输出格式,改输出格式几乎一定要同步升级 Prompt</strong>。</p>
+<h3 id="922-prompt">9.2.2 Prompt 变更走和代码一样的评审流程</h3>
+<p>Prompt 改动应该进入版本控制系统,通过 Pull Request 走评审,并附上<a href="../04-evaluation-observability/07-offline-eval-eval-driven-development.html">第 7 章</a>离线评测的对比分数,而不是在生产配置后台直接编辑生效。</p>
+<h2 id="93">9.3 模型版本锁定</h2>
+<p>第 1 章提到过 LLMOps 独有的风险:<strong>厂商静默升级模型版本</strong>。多数供应商同时提供"浮动别名"(如 <code>gpt-4o</code>)和"固定快照"(如 <code>gpt-4o-2026-08-06</code>)两种引用方式:</p>
+<table>
+<thead>
+<tr>
+<th>引用方式</th>
+<th>行为</th>
+<th>适用场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>浮动别名</td>
+<td>厂商随时可能切换到新的底层版本</td>
+<td>快速原型、对细微行为变化不敏感的场景</td>
+</tr>
+<tr>
+<td>固定快照</td>
+<td>明确指向某个不变的模型版本</td>
+<td>生产环境的默认选择,行为可复现</td>
+</tr>
+</tbody>
+</table>
+<p>生产环境应默认使用固定快照,<strong>主动升级到新快照本身也是一次需要经过评测门禁的"发布"</strong>,而不是被动接受厂商推送。升级前后的评测对比,和<a href="10-llm-cicd-canary-ab.html">第 10 章</a>的灰度发布流程完全一致。</p>
+<h2 id="94">9.4 数据版本管理:让评测和排障可复现</h2>
+<p>这里的"数据"包括 RAG 知识库快照、Few-shot 示例集、评测用的黄金测试集。数据版本管理要解决的核心问题是:<strong>给定一次线上请求的排查结果,能不能倒查回"当时用的是哪个版本的知识库"</strong>。</p>
+<pre><code class="language-yaml"># 每次知识库更新后生成的版本清单示例
+knowledge_base_version: kb-2026-08-25
+source_documents_hash: sha256:9f2e1a...
+embedding_model: text-embedding-3-large
+indexed_at: 2026-08-25T02:00:00Z
+</code></pre>
+<p>常见做法是用 DVC、LakeFS 等工具对数据集做类似 Git 的版本管理,或者至少为每次索引重建生成一个不可变的版本标签。<strong>没有数据版本,离线评测的分数会失去可比性</strong>——如果知识库在两次评测之间偷偷更新过,分数变化到底是 Prompt 改动的效果还是数据变化的效果,根本无法区分。</p>
+<h2 id="95">9.5 模型注册表:统一记录"什么版本在哪里跑"</h2>
+<p>三者版本信息最终应该汇总到一个模型/配置注册表,而不是分散在各个服务的配置文件里:</p>
+<table>
+<thead>
+<tr>
+<th>记录项</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Prompt 版本 + 关联的 Schema 版本</td>
+<td>排查输出格式变化的根因</td>
+</tr>
+<tr>
+<td>模型快照版本 + 路由策略版本</td>
+<td>排查"这次输出风格为什么不一样"(<a href="../02-request-reliability/03-model-gateway-routing-fallback.html">第 3 章</a>)</td>
+</tr>
+<tr>
+<td>知识库/数据版本</td>
+<td>排查检索内容变化的根因</td>
+</tr>
+<tr>
+<td>关联的评测分数与变更时间</td>
+<td>支持第 10 章发布流水线的门禁判断和回滚决策</td>
+</tr>
+</tbody>
+</table>
+<p>这和 MLOps 里的模型注册表(如 MLflow Model Registry)是同一个思路,只是登记的资产从"训练出的权重文件"换成了"Prompt + 路由 + 数据的组合快照"。</p>
+<h2 id="96">9.6 常见错误</h2>
+<h3 id="961-prompt">9.6.1 直接在生产配置后台改 Prompt,不走版本控制</h3>
+<p>改坏了无法快速定位是哪次改动引入的问题,也无法一键回滚到上一个已知良好版本。</p>
+<h3 id="962">9.6.2 生产环境使用浮动模型别名</h3>
+<p>厂商静默升级会导致系统行为在没有任何代码变更的情况下发生偏移,且难以定位根因。生产环境应锁定固定快照,主动升级作为一次受控发布。</p>
+<h3 id="963">9.6.3 知识库更新没有版本标签</h3>
+<p>评测分数变化时无法区分是 Prompt 改动还是数据变化导致的,评测结果失去可比性。</p>
+<h3 id="964-prompt-schema">9.6.4 Prompt 版本和输出 Schema 版本没有显式关联</h3>
+<p>下游系统按 Schema 版本解析,如果 Prompt 版本独立升级导致输出格式漂移却没有同步 Schema 版本,会引发解析失败。</p>
+<h2 id="97">9.7 本章总结</h2>
+<ol>
+<li><strong>Prompt、模型、数据任何一项变化都可能改变系统行为</strong>,三者都需要纳入版本管理;</li>
+<li><strong>Prompt 变更应走代码评审流程</strong>,并附带离线评测的对比分数;</li>
+<li><strong>生产环境应锁定模型固定快照</strong>,主动升级视为一次需要评测门禁的发布,而非被动接受厂商推送;</li>
+<li><strong>数据版本化是评测可比性的前提</strong>,没有它无法区分分数变化的真正原因;</li>
+<li><strong>三者版本信息应汇总到统一注册表</strong>,支撑排查和发布决策。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://platform.openai.com/docs/models#model-version">OpenAI: Model version and lifecycle</a></li>
+<li><a href="https://dvc.org/doc">DVC: Data Version Control</a></li>
+<li><a href="https://mlflow.org/docs/latest/model-registry.html">MLflow: Model Registry</a></li>
+<li><a href="https://cloud.google.com/architecture/mlops-continuous-delivery-and-automation-pipelines-in-machine-learning">Google Cloud: MLOps continuous delivery and automation pipelines</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

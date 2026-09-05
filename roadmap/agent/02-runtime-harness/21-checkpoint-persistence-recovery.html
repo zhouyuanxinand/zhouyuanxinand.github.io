@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Checkpoint、持久化与恢复 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Checkpoint、持久化与恢复 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>Runtime 与 Harness</span> / <span>Checkpoint、持久化与恢复</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="checkpoint">第二十一章：Checkpoint、持久化、重试、超时、幂等与恢复</h1>
+<h2 id="211">21.1 本章边界：为什么"可恢复"比"能重跑"更重要</h2>
+<p>第十七章把 Agent Loop 描述为一个状态机；只要进程不崩溃、网络不中断、任务不超过几分钟，这个状态机自己维护内存里的状态就够用。但真实的 Coding Agent 任务经常运行几十分钟到几小时，中间必然会遇到进程重启、网络抖动、模型 API 限流、工具执行超时。这时候"重新跑一遍"往往不可接受——不仅浪费已完成的工作和 token 成本，某些工具调用（发邮件、创建 PR、执行数据库写操作）重跑还会产生真实的副作用。本章讨论 harness 如何做到<strong>从中断处继续，而不是从头重来</strong>，这需要 checkpoint、持久化、重试、超时、幂等五个机制协同工作。</p>
+<h2 id="212-checkpoint">21.2 Checkpoint：保存什么、何时保存</h2>
+<p>Checkpoint 是状态机在某个时间点的完整快照，至少要包含第 17.2 节定义的核心状态字段（<code>messages</code>、<code>turn_index</code>、<code>pending_tool_calls</code>、<code>phase</code>、<code>budget</code>）。保存时机通常选择在状态转移的边界点：每完成一次模型调用之后、每完成一次工具执行之后、或者显式的里程碑处（比如多 Agent 场景下一次 handoff 之后）。保存粒度太粗（只在任务结束时保存）等于没有 checkpoint；粒度太细（每个 token 都保存）则带来不必要的 I/O 开销——实践中"每个状态转移边界保存一次"是较为常见的折中。</p>
+<h2 id="213">21.3 持久化的两个层次</h2>
+<p>第七、八章已经区分过 Working Memory 与 Long-term Memory 在"内容"上的不同；本节从"持久化机制"的角度做同样的区分，二者需要用不同的存储策略实现：</p>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>对应关系</th>
+<th>典型实现</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>线程内持久化（checkpoint）</td>
+<td>单次会话/单个任务</td>
+<td>LangGraph 的 Checkpointer——"持久化一个线程的图状态，用于短期的、线程范围内的记忆，包括对话连续性、人在环工作流、时间旅行、容错"(<a href="https://docs.langchain.com/oss/python/langgraph/persistence">LangGraph: Persistence</a>)</td>
+<td>支撑本章讨论的恢复能力</td>
+</tr>
+<tr>
+<td>跨线程持久化（store）</td>
+<td>跨会话、跨任务</td>
+<td>LangGraph 的 Store——"持久化应用自定义的数据……用于长期的、跨线程的记忆"</td>
+<td>对应第七、八章的长期记忆存储</td>
+</tr>
+</tbody>
+</table>
+<p>多数生产系统需要同时使用两层：checkpoint 保证单次任务能在中断后恢复，store 保证下一次任务能利用上一次任务积累的知识。二者职责不同，不应该合并成一套存储实现——线程内状态变化频繁、体量大但生命周期短，跨线程存储变化少但需要长期保留和跨会话查询。</p>
+<h2 id="214">21.4 重试：哪些失败可以重试，哪些不能</h2>
+<p>不是所有失败都适合自动重试。区分标准是<strong>失败是否是暂时性的、重试是否会产生副作用叠加</strong>：</p>
+<ul>
+<li><strong>适合自动重试</strong>：网络超时、模型 API 限流（429）、工具执行遇到瞬时性基础设施故障——这些失败通常与请求内容无关，重试大概率成功。</li>
+<li><strong>不适合自动重试</strong>：工具调用的参数本身有误（重试只会得到同样的错误）、工具调用已经产生了真实副作用但响应因网络问题丢失（此时重试可能造成重复执行，见 21.6 节）、模型判断任务本身不可行——这些失败应该被回写给模型（第 19 章 19.6 节）或者上报人工介入（第 22 章），而不是无脑重试。</li>
+</ul>
+<p>Temporal 这类 durable execution 平台把这个判断标准做成了显式配置：Activity（对应工具执行）失败后是否重试、重试多少次、退避策略如何，都由开发者显式声明,而不是引擎默认全部重试或全部不重试(<a href="https://docs.temporal.io/evaluate/understanding-temporal">Temporal: Understanding Temporal</a>)。指数退避是最常见的重试间隔策略,第 $n$ 次重试的等待时间通常设计为：</p>
+<p>$$
+t_n = \min\left(t_{max},\ t_0 \cdot 2^{n-1}\right) + \delta_{jitter}
+$$</p>
+<p>其中 $t_0$ 是初始等待时间，$t_{max}$ 是退避上限，$\delta_{jitter}$ 是随机抖动，用于避免大量并发请求在同一时刻集中重试。</p>
+<h2 id="215">21.5 超时：分层设置超时预算</h2>
+<p>第 19 章 19.5 节已提到"每个工具调用应有独立的超时预算，且应嵌套在更大预算之内"。完整的分层超时至少有三级：</p>
+<pre class="mermaid">flowchart TB
+    S["会话级超时<br/>整个任务的最长运行时间"]
+    T["Turn 级超时<br/>单轮模型调用 + 工具执行的最长时间"]
+    C["工具调用级超时<br/>单次工具执行的最长时间"]
+    S --> T --> C
+</pre>
+
+<p>三级超时必须满足 $t_{tool} &lt; t_{turn} &lt; t_{session}$（分别对应工具调用、Turn、会话三级），任意一级超时触发时，都应该产生一条明确的、可被上层处理的信号（错误消息、状态转移到 <code>Interrupted</code> 或直接触发 checkpoint 后终止），而不是让底层超时无声地传播导致整个状态机挂起。</p>
+<h2 id="216">21.6 幂等：让重试变得安全</h2>
+<p>幂等性解决的问题是：<strong>同一个操作被执行两次，效果和执行一次相同</strong>。这是安全重试的前提——没有幂等保证的重试，很可能把"发一封邮件"变成"发两封邮件"。工程上最常见的实现方式是幂等键：调用方为每次操作生成一个唯一键，服务端保存"这个键第一次被处理时的结果"，之后无论这个键被提交多少次，都直接返回保存的结果而不是重新执行。Stripe 的 API 设计是这一模式的经典参考实现："使用 idempotency key 可以安全地重试请求而不必担心意外执行同一个操作两次……幂等层会比较后续请求的参数与最初请求是否一致，如果不一致则报错"(<a href="https://docs.stripe.com/api/idempotent_requests">Stripe: Idempotent requests</a>)。把这个模式映射到 Agent Harness：每个工具调用的调用 ID（第 19 章 19.3 节）天然可以充当幂等键的角色——只要工具的执行端（无论是内部服务还是外部 API）支持基于这个 ID 去重，harness 在"不确定上次调用是否真的执行成功"时，就可以放心重发同一个调用 ID，而不用担心副作用被叠加执行。</p>
+<h2 id="217-checkpoint">21.7 恢复：从 Checkpoint 继续，而不是从头重放</h2>
+<p>恢复的正确语义是：加载最近一次 checkpoint，重建 17.2 节定义的状态，从中断点<strong>继续</strong>执行，而不是重新执行 checkpoint 之前的所有步骤。这里有两个容易出错的细节：</p>
+<ul>
+<li><strong>"从中断点继续"不等于"从中断的那一行代码继续"。</strong> 恢复重新进入的是状态机某个明确定义的状态（比如"上一次工具调用已完成，等待下一次模型调用"），而不是试图恢复到某个任意的程序计数器位置——这也是为什么 checkpoint 需要保存的是 17.2 节的显式状态字段，而不是整个进程的内存镜像。</li>
+<li><strong>checkpoint 与幂等必须配合，否则恢复本身可能重复执行副作用。</strong> 如果 checkpoint 保存的时间点在"工具已经真实执行"和"结果已经写回状态"之间，恢复时重新执行这个未完成的步骤就必须依赖 21.6 节的幂等保证，否则会出现同一个副作用被执行两次的风险。</li>
+</ul>
+<h2 id="218">21.8 常见反模式与检查清单</h2>
+<ul>
+<li><strong>只在任务结束时写 checkpoint。</strong> 等于没有恢复能力，任务运行到一半崩溃就必须从零开始。</li>
+<li><strong>把"加了 Checkpointer"等同于"不会重复执行"。</strong> 这是<a href="../../frameworks/01-langchain/04-langgraph/10-langgraph-advantages.html">第十章（LangGraph 章）10.11.7 节</a>专门点出的常见误区，checkpoint 只保证状态能恢复，不自动保证恢复过程不产生重复副作用，幂等仍需要单独设计。</li>
+<li><strong>重试策略不区分失败类型，一律重试或一律不重试。</strong> 应按 21.4 节的标准显式分类。</li>
+<li><strong>超时只设一层。</strong> 会导致局部卡死拖垮全局，必须按 21.5 节分层设置。</li>
+<li><strong>幂等键的生成依赖调用方每次都不同（如时间戳），却期望它能去重。</strong> 幂等键必须在"同一个逻辑操作的多次尝试"之间保持不变，通常直接复用调用 ID。</li>
+</ul>
+<h2 id="219">21.9 本章总结</h2>
+<p>Checkpoint 在状态转移边界保存 17.2 节定义的核心状态；持久化分线程内（checkpoint，支撑单次任务的恢复）和跨线程（store，支撑长期记忆）两层，二者存储特性不同不应合并。重试需要区分暂时性失败（可重试）与内容性失败（不可重试），并采用指数退避；超时需要按会话、Turn、工具调用三级分层设置；幂等键（通常复用调用 ID）是安全重试和安全恢复的共同前提；恢复的正确语义是重建显式状态后从中断点继续，而不是重放全部历史或恢复到任意程序位置。这四个机制共同构成"可恢复"而不只是"能重跑"的运行时能力。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence">LangGraph: Persistence</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/fault-tolerance">LangGraph: Fault tolerance</a></li>
+<li><a href="https://docs.temporal.io/evaluate/understanding-temporal">Temporal: Understanding Temporal</a></li>
+<li><a href="https://docs.stripe.com/api/idempotent_requests">Stripe: Idempotent requests</a></li>
+<li><a href="../../frameworks/01-langchain/04-langgraph/10-langgraph-advantages.html">LangGraph 第十章：LangGraph 的核心优势</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

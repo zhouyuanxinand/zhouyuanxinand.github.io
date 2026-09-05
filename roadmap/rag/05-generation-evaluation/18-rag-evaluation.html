@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>RAG 评估体系 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="RAG 评估体系 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>生成与评估</span> / <span>RAG 评估体系</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rag">第十八章：RAG 评估体系</h1>
+<h2 id="181">18.1 为什么必须分层评估</h2>
+<p>RAG 是一条多环节的流水线。<strong>最终答案不好，可能是任何一个环节出了问题。</strong></p>
+<p>如果只看一个端到端的总分，你能知道"效果差"，但不知道<strong>差在哪</strong>。而分层指标能直接告诉你问题落在第十四章框架的哪一层。</p>
+<pre class="mermaid">flowchart TB
+    E[RAG 评估] --> E1[检索层<br/>找到了吗 排前面了吗]
+    E --> E2[生成层<br/>忠实吗 切题吗]
+    E --> E3[端到端<br/>用户问题解决了吗]
+    E --> E4[线上<br/>真实用户怎么反馈的]
+</pre>
+
+<p>只看端到端分数只能发现退化，不能定位病因；只看检索又无法判断整条链路是否完成任务。两类评测需要同时存在。</p>
+<h2 id="182">18.2 检索层指标</h2>
+<p>前提：需要一个<strong>标注了每个 Query 对应哪些 chunk 是正确依据</strong>的评测集。</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>衡量什么</th>
+<th>什么时候用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Hit@K</strong></td>
+<td>Top-K 里<strong>是否至少有一个</strong>正确 chunk</td>
+<td>最常用的核心指标</td>
+</tr>
+<tr>
+<td><strong>Recall@K</strong></td>
+<td>Top-K 里覆盖了<strong>多少比例</strong>的正确 chunk</td>
+<td>答案需要多个片段综合时</td>
+</tr>
+<tr>
+<td><strong>MRR</strong></td>
+<td>第一个正确结果的排名倒数的平均</td>
+<td>衡量<strong>排序质量</strong></td>
+</tr>
+<tr>
+<td><strong>NDCG@K</strong></td>
+<td>考虑相关性等级和位置的综合排序质量</td>
+<td>相关性分多档时</td>
+</tr>
+<tr>
+<td><strong>Precision@K</strong></td>
+<td>Top-K 里正确的比例</td>
+<td>关注噪音比例时</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1821">18.2.1 怎么用这些指标定位问题</h3>
+<p>更有用的是把这些指标组合起来定位问题。</p>
+<table>
+<thead>
+<tr>
+<th>现象</th>
+<th>诊断</th>
+<th>对应的层</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Hit@50 低</td>
+<td><strong>根本没召回</strong>，可能是索引或召回路问题</td>
+<td>索引层 / 召回层</td>
+</tr>
+<tr>
+<td>Hit@50 高但 Hit@5 低</td>
+<td>召回到了但<strong>排序不好</strong></td>
+<td>重排层</td>
+</tr>
+<tr>
+<td>Hit@5 高但答案差</td>
+<td>检索没问题，<strong>生成层有问题</strong></td>
+<td>生成层</td>
+</tr>
+<tr>
+<td>Recall@K 低但 Hit@K 高</td>
+<td>找到了一部分依据，<strong>但不完整</strong></td>
+<td>索引层（粒度）/ 召回层（K 太小）</td>
+</tr>
+</tbody>
+</table>
+<p>实际分析时，通常把这组指标作为诊断表来定位问题。</p>
+<h2 id="183">18.3 生成层指标</h2>
+<p>RAGAS 这类框架提供了几个常用的无参考答案指标：</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>衡量什么</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Faithfulness（忠实度）</strong></td>
+<td>答案中的每个陈述是否<strong>能从检索材料中推出</strong></td>
+</tr>
+<tr>
+<td><strong>Answer Relevancy（答案相关性）</strong></td>
+<td>答案是否<strong>切题</strong>（不跑题、不答非所问）</td>
+</tr>
+<tr>
+<td><strong>Context Precision（上下文精确率）</strong></td>
+<td>检索到的材料中，<strong>相关的是否排在前面</strong></td>
+</tr>
+<tr>
+<td><strong>Context Recall（上下文召回率）</strong></td>
+<td>回答所需的信息<strong>是否都被检索到了</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="1831">18.3.1 四个使用边界</h3>
+<p>使用这些指标时，需要同时看清它们的边界。</p>
+<p><strong>（1）Faithfulness 不等于事实正确性</strong></p>
+<p>首先要区分这一点（与第十七章 17.8 呼应）：</p>
+<blockquote>
+<p><strong>Faithfulness 衡量的是「答案忠实于材料」，不是「答案事实正确」。</strong> 材料本身错了，忠实度依然满分。</p>
+</blockquote>
+<p><strong>（2）Faithfulness 可以被"我不知道"刷满</strong></p>
+<p>模型回答「材料中没有相关信息」时，这个陈述完全忠实于材料，<strong>忠实度得分很高</strong>。</p>
+<p>因此 Faithfulness 需要和 Answer Relevancy 联合解释，否则一个倾向拒答的系统也可能拿到很高的忠实度分数。</p>
+<p><strong>（3）LLM-as-Judge 的循环性问题</strong></p>
+<p>用 LLM 评估 LLM 的输出，存在<strong>同源偏见</strong>：评判模型可能偏好与自己风格相似的回答，也可能与被评模型犯同样的错误。</p>
+<p><strong>缓解</strong>：用与生成模型<strong>不同</strong>的模型做评判；用人工标注的子集<strong>校准</strong>评判模型的一致性。</p>
+<p><strong>（4）无参考答案带来的噪声</strong></p>
+<p>Context Recall 等指标在没有标准答案时依赖 LLM 推断，<strong>方差较大</strong>。</p>
+<p>这些指标更适合看趋势和相对比较，不适合当作绝对分数。像「Faithfulness 从 0.82 涨到 0.85」这样的变化，需要结合评测集和判定方差一起解释。</p>
+<h2 id="184">18.4 端到端评估</h2>
+<p>最终还是要回答「用户的问题解决了吗」。</p>
+<table>
+<thead>
+<tr>
+<th>方式</th>
+<th>说明</th>
+<th>成本</th>
+<th>可靠性</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>人工评分</strong></td>
+<td>专家按维度打分</td>
+<td>高</td>
+<td><strong>最高</strong></td>
+</tr>
+<tr>
+<td><strong>LLM-as-Judge</strong></td>
+<td>模型对照参考答案打分</td>
+<td>中</td>
+<td>中（<strong>需校准</strong>）</td>
+</tr>
+<tr>
+<td><strong>程序化断言</strong></td>
+<td>检查答案是否包含关键事实</td>
+<td>低</td>
+<td>高（<strong>但覆盖窄</strong>）</td>
+</tr>
+<tr>
+<td><strong>AB 测试</strong></td>
+<td>线上对比两个版本</td>
+<td>中</td>
+<td><strong>最贴近真实</strong></td>
+</tr>
+</tbody>
+</table>
+<p><strong>推荐组合</strong>：<strong>程序化断言做主体</strong>（快速、确定性、可回归），<strong>LLM-as-Judge 做补充</strong>（覆盖开放性问题），<strong>定期人工抽查做校准</strong>（验证前两者的可信度）。</p>
+<p>LLM-as-Judge 需要先校准：用一批人工标注样本检查评判模型与人工的一致性。未校准的 Judge 分数不应直接用于决策。</p>
+<h3 id="1841-citation">18.4.1 Citation、时效与鲁棒性</h3>
+<p>端到端“答案正确”不足以说明系统可审计、可用于当前事实，或能抵抗输入扰动。对需要依据的答案，至少增加以下维度：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>要测什么</th>
+<th>可操作判定</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Citation 完整性</strong></td>
+<td>关键可核查主张是否都有引用</td>
+<td>人工或断言统计“有有效来源的主张 / 应引用主张”</td>
+</tr>
+<tr>
+<td><strong>Citation 正确性</strong></td>
+<td>引用是否真的支撑它旁边的主张</td>
+<td>核验来源、页/段/时间定位与主张的蕴含关系；只检查编号存在不够</td>
+</tr>
+<tr>
+<td><strong>Citation 可访问性</strong></td>
+<td>用户能否在其权限内打开引用</td>
+<td>检查 ACL、稳定 <code>doc_id/version_id</code> 与定位信息，不泄漏路径</td>
+</tr>
+<tr>
+<td><strong>时效性（freshness）</strong></td>
+<td>答案是否依据查询时有效的版本</td>
+<td>用已知更新、撤销和过期样例，评测正确版本选择、日期呈现和缓存失效</td>
+</tr>
+<tr>
+<td><strong>鲁棒性</strong></td>
+<td>无关噪声、同义改写、拼写/OCR 错误、冲突或注入内容是否改变结论</td>
+<td>成对运行原始与扰动样例，报告任务成功、错误接受、拒答和引用变化</td>
+</tr>
+</tbody>
+</table>
+<p>时效评测必须固定“查询时刻”和可见版本；否则系统可能引用今天正确、当时错误的材料。鲁棒性不应只报告攻击成功率，还要报告正常任务效用，避免以全拒答获得表面高分（安全细节见<a href="../06-operations-security/20-rag-challenges-security.html">第二十章</a>）。</p>
+<h2 id="185">18.5 评测集怎么建</h2>
+<p>这一部分通常最耗时，但决定评估体系是否可用。</p>
+<h3 id="1851">18.5.1 分三档</h3>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>规模</th>
+<th>频率</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Smoke</strong></td>
+<td>10–30 条</td>
+<td>每次改动</td>
+<td>快速验证没有明显退化</td>
+</tr>
+<tr>
+<td><strong>Regression</strong></td>
+<td>100–300 条</td>
+<td>每次发版</td>
+<td>防止已修复的问题复发</td>
+</tr>
+<tr>
+<td><strong>Full</strong></td>
+<td>500+ 条</td>
+<td>定期 / 大改动</td>
+<td>全面评估</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1852">18.5.2 必须覆盖的问题类型</h3>
+<ul>
+<li><strong>简单事实查找</strong>；</li>
+<li><strong>同义表述</strong>（用户的说法与文档不同）；</li>
+<li><strong>专业术语与型号</strong>（测 BM25 那一路）；</li>
+<li><strong>多跳/复合问题</strong>；</li>
+<li><strong>需要综合多个片段的问题</strong>；</li>
+<li><strong>时效性问题</strong>（固定查询时刻，新旧版本共存时能否选择当时有效的信息）；</li>
+<li><strong>带引用的问题</strong>（标注每个关键主张所需证据与页/段级定位）；</li>
+<li><strong>鲁棒性成对样例</strong>（同义改写、OCR 噪声、无关文档、冲突证据和恶意指令）；</li>
+<li><strong>知识库里没有答案的问题</strong>（<strong>测拒答能力</strong>）；</li>
+<li><strong>诱导性问题</strong>（前提本身是错的，看模型是否会顺着编）。</li>
+</ul>
+<p>最后两类直接关系到系统的可信度，评测集里不能缺。</p>
+<h3 id="1853">18.5.3 数据来源</h3>
+<p><strong>优先级从高到低</strong>：</p>
+<ol>
+<li><strong>真实的线上用户问题</strong>——最有代表性；</li>
+<li><strong>业务专家出题</strong>——覆盖重要但低频的场景；</li>
+<li><strong>LLM 生成</strong>——补充规模，但<strong>必须人工审核</strong>。</li>
+</ol>
+<p>LLM 生成评测集时有个常见偏差：直接让 LLM 读一个 chunk 然后出题，生成的问题会<strong>过度贴合该 chunk 的措辞</strong>，导致检索"虚假地容易"。题目需要人工改写成真实用户会使用的问法。</p>
+<h2 id="186">18.6 公开基准的价值与局限</h2>
+<table>
+<thead>
+<tr>
+<th>基准</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>TREC RAG</td>
+<td>学术界的标准化评测，方法论严谨</td>
+</tr>
+<tr>
+<td>CRAG Benchmark</td>
+<td>覆盖多领域、多类型问题，含动态变化的答案；<strong>注意与 Corrective RAG 区分</strong></td>
+</tr>
+<tr>
+<td>各类领域 QA 数据集</td>
+<td>特定领域的参考</td>
+</tr>
+</tbody>
+</table>
+<p><strong>公开基准的作用是横向比较方法，而不是预测你的系统在你的数据上的表现。</strong></p>
+<p>以 CRAG Benchmark 这类更贴近真实场景的评测为例，<strong>即使是当时最好的系统，准确率也只在 50% 上下</strong>。这说明 RAG 仍有明显边界，也能避免对外给出过高承诺。</p>
+<h2 id="187">18.7 线上指标</h2>
+<p>离线评测跑得再好，也要看真实用户的反馈。</p>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>点踩率 / 点赞率</strong></td>
+<td>最直接的用户满意度信号</td>
+</tr>
+<tr>
+<td><strong>转人工率</strong></td>
+<td>客服场景的核心指标</td>
+</tr>
+<tr>
+<td><strong>追问率</strong></td>
+<td>用户需要追问，说明首次回答不完整</td>
+</tr>
+<tr>
+<td><strong>引用点击率</strong></td>
+<td>用户是否在核查来源（信任度的反向信号）</td>
+</tr>
+<tr>
+<td><strong>拒答率</strong></td>
+<td>需要与幻觉率一起看（第十七章 17.3）</td>
+</tr>
+<tr>
+<td><strong>P95 延迟 / 成本</strong></td>
+<td>体验与经济性</td>
+</tr>
+</tbody>
+</table>
+<p><strong>点踩数据的最大价值不是统计比例，而是作为评测集的来源</strong>——把点踩的 Query 收集起来人工分析，是最高质量的问题发现渠道。</p>
+<h2 id="188">18.8 建立评估的正确顺序</h2>
+<pre class="mermaid">flowchart TB
+    S1[1. 收集真实问题] --> S2[2. 人工标注正确 chunk 和参考答案]
+    S2 --> S3[3. 建立检索层指标基线]
+    S3 --> S4[4. 加程序化断言]
+    S4 --> S5[5. 引入 LLM-as-Judge 并校准]
+    S5 --> S6[6. 接入线上反馈回流]
+    S6 --> S1
+</pre>
+
+<p>这是一条闭环流程：线上反馈会不断补充评测集，评测集再指导下一轮优化。</p>
+<h2 id="189">18.9 常见错误</h2>
+<h3 id="1891">18.9.1 只看端到端不分层</h3>
+<p>知道效果差，不知道差在哪。</p>
+<h3 id="1892-faithfulness">18.9.2 把 Faithfulness 当作事实正确性</h3>
+<p>它衡量的是忠实于材料，材料错了也能满分。这是最常见的误解。</p>
+<h3 id="1893-faithfulness-answer-relevancy">18.9.3 只看 Faithfulness 不看 Answer Relevancy</h3>
+<p>一个只会拒答的系统忠实度很高。</p>
+<h3 id="1894-llm-as-judge">18.9.4 LLM-as-Judge 不做校准</h3>
+<p>未校准的评判分数没有可信度。</p>
+<h3 id="1895">18.9.5 用生成模型自己做评判</h3>
+<p>存在同源偏见，应该换一个模型。</p>
+<h3 id="1896">18.9.6 评测集不含"无答案"问题</h3>
+<p>无法检验拒答能力，而拒答是防幻觉的第一道防线。</p>
+<h3 id="1897-llm">18.9.7 LLM 生成评测集不做人工改写</h3>
+<p>问题过度贴合 chunk 措辞，检索指标虚高。</p>
+<h3 id="1898-ragas">18.9.8 把 RAGAS 分数当绝对值报告</h3>
+<p>这类指标方差大，适合看趋势和相对比较。</p>
+<h3 id="1899">18.9.9 只有离线评测没有线上回流</h3>
+<p>线上点踩数据是最高质量的问题来源。</p>
+<h2 id="1810">18.10 本章总结</h2>
+<ol>
+<li><strong>必须分层评估</strong>：检索层、生成层、端到端、线上——只看总分无法定位问题；</li>
+<li><strong>检索层指标</strong>（Hit@K、Recall@K、MRR、NDCG）的价值在于<strong>组合起来做诊断</strong>：Hit@50 低 = 召回问题，Hit@50 高但 Hit@5 低 = 排序问题，Hit@5 高但答案差 = 生成问题；</li>
+<li><strong>RAGAS 四指标</strong>：Faithfulness、Answer Relevancy、Context Precision、Context Recall；</li>
+<li><strong>四条局限</strong>：忠实度≠正确性、可被拒答刷满、LLM-as-Judge 有同源偏见、无参考答案导致方差大；<strong>适合看趋势不适合当绝对分</strong>；</li>
+<li><strong>端到端还要测 Citation 完整性/正确性/可访问性、固定时刻的时效性，以及成对扰动下的鲁棒性</strong>；</li>
+<li><strong>端到端推荐组合</strong>：程序化断言为主 + LLM-as-Judge 补充 + 人工抽查校准；</li>
+<li><strong>评测集分三档</strong>（Smoke / Regression / Full），<strong>必须包含无答案、诱导、时效、引用和鲁棒性成对问题</strong>；</li>
+<li><strong>LLM 生成的题目必须人工改写</strong>，否则检索指标虚高；</li>
+<li><strong>公开基准用于横向比较</strong>；真实场景分数依赖数据、任务和评判口径，不能脱离版本横比；</li>
+<li><strong>线上点踩数据是高价值的问题来源</strong>，经过脱敏、分诊和标注后再进入评测闭环。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2309.15217">Ragas: Automated Evaluation of Retrieval Augmented Generation</a></li>
+<li><a href="https://arxiv.org/abs/2405.07437">Evaluation of Retrieval-Augmented Generation: A Survey</a></li>
+<li><a href="https://arxiv.org/abs/2406.04744">CRAG - Comprehensive RAG Benchmark</a></li>
+<li><a href="https://trec-rag.github.io/">TREC RAG Track</a></li>
+<li><a href="https://arxiv.org/abs/2409.12941">Fact, Fetch, and Reason: A Unified Evaluation of Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

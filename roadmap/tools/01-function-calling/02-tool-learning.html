@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM 如何学会调用工具 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="LLM 如何学会调用工具 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Function Calling</span> / <span>LLM 如何学会调用工具</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="llm">第二章：LLM 如何学会调用工具</h1>
+<h2 id="21">2.1 一个反直觉的前提：工具调用不是涌现出来的</h2>
+<p><strong>参数量变大不会自动带来工具调用能力</strong>。</p>
+<p>涌现（Emergence）说的是模型规模跨过某个阈值后，突然具备了小模型没有的推理与理解能力。但工具调用要的是另一件事——在恰当的时机输出一段<strong>可被机器解析的结构化 JSON</strong>，并且格式严格到能直接进 <code>json.loads</code>。</p>
+<p>这个模式在预训练语料里基本不存在。互联网上有大量 API 文档、有大量代码，但几乎没有「对话进行到一半，助手突然吐出一段 <code>tool_calls</code> JSON，然后等待外部结果，再接着往下说」这种数据分布。</p>
+<p>所以一个纯预训练模型面对「北京今天天气怎么样」，最好的表现也只是说：</p>
+<blockquote>
+<p>我需要查询天气 API 才能回答这个问题。</p>
+</blockquote>
+<p>它<strong>描述</strong>了意图，但没有<strong>执行</strong>协议。从描述到协议，中间隔着一整套后训练。</p>
+<pre class="mermaid">flowchart LR
+    PT["预训练<br/>学会预测下一个 token"] --> Q1{会调工具吗?}
+    Q1 -->|不会| SFT["SFT<br/>学会「怎么调」"]
+    SFT --> Q2{知道什么时候调吗?}
+    Q2 -->|不知道| RL["RLHF / RLAIF / RLVR<br/>学会「该不该调」"]
+    RL --> READY["具备工具调用能力"]
+</pre>
+
+<h2 id="22-sft">2.2 第一阶段：SFT 教会「怎么调」</h2>
+<h3 id="221">2.2.1 训练样本长什么样</h3>
+<p>工具调用的 SFT 样本，特殊之处在于它是一条<strong>完整的多角色对话轨迹</strong>，而不是简单的问答对：</p>
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>内容</th>
+<th>训练时是否计算 loss</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>system</code></td>
+<td>工具定义（JSON Schema）</td>
+<td>否</td>
+</tr>
+<tr>
+<td><code>user</code></td>
+<td>北京今天天气怎么样？</td>
+<td>否</td>
+</tr>
+<tr>
+<td><code>assistant</code></td>
+<td><code>{"tool_calls":[{"name":"get_weather","arguments":{"city":"北京"}}]}</code></td>
+<td><strong>是</strong></td>
+</tr>
+<tr>
+<td><code>tool</code></td>
+<td>晴，15°C，东北风 3 级</td>
+<td>否</td>
+</tr>
+<tr>
+<td><code>assistant</code></td>
+<td>北京今天天气晴朗，气温 15°C……</td>
+<td><strong>是</strong></td>
+</tr>
+</tbody>
+</table>
+<p>注意最右边这一列。训练时只在 assistant 的两条消息上计算损失——因为只有这两处是模型需要<strong>生成</strong>的内容。<code>tool</code> 消息是外部世界给的，模型不需要学会预测它，否则模型会学出「自己编造工具返回值」的坏习惯。</p>
+<p>这是工具调用 SFT 里一个实打实的工程细节：<strong>loss mask 打错了，模型就会幻觉出工具结果</strong>。</p>
+<h3 id="222">2.2.2 训练数据必须覆盖的五类场景</h3>
+<p>数据的场景覆盖度，直接决定了能力的上限。缺哪一类，就在哪一类翻车：</p>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>不覆盖的后果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单工具调用</td>
+<td>最基础，一般不会缺</td>
+</tr>
+<tr>
+<td><strong>多工具并行调用</strong></td>
+<td>模型只会一个一个串行调，延迟成倍增加</td>
+</tr>
+<tr>
+<td><strong>工具调用失败后的处理</strong></td>
+<td>遇到 API 报错就崩，或者原样重复同一个错误调用</td>
+</tr>
+<tr>
+<td><strong>不需要工具，直接回答</strong></td>
+<td>形成「见问题就调工具」的惯性，简单算术也去调计算器</td>
+</tr>
+<tr>
+<td><strong>多轮对话中引用历史工具结果</strong></td>
+<td>无视上下文里已有的结果，重复调用同一个工具</td>
+</tr>
+</tbody>
+</table>
+<p>第四类最容易被忽略，也最反直觉：<strong>为了教会模型调工具，你必须给它看大量「不该调工具」的样本</strong>。否则数据分布本身就在诱导它过度调用。</p>
+<h3 id="223">2.2.3 训练数据从哪来</h3>
+<table>
+<thead>
+<tr>
+<th>来源</th>
+<th>成本</th>
+<th>质量</th>
+<th>典型用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>人工标注</td>
+<td>极高</td>
+<td>高</td>
+<td>种子数据、评测集</td>
+</tr>
+<tr>
+<td>强模型蒸馏（Self-Instruct / Distillation）</td>
+<td>低</td>
+<td>中，需抽检</td>
+<td>规模化扩充</td>
+</tr>
+<tr>
+<td><strong>真实 API 执行反馈</strong></td>
+<td>中</td>
+<td>高（有 ground truth）</td>
+<td>高价值样本</td>
+</tr>
+</tbody>
+</table>
+<p>真实 API 执行反馈这一类数据尤其值得投入。ToolLLM 提出的做法是拿真实的 RapidAPI 接口去跑，用<strong>实际执行成功与否</strong>作为样本正确性的判据，而不是靠另一个模型说了算。这绕开了纯蒸馏最大的隐患——<strong>幻觉传递</strong>：上游模型生成了一个参数写错的调用样本，下游模型会把这个错误当作正确答案学进去，而且没有任何信号能发现。</p>
+<p>只要工具是可执行的，就应该用执行结果做校验。这条原则在整个工具调用训练里都成立。</p>
+<h2 id="23-sft">2.3 第二阶段：为什么 SFT 不够</h2>
+<p>SFT 之后的模型有个很典型的毛病：<strong>过度调用</strong>。</p>
+<p>原因不难理解。SFT 数据里绝大多数样本都是「该调工具」的正例——毕竟目的就是教它调工具。模型在模仿的过程中过拟合了这种倾向，学到的其实是「看到工具定义就用起来」，而不是「判断需不需要」。</p>
+<p>更本质的问题在于监督信号的形式：SFT 只告诉模型「这是正确答案」，从不告诉它「为什么另一个答案不对」。它没有比较，就没有边界感。</p>
+<pre class="mermaid">flowchart TB
+    Q["用户：1+1 等于几？"] --> SFTM["只做过 SFT 的模型"]
+    SFTM --> A1["调用 calculator(expr='1+1')"]
+    A1 --> BAD["多此一举<br/>增加延迟与成本"]
+
+    Q --> RLM["做过对齐的模型"]
+    RLM --> A2["直接回答：2"]
+    A2 --> GOOD["行为得体"]
+
+    style BAD fill:#fce8e6
+    style GOOD fill:#e6f4ea
+</pre>
+
+<h2 id="24">2.4 第三阶段：用反馈建立边界感</h2>
+<h3 id="241-rlhf">2.4.1 RLHF 的四步</h3>
+<ol>
+<li><strong>采样多样回答</strong>：对同一问题让模型生成若干种处理方式——有的调工具、有的直接答、有的参数填错；</li>
+<li><strong>人类偏好排序</strong>：标注员对这些回答排序。「北京天气」题里调工具的排第一，「1+1」题里直接回答的排第一；</li>
+<li><strong>训练奖励模型</strong>：用排序数据训练一个只负责打分的模型，它学的是「预测人类会给这个回答打多少分」；</li>
+<li><strong>强化学习优化主模型</strong>：用奖励模型的打分作为信号，通过 PPO 等算法调整主模型参数。</li>
+</ol>
+<h3 id="242">2.4.2 奖励模型是人类偏好的蒸馏体</h3>
+<p>第三步有个容易被忽略的推论：<strong>奖励模型的天花板就是标注员的水平</strong>。</p>
+<p>人类的判断被蒸馏进了这个「裁判」。如果标注标准不一致——比如有的标注员认为查百科该调搜索，有的认为模型自己知道就行——奖励模型学到的就是一个自相矛盾的标准，后面主模型再怎么优化，也是往一个模糊的方向走。</p>
+<p>这就是为什么大厂在 RLHF 上花的力气，很大一部分是在<strong>标注规范和标注员一致性校验</strong>上，而不是算法本身。</p>
+<h3 id="243-ppo">2.4.3 为什么偏偏是 PPO</h3>
+<p>强化学习算法很多，选 PPO 有两个务实的理由：</p>
+<ul>
+<li><strong>稳定</strong>：传统策略梯度容易因单步更新过大把模型训崩；</li>
+<li><strong>内置 KL 约束</strong>：强制新旧策略的输出分布不要偏离太远。</li>
+</ul>
+<p>第二点在工具调用场景尤其关键。没有 KL 约束，模型为了刷高奖励分数，会退化成某种「套话机器」——比如发现只要调工具就容易得高分，于是无脚本地对所有问题都调工具。RLHF 本质上是在「追求高奖励」和「保持语言能力」之间走钢丝，KL 项就是那根平衡杆。</p>
+<p>关于 PPO、DPO、GRPO 的完整对比，见 LLM 主题的 Post-Training 与 DPO/PPO 章节。</p>
+<h3 id="244-rlaif-ai">2.4.4 RLAIF：用 AI 代替人工打分</h3>
+<p>RLHF 最大的瓶颈是标注成本。RLAIF 换成用更强的模型来打分，成本可以低一到两个数量级，速度也快得多。</p>
+<p>代价是<strong>偏见传递</strong>：如果 AI 评委自己认为「所有数学题都该调计算器」，被它训练出来的模型也会继承这个倾向。</p>
+<p>现在业界的主流是混用——关键数据和评测集用人工保质量，大规模训练数据用 AI 提效率。</p>
+<h2 id="25-2025">2.5 2025 年之后的新范式：可验证奖励</h2>
+<p>前面三个阶段是 2023–2024 年的经典配方。到了 2025 年之后，工具调用训练开始从「靠偏好打分」转向<strong>靠执行结果打分</strong>。</p>
+<h3 id="251">2.5.1 为什么可以这么做</h3>
+<p>工具调用有一个别的对齐任务没有的优势：<strong>它的正确与否在很多时候是可以客观判定的</strong>。</p>
+<ul>
+<li>调用的函数名在工具列表里吗？→ 可判定；</li>
+<li>参数能通过 JSON Schema 校验吗？→ 可判定；</li>
+<li>工具实际执行成功了吗？→ 可判定；</li>
+<li>最终答案和标准答案一致吗？→ 多数情况可判定。</li>
+</ul>
+<p>这些判定完全不需要人类，也不需要奖励模型。这就是 RLVR（Reinforcement Learning with Verifiable Rewards）的思路。</p>
+<pre class="mermaid">flowchart LR
+    subgraph RLHF["RLHF 路线"]
+        H1[人类排序] --> H2[训练奖励模型] --> H3[RL 优化]
+    end
+
+    subgraph RLVR["RLVR 路线"]
+        V1[模型生成调用] --> V2[真实执行 / Schema 校验]
+        V2 --> V3["规则奖励<br/>成功=1 失败=0"] --> V4[RL 优化]
+    end
+
+    style V2 fill:#e6f4ea
+</pre>
+
+<h3 id="252">2.5.2 带来的变化</h3>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>偏好奖励</th>
+<th>可验证奖励</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>奖励来源</td>
+<td>奖励模型（可被 hack）</td>
+<td>执行结果（客观）</td>
+</tr>
+<tr>
+<td>标注成本</td>
+<td>高</td>
+<td>接近零</td>
+</tr>
+<tr>
+<td>能训练的能力</td>
+<td>「像不像人类喜欢的」</td>
+<td>「对不对」</td>
+</tr>
+<tr>
+<td>局限</td>
+<td>奖励模型漂移</td>
+<td>只适用于可判定任务</td>
+</tr>
+</tbody>
+</table>
+<p>奖励模型有一个已知的老问题叫 <strong>reward hacking</strong>：模型学会讨好裁判而不是真正做对。执行反馈没有这个问题——你没法通过讨好一个 HTTP 状态码来伪造成功。</p>
+<p>这也是 2025 年之后一批工具调用与 Agent 训练工作（ToolRL、ReTool 等）的共同思路：把工具执行放进强化学习的循环里，让模型在真实的成功与失败中学会<strong>多步工具调用的规划</strong>，而不只是单次调用的格式。</p>
+<h3 id="253">2.5.3 与推理模型的合流</h3>
+<p>同一时期另一条主线是推理模型（o 系列、DeepSeek-R1 一类）。这两条线在 2025 年后逐渐合流：模型在长思维链的中途插入工具调用，用工具结果继续推理，而整个轨迹用可验证奖励来训练。</p>
+<p>这带来一个新的技术难点——推理过程中断与恢复的状态管理，这正是 <a href="07-reasoning-models-and-tools.html">第七章</a> 要讲的内容。</p>
+<h2 id="26">2.6 训练好之后，运行时发生了什么</h2>
+<p>训练与运行时是两件事，面试里经常被混着问。运行时的完整流程在 <a href="01-function-calling.html">第一章</a> 已经讲过，这里只强调分界：</p>
+<pre class="mermaid">flowchart TB
+    subgraph TRAIN["训练期（模型厂商做）"]
+        T1[SFT 学格式] --> T2[RL 学边界] --> T3[产出模型权重]
+    end
+
+    subgraph RUNTIME["运行期（你做）"]
+        R1[传入 tools schema] --> R2[模型输出 tool_calls]
+        R2 --> R3[你的代码执行] --> R4[结果回填] --> R5[模型生成答案]
+    end
+
+    T3 -.部署.-> R2
+</pre>
+
+<p>一个关键推论：<strong>你在运行时能做的事，被训练期决定了上限</strong>。如果一个模型的训练数据里没有并行调用样本，你在 <code>tools</code> 里怎么写描述都换不来并行输出。选模型时看它的工具调用 benchmark 成绩，看的就是这个上限。</p>
+<h2 id="27">2.7 怎么衡量一个模型的工具调用能力</h2>
+<p>常见的公开评测：</p>
+<table>
+<thead>
+<tr>
+<th>评测</th>
+<th>侧重</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>BFCL</strong>（Berkeley Function Calling Leaderboard）</td>
+<td>多语言、多场景的函数调用准确率，含「不该调用」的相关性检测</td>
+</tr>
+<tr>
+<td><strong>ToolBench / API-Bank</strong></td>
+<td>真实 API 上的多步调用成功率</td>
+</tr>
+<tr>
+<td><strong>τ-bench</strong></td>
+<td>与用户和工具双向交互的完整任务完成率</td>
+</tr>
+</tbody>
+</table>
+<p>BFCL 里有一项专门测「<strong>该不该调</strong>」——给一个明显不需要工具的问题，看模型会不会硬调。这一项的分数往往比格式正确率更能区分模型的成熟度，因为格式是 SFT 就能刷上去的，边界感必须靠对齐阶段。</p>
+<p>自建评测集时也应该照抄这个思路：<strong>测试集里必须有一批不该调工具的问题</strong>，否则你测不出过度调用。</p>
+<h2 id="28">2.8 常见错误</h2>
+<h3 id="281">2.8.1 认为预训练就能学会工具调用</h3>
+<p>预训练学的是「预测下一个 token」，语料里没有工具调用的对话模式。模型最多能描述意图，输出不了协议。这必须靠专项后训练。</p>
+<h3 id="282">2.8.2 训练数据只有正例</h3>
+<p>只喂「该调工具」的样本，模型必然过度调用。「不该调」的负例、调用失败后的恢复轨迹、多轮里引用历史结果的样本，都得覆盖。</p>
+<h3 id="283-loss-mask-tool">2.8.3 loss mask 打到 tool 消息上</h3>
+<p>工具返回的内容不是模型该生成的东西。把它算进损失，等于在教模型编造工具结果。</p>
+<h3 id="284">2.8.4 纯蒸馏不做执行校验</h3>
+<p>上游模型生成的错误样本会被完整继承，且无声无息。只要工具可执行，就应该拿执行结果做过滤。</p>
+<h3 id="285-sft-rl">2.8.5 把 SFT 和 RL 的分工说反</h3>
+<p>面试里的标准答法是：<strong>SFT 解决「会不会」，RL 解决「该不该」</strong>。只有 SFT 会过度调用；只有 RL 而没有 SFT，模型连合法格式都输不出来，奖励信号完全没有着力点。</p>
+<h3 id="286">2.8.6 忽略训练期决定运行期上限</h3>
+<p>发现模型不会并行调用、不会从工具错误里恢复，第一反应是改 Prompt。但如果这是训练数据的缺口，Prompt 补不回来，只能换模型或自己微调。</p>
+<h2 id="29">2.9 本章总结</h2>
+<ol>
+<li><strong>工具调用不是涌现能力</strong>，预训练语料里没有这种模式，必须靠后训练专门教；</li>
+<li><strong>SFT 教「怎么调」</strong>，样本是完整的多角色对话轨迹，loss 只算 assistant 部分；</li>
+<li><strong>训练数据要覆盖五类场景</strong>，其中「不该调工具」的负例最容易被忽略也最重要；</li>
+<li><strong>蒸馏数据必须做执行校验</strong>，否则会发生幻觉传递；</li>
+<li><strong>RL 教「该不该调」</strong>，奖励模型是人类偏好的蒸馏体，标注一致性决定它的天花板；</li>
+<li><strong>PPO 的 KL 约束防止行为退化</strong>，RLAIF 用成本换偏见风险；</li>
+<li><strong>2025 年后转向可验证奖励</strong>，用真实执行结果代替偏好打分，规避 reward hacking；</li>
+<li><strong>训练期决定运行期上限</strong>，Prompt 补不回训练数据的缺口。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2302.04761">Toolformer: Language Models Can Teach Themselves to Use Tools</a></li>
+<li><a href="https://arxiv.org/abs/2307.16789">ToolLLM: Facilitating Large Language Models to Master 16000+ Real-world APIs</a></li>
+<li><a href="https://arxiv.org/abs/2203.02155">Training language models to follow instructions with human feedback（InstructGPT）</a></li>
+<li><a href="https://arxiv.org/abs/2212.08073">Constitutional AI: Harmlessness from AI Feedback</a></li>
+<li><a href="https://arxiv.org/abs/2504.13958">ToolRL: Reward is All Tool Learning Needs</a></li>
+<li><a href="https://arxiv.org/abs/2504.11536">ReTool: Reinforcement Learning for Strategic Tool Use in LLMs</a></li>
+<li><a href="https://gorilla.cs.berkeley.edu/leaderboard.html">Berkeley Function Calling Leaderboard</a></li>
+<li><a href="https://arxiv.org/abs/2406.12045">τ-bench: A Benchmark for Tool-Agent-User Interaction in Real-World Domains</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

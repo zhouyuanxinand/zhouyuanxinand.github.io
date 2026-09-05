@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Single-Agent 与 Multi-Agent · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Single-Agent 与 Multi-Agent — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>多智能体系统</span> / <span>Single-Agent 与 Multi-Agent</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="single-agent-multi-agent">第九章：Single-Agent 与 Multi-Agent 系统</h1>
+<h2 id="91-single-agent">9.1 什么是 Single-Agent</h2>
+<p>Single-Agent 指系统中只有一个主要的动态决策主体。它可以：</p>
+<ul>
+<li>调用多个 Tools；</li>
+<li>使用长期记忆；</li>
+<li>执行复杂 Workflow；</li>
+<li>使用不同模型完成不同步骤；</li>
+<li>并行调用多个只执行任务的 Worker。</li>
+</ul>
+<p>判断是否为 Single-Agent 的关键，不是模型调用次数，而是：</p>
+<blockquote>
+<p><strong>是否只有一个 Agent 持有主要目标、状态和下一步决策权。</strong></p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    U[User Goal] --> A[Single Agent]
+    A --> T1[Search Tool]
+    A --> T2[Code Tool]
+    A --> T3[Database Tool]
+    A --> M[Memory]
+    A --> W[Workflow]
+</pre>
+
+<p>一个 Agent 使用十个 Tool，仍然可以是 Single-Agent。</p>
+<h2 id="92-multi-agent">9.2 什么是 Multi-Agent</h2>
+<p>Multi-Agent System 包含多个相对独立的 Agent。每个 Agent 通常具有自己的：</p>
+<ul>
+<li>角色和目标；</li>
+<li>上下文；</li>
+<li>状态或记忆；</li>
+<li>Tools 与权限；</li>
+<li>决策循环；</li>
+<li>输入输出契约。</li>
+</ul>
+<p>它们通过消息、任务、Artifact 或共享工作区协作完成整体目标。</p>
+<pre class="mermaid">flowchart TB
+    G[Global Goal] --> O[Orchestrator Agent]
+    O --> R[Research Agent]
+    O --> C[Coding Agent]
+    O --> V[Review Agent]
+    R --> AR[Research Artifact]
+    C --> AC[Code Artifact]
+    AR --> V
+    AC --> V
+    V --> O
+</pre>
+
+<blockquote>
+<p><strong>Multi-Agent 的本质不是“多调用几个模型”，而是多个具有独立职责和局部决策权的 Agent 进行协调。</strong></p>
+</blockquote>
+<h2 id="93-prompt-multi-agent">9.3 不要把多角色 Prompt 当成完整 Multi-Agent</h2>
+<p>以下系统不一定是真正的 Multi-Agent：</p>
+<ul>
+<li>同一个 Agent 依次使用“研究员”“写作者”Prompt；</li>
+<li>一个 Workflow 并行调用三次无状态 LLM；</li>
+<li>同一个模型生成多个候选再投票；</li>
+<li>多个 Tool 分别执行不同函数。</li>
+</ul>
+<p>这些设计可能属于：</p>
+<ul>
+<li>Role Prompting；</li>
+<li>Parallel LLM Calls；</li>
+<li>Ensemble；</li>
+<li>Workflow；</li>
+<li>Tool Orchestration。</li>
+</ul>
+<p>只有当多个执行单元具有相对独立的状态、目标或策略，并通过明确协议协调时，才更适合称为 Multi-Agent。</p>
+<h2 id="94-single-agent">9.4 Single-Agent 的真实能力边界</h2>
+<p>用户的理解中提到两个限制：</p>
+<ol>
+<li>Context Window；</li>
+<li>单点能力或专业度。</li>
+</ol>
+<p>这两个问题确实存在，但需要更准确地理解。</p>
+<h3 id="941-context-window">9.4.1 Context Window 是单次模型调用的限制</h3>
+<p>Multi-Agent 不会改变底层模型的 Context Window。它做的是：</p>
+<ul>
+<li>将任务上下文分区；</li>
+<li>让每个 Agent 只处理局部信息；</li>
+<li>通过摘要或 Artifact 交换结果。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    FULL[Large Task Context] --> A[Agent A Context]
+    FULL --> B[Agent B Context]
+    FULL --> C[Agent C Context]
+    A --> S[Shared Summary / Artifact]
+    B --> S
+    C --> S
+</pre>
+
+<p>这种方式可以减少单个 Agent 的上下文压力，但会引入：</p>
+<ul>
+<li>信息在 Agent 边界处丢失；</li>
+<li>摘要偏差；</li>
+<li>重复检索；</li>
+<li>跨 Agent 冲突；</li>
+<li>合并成本。</li>
+</ul>
+<p>Single-Agent 也可以通过 Context Engineering、外部 State、Artifact 和分层记忆处理长任务。因此，Context Window 不是只能通过 Multi-Agent 解决的结构性死局。</p>
+<h3 id="942">9.4.2 分角色不等于自动变专业</h3>
+<p>如果多个 Agent：</p>
+<ul>
+<li>使用同一个模型；</li>
+<li>使用相似 Prompt；</li>
+<li>访问相同数据；</li>
+<li>使用相同 Tools；</li>
+<li>没有独立评估标准；</li>
+</ul>
+<p>那么仅仅给它们起不同名字，未必能显著提高专业度。</p>
+<p>真正的专业化来自：</p>
+<ul>
+<li>不同 System Instructions；</li>
+<li>专门领域数据；</li>
+<li>不同 Tools；</li>
+<li>不同模型；</li>
+<li>独立权限；</li>
+<li>专门的输出 Schema；</li>
+<li>针对角色的评估集；</li>
+<li>清晰、窄范围的任务契约。</li>
+</ul>
+<blockquote>
+<p><strong>角色名不是专业能力，专用上下文、工具、数据和评估才是。</strong></p>
+</blockquote>
+<h2 id="95-multi-agent">9.5 为什么使用 Multi-Agent</h2>
+<p>Multi-Agent 的收益通常落在五个方面。</p>
+<h3 id="951">9.5.1 上下文隔离</h3>
+<p>不同 Agent 只加载自己需要的信息，减少无关内容干扰。</p>
+<p>例如：</p>
+<ul>
+<li>Research Agent 只关注来源和事实；</li>
+<li>Coding Agent 只关注代码和测试；</li>
+<li>Review Agent 只关注变更和验收标准。</li>
+</ul>
+<h3 id="952">9.5.2 能力与权限专业化</h3>
+<p>不同 Agent 可以使用不同：</p>
+<ul>
+<li>模型；</li>
+<li>Tools；</li>
+<li>Skills；</li>
+<li>数据源；</li>
+<li>权限；</li>
+<li>安全策略。</li>
+</ul>
+<p>例如，Research Agent 只能读取网络，Deployment Agent 才能访问部署系统。</p>
+<h3 id="953">9.5.3 并行执行</h3>
+<p>互不依赖的 Agent 可以同时工作：</p>
+<pre class="mermaid">flowchart LR
+    O[Orchestrator] --> A[Market Agent]
+    O --> B[Technology Agent]
+    O --> C[Risk Agent]
+    A --> J[Join]
+    B --> J
+    C --> J
+</pre>
+
+<h3 id="954">9.5.4 故障隔离</h3>
+<p>一个 Worker 失败时，可以：</p>
+<ul>
+<li>只重试该 Worker；</li>
+<li>切换备用 Agent；</li>
+<li>降级为简单 Tool；</li>
+<li>保留其他 Agent 的成果。</li>
+</ul>
+<h3 id="955">9.5.5 多视角与制衡</h3>
+<p>可以让不同 Agent：</p>
+<ul>
+<li>独立提出方案；</li>
+<li>批判其他 Agent 的结果；</li>
+<li>进行事实核验；</li>
+<li>使用不同假设分析风险。</li>
+</ul>
+<p>但多个 Agent 共享相同模型时仍可能共享相同偏差，因此多视角不能替代客观验证。</p>
+<h2 id="96-multi-agent-single-agent">9.6 Multi-Agent 不一定比 Single-Agent 更强</h2>
+<p>Multi-Agent 会增加：</p>
+<ul>
+<li>通信成本；</li>
+<li>Token 消耗；</li>
+<li>调度复杂度；</li>
+<li>延迟；</li>
+<li>状态同步；</li>
+<li>错误传播路径；</li>
+<li>权限管理；</li>
+<li>可观测性要求。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    BENEFIT[分工与并行收益] --> DECISION{收益是否大于协调成本?}
+    COST[通信、合并、冲突与重试] --> DECISION
+    DECISION -->|是| MULTI[Multi-Agent]
+    DECISION -->|否| SINGLE[Single-Agent]
+</pre>
+
+<p>任务复杂并不自动意味着应该使用 Multi-Agent。若任务无法清晰拆分，多 Agent 可能只是把一个困难问题变成多个协调困难的问题。</p>
+<h3 id="961">9.6.1 业界的两种立场</h3>
+<p>这个问题在工程界存在过一场有价值的公开分歧，理解它比记住结论更重要。</p>
+<p><strong>反对方（Cognition）</strong>的核心论点是：多个 Agent 并行工作时，各自的上下文是割裂的，A 不知道 B 做了什么决定。而<strong>每个动作都隐含了未被写出来的决策前提</strong>，只传递「结果」而不传递「完整轨迹」，就会导致各分支基于互相冲突的隐含假设工作，最后合并时产生不一致。因此其主张是：优先做<strong>单线程、上下文连续</strong>的 Agent，必要时用压缩而不是拆分。</p>
+<p><strong>支持方（Anthropic）</strong>在其研究型 Agent 的实践中报告了显著收益：由一个主 Agent 带多个子 Agent 的架构，在内部研究评测上明显优于单 Agent。但同一篇文章也坦率指出两点代价——<strong>Token 消耗约为普通对话的十几倍</strong>，且<strong>多数编码任务中可真正并行的子任务比研究任务少得多</strong>。</p>
+<h3 id="962">9.6.2 分歧的实质与调和</h3>
+<p>两者其实并不矛盾，差别在于<strong>隔离边界划在哪里</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>边界划法</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>扁平对等的并行 Agent，各自决策、事后合并</td>
+<td>上下文割裂，隐含假设冲突，容易失败</td>
+</tr>
+<tr>
+<td>明确的角色分层（规划者 / 执行者），上下文按职责天然分离</td>
+<td>规划者的上下文不被实现细节填满，执行者的上下文不被全局规划填满</td>
+</tr>
+<tr>
+<td>探索型子任务隔离，只回传浓缩结论</td>
+<td>主上下文保持干净，是 Multi-Agent 收益最稳的形态</td>
+</tr>
+</tbody>
+</table>
+<p>工程上更实用的判断标准是：</p>
+<blockquote>
+<p><strong>Multi-Agent 的收益来自「上下文按职责隔离」，而不是来自「Agent 数量变多」。如果拆分之后各 Agent 仍然需要共享大量彼此的中间决策，说明这条边界划错了。</strong></p>
+</blockquote>
+<p>另外值得注意的是，任务是否真的可并行差异很大：研究类任务天然可以按主题并行检索，而编码类任务的子任务之间往往存在强依赖，强行并行反而引入冲突与返工。<strong>并行度低的任务，应该优先考虑「角色分层」而不是「同层并行」。</strong></p>
+<h2 id="97-single-agent">9.7 Single-Agent 适合什么场景</h2>
+<ul>
+<li>任务步骤较少；</li>
+<li>一个 Context 可以容纳主要信息；</li>
+<li>Tools 和权限相对统一；</li>
+<li>子任务高度耦合；</li>
+<li>没有明显并行机会；</li>
+<li>需要快速迭代和简单维护；</li>
+<li>单个 Agent 已能达到目标质量。</li>
+</ul>
+<h3 id="971">9.7.1 优势</h3>
+<ul>
+<li>架构简单；</li>
+<li>状态一致；</li>
+<li>调试路径短；</li>
+<li>Token 和通信成本较低；</li>
+<li>权限模型简单；</li>
+<li>更容易复现执行过程。</li>
+</ul>
+<h3 id="972">9.7.2 局限</h3>
+<ul>
+<li>长任务容易产生 Context 压力；</li>
+<li>单个控制循环可能成为瓶颈；</li>
+<li>难以同时处理大量独立子任务；</li>
+<li>不同权限和专业上下文容易相互污染；</li>
+<li>单点失败可能影响整个任务。</li>
+</ul>
+<h2 id="98-multi-agent">9.8 Multi-Agent 适合什么场景</h2>
+<p>Multi-Agent 通常需要同时满足一个或多个明确条件。</p>
+<h3 id="981">9.8.1 任务可清晰拆分</h3>
+<p>子任务拥有明确输入、输出和验收标准。</p>
+<h3 id="982">9.8.2 存在真实专业异构</h3>
+<p>不同子任务需要不同：</p>
+<ul>
+<li>数据；</li>
+<li>模型；</li>
+<li>Tools；</li>
+<li>Skills；</li>
+<li>权限；</li>
+<li>评估方式。</li>
+</ul>
+<h3 id="983">9.8.3 存在可利用的并行性</h3>
+<p>多个子任务可以并发执行，并且并行收益高于调度和合并成本。</p>
+<h3 id="984">9.8.4 需要权限隔离</h3>
+<p>例如：</p>
+<ul>
+<li>Search Agent 只有只读网络权限；</li>
+<li>Coding Agent 只能修改工作区；</li>
+<li>Deployment Agent 需要人工批准；</li>
+<li>Audit Agent 只能读取不可变日志。</li>
+</ul>
+<h3 id="985">9.8.5 需要故障隔离或规模扩展</h3>
+<p>大量同类任务可以分发给 Worker Pool，并独立重试和扩缩容。</p>
+<h2 id="99">9.9 选型不能只看三个条件</h2>
+<p>“Context 快撑爆、需要专业分工、存在并行子任务”是很好的初筛标准，但还需要考虑：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>关键问题</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Separability</td>
+<td>子任务能否通过明确接口分离？</td>
+</tr>
+<tr>
+<td>Coupling</td>
+<td>子任务是否需要频繁共享隐含上下文？</td>
+</tr>
+<tr>
+<td>Verifiability</td>
+<td>每个 Agent 的输出能否独立验证？</td>
+</tr>
+<tr>
+<td>Coordination Cost</td>
+<td>通信和合并是否过于昂贵？</td>
+</tr>
+<tr>
+<td>Risk</td>
+<td>多 Agent 是否扩大权限和攻击面？</td>
+</tr>
+<tr>
+<td>State Consistency</td>
+<td>是否需要强一致共享状态？</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>关键路径是否真的能缩短？</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>是否需要独立扩缩容？</td>
+</tr>
+</tbody>
+</table>
+<p>如果子任务高度耦合、持续交换大量上下文，Single-Agent 或共享状态 Workflow 可能更合适。</p>
+<h2 id="910">9.10 从简单到复杂的升级路径</h2>
+<p>不应从单次 LLM 调用直接跳到 Multi-Agent。</p>
+<pre class="mermaid">flowchart LR
+    L[Single LLM Call] --> T[LLM + Tools]
+    T --> S[Single-Agent]
+    S --> W[Agentic Workflow]
+    W --> PW[Parallel Workers]
+    PW --> M[Multi-Agent]
+</pre>
+
+<p>推荐顺序：</p>
+<ol>
+<li>先优化单次调用；</li>
+<li>增加 Tools 和检索；</li>
+<li>使用 Single-Agent；</li>
+<li>用 Workflow 固定主流程；</li>
+<li>将独立任务并行化；</li>
+<li>只有需要独立决策者时再引入 Multi-Agent。</li>
+</ol>
+<h2 id="911-orchestrator-workers">9.11 中心化 Orchestrator-Workers</h2>
+<p>中心化架构由 Orchestrator 统一：</p>
+<ul>
+<li>理解全局目标；</li>
+<li>拆分任务；</li>
+<li>选择 Worker；</li>
+<li>管理依赖；</li>
+<li>跟踪状态；</li>
+<li>汇总结果；</li>
+<li>处理失败和重试。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    U[User] --> O[Orchestrator]
+    O --> T[Task Ledger]
+    O --> W1[Worker A]
+    O --> W2[Worker B]
+    O --> W3[Worker C]
+    W1 --> ART[Shared Artifact Store]
+    W2 --> ART
+    W3 --> ART
+    ART --> O
+    O --> U
+</pre>
+
+<h3 id="9111">9.11.1 优势</h3>
+<ul>
+<li>全局目标统一；</li>
+<li>调度链路清晰；</li>
+<li>容易追踪和审计；</li>
+<li>权限和预算集中管理；</li>
+<li>失败容易定位；</li>
+<li>适合 DAG 和关键路径调度。</li>
+</ul>
+<h3 id="9112">9.11.2 局限</h3>
+<ul>
+<li>Orchestrator 可能成为单点瓶颈；</li>
+<li>Orchestrator 错误会影响所有 Worker；</li>
+<li>全局状态可能过大；</li>
+<li>大量 Worker 消息增加协调压力；</li>
+<li>中央节点故障需要恢复机制。</li>
+</ul>
+<h3 id="9113">9.11.3 生产实践</h3>
+<p>生产系统通常偏好可控的中心化或分层编排，但“几乎全部使用单层 Orchestrator”仍然过于绝对。</p>
+<p>常见实际形态是：</p>
+<ul>
+<li>Workflow 作为最外层控制；</li>
+<li>一个顶层 Orchestrator；</li>
+<li>多个领域子 Orchestrator；</li>
+<li>叶子 Worker 执行具体任务。</li>
+</ul>
+<h2 id="912-multi-agent">9.12 分层 Multi-Agent</h2>
+<p>分层架构适合 Agent 数量较多、领域边界明确的系统。</p>
+<pre class="mermaid">flowchart TB
+    O[Global Orchestrator] --> R[Research Lead]
+    O --> E[Engineering Lead]
+    O --> Q[Quality Lead]
+
+    R --> R1[Web Researcher]
+    R --> R2[Database Researcher]
+
+    E --> E1[Frontend Worker]
+    E --> E2[Backend Worker]
+
+    Q --> Q1[Test Worker]
+    Q --> Q2[Security Reviewer]
+</pre>
+
+<p>优势：</p>
+<ul>
+<li>顶层 Agent 不需要管理所有细节；</li>
+<li>每个领域维护局部 Context；</li>
+<li>可以独立扩缩容；</li>
+<li>适合大型任务组织。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>信息经过多层摘要后失真；</li>
+<li>责任边界不清；</li>
+<li>错误可能沿层级传播；</li>
+<li>跨领域协调变慢。</li>
+</ul>
+<h2 id="913-pipeline">9.13 Pipeline 架构</h2>
+<p>Pipeline 让多个 Agent 按固定顺序处理：</p>
+<pre class="mermaid">flowchart LR
+    R[Research Agent] --> W[Writer Agent]
+    W --> V[Review Agent]
+    V --> P[Publisher Agent]
+</pre>
+
+<p>它更接近 Workflow：</p>
+<ul>
+<li>顺序由开发者定义；</li>
+<li>每个 Agent 只负责一个阶段；</li>
+<li>下一步通常不由 Agent 自由选择。</li>
+</ul>
+<p>适合：</p>
+<ul>
+<li>阶段固定；</li>
+<li>输入输出清晰；</li>
+<li>每个阶段需要独立专业 Context。</li>
+</ul>
+<p>风险是上游错误会传递到下游，因此每个阶段需要 Gate 和验收条件。</p>
+<h2 id="914-blackboard-shared-workspace">9.14 Blackboard / Shared Workspace</h2>
+<p>多个 Agent 不直接互相发送全部消息，而是读写共享工作区：</p>
+<pre class="mermaid">flowchart TB
+    B[Shared Blackboard<br/>Tasks + Facts + Artifacts]
+    A1[Agent A] <--> B
+    A2[Agent B] <--> B
+    A3[Agent C] <--> B
+</pre>
+
+<p>共享工作区可以包含：</p>
+<ul>
+<li>Task Ledger；</li>
+<li>Artifact；</li>
+<li>已验证事实；</li>
+<li>未解决问题；</li>
+<li>任务状态；</li>
+<li>版本和锁。</li>
+</ul>
+<p>优势：</p>
+<ul>
+<li>降低点对点消息数量；</li>
+<li>结果可以复用；</li>
+<li>容易异步协作；</li>
+<li>Agent 可以随时加入或退出。</li>
+</ul>
+<p>风险：</p>
+<ul>
+<li>写入冲突；</li>
+<li>过期状态；</li>
+<li>共享内容污染；</li>
+<li>权限扩大；</li>
+<li>缺乏明确负责人。</li>
+</ul>
+<p>需要版本控制、租约、原子更新和来源追踪。</p>
+<h2 id="915-peer-to-peer">9.15 Peer-to-Peer 架构</h2>
+<p>Peer-to-Peer 中，Agent 可以直接发现并联系其他 Agent：</p>
+<pre class="mermaid">flowchart LR
+    A[Agent A] <--> B[Agent B]
+    B <--> C[Agent C]
+    C <--> D[Agent D]
+    D <--> A
+    A <--> C
+</pre>
+
+<h3 id="9151">9.15.1 优势</h3>
+<ul>
+<li>没有单一中央调度瓶颈；</li>
+<li>Agent 可以动态建立协作；</li>
+<li>适合组织边界分散的系统；</li>
+<li>局部节点故障不一定导致全局停止；</li>
+<li>可用于协商、模拟和开放生态。</li>
+</ul>
+<h3 id="9152">9.15.2 工程难点</h3>
+<p>去中心化并非天然缺少协调，但协调机制必须显式设计：</p>
+<ul>
+<li>谁负责分配任务？</li>
+<li>如何避免重复领取？</li>
+<li>如何表达任务依赖？</li>
+<li>如何检测 Agent 失联？</li>
+<li>如何取消已经分发的任务？</li>
+<li>如何处理冲突结果？</li>
+<li>如何判断全局任务完成？</li>
+<li>谁拥有最终决策权？</li>
+</ul>
+<p>如果没有这些机制，会出现：</p>
+<ul>
+<li>重复工作；</li>
+<li>消息风暴；</li>
+<li>顺序错误；</li>
+<li>Deadlock；</li>
+<li>Livelock；</li>
+<li>无人负责的任务；</li>
+<li>失败无法传播；</li>
+<li>全局状态不一致。</li>
+</ul>
+<h3 id="9153">9.15.3 去中心化并非生产环境不可用</h3>
+<p>Peer-to-Peer 可以通过以下机制进入生产：</p>
+<ul>
+<li>Capability Registry；</li>
+<li>Task Lease；</li>
+<li>Distributed Task Ledger；</li>
+<li>Heartbeat 与 Failure Detector；</li>
+<li>幂等消息；</li>
+<li>Consensus 或明确冲突规则；</li>
+<li>Trace Correlation；</li>
+<li>超时和取消协议；</li>
+<li>最终结果 Owner。</li>
+</ul>
+<p>问题在于这些机制的实现成本很高。对单团队、单产品中的 Agent 系统，中心化或分层编排通常更简单。</p>
+<h2 id="916">9.16 混合拓扑</h2>
+<p>实际系统经常混合使用：</p>
+<pre class="mermaid">flowchart TB
+    W[Deterministic Workflow] --> O[Orchestrator]
+    O --> A[Domain Agent A]
+    O --> B[Domain Agent B]
+    A <--> C[External Partner Agent]
+    B --> P[Worker Pool]
+    A --> S[Shared Workspace]
+    B --> S
+</pre>
+
+<p>例如：</p>
+<ul>
+<li>内部任务由 Orchestrator 管理；</li>
+<li>同一领域内使用 Worker Pool；</li>
+<li>跨公司 Agent 通过 A2A 协作；</li>
+<li>结果通过 Shared Workspace 汇总；</li>
+<li>高风险操作仍由 Workflow 和人工审批控制。</li>
+</ul>
+<h2 id="917-multi-agent">9.17 Multi-Agent 的通信方式</h2>
+<p>Agent 之间不应依赖自由文本聊天作为唯一协议。</p>
+<h3 id="9171-task-message">9.17.1 Task Message</h3>
+<pre><code class="language-json">{
+  &quot;task_id&quot;: &quot;research-a&quot;,
+  &quot;goal&quot;: &quot;调研竞品 A 最近六个月的更新&quot;,
+  &quot;inputs&quot;: {
+    &quot;time_range&quot;: &quot;6 months&quot;
+  },
+  &quot;success_criteria&quot;: [
+    &quot;至少两个独立来源&quot;,
+    &quot;输出包含发布日期和链接&quot;
+  ],
+  &quot;deadline&quot;: &quot;2026-08-28T09:00:00Z&quot;,
+  &quot;reply_to&quot;: &quot;orchestrator-1&quot;
+}
+</code></pre>
+<h3 id="9172-result-message">9.17.2 Result Message</h3>
+<pre><code class="language-json">{
+  &quot;task_id&quot;: &quot;research-a&quot;,
+  &quot;status&quot;: &quot;completed&quot;,
+  &quot;artifact_uri&quot;: &quot;artifact://research-a.json&quot;,
+  &quot;summary&quot;: &quot;发现三个主要产品更新&quot;,
+  &quot;validation&quot;: {
+    &quot;source_count&quot;: 4,
+    &quot;passed&quot;: true
+  }
+}
+</code></pre>
+<h3 id="9173-error-message">9.17.3 Error Message</h3>
+<pre><code class="language-json">{
+  &quot;task_id&quot;: &quot;research-a&quot;,
+  &quot;status&quot;: &quot;blocked&quot;,
+  &quot;error&quot;: {
+    &quot;code&quot;: &quot;SOURCE_UNAVAILABLE&quot;,
+    &quot;retryable&quot;: true
+  },
+  &quot;needs&quot;: &quot;备用数据源或人工输入&quot;
+}
+</code></pre>
+<p>结构化消息可以支持调度、重试和监控。</p>
+<h2 id="918-a2a-agent-card">9.18 A2A 与 Agent Card</h2>
+<p>A2A 可以帮助不同系统中的 Agent：</p>
+<ul>
+<li>发现能力；</li>
+<li>协商交互方式；</li>
+<li>发送任务和消息；</li>
+<li>跟踪任务状态；</li>
+<li>交换 Artifact。</li>
+</ul>
+<p>Agent Card 描述：</p>
+<ul>
+<li>Agent 身份；</li>
+<li>服务地址；</li>
+<li>支持的能力和 Skills；</li>
+<li>认证要求；</li>
+<li>输入输出模式。</li>
+</ul>
+<pre class="mermaid">sequenceDiagram
+    participant O as Orchestrator
+    participant R as Remote Agent
+
+    O->>R: 读取 Agent Card
+    R-->>O: 返回 Skills 与连接信息
+    O->>R: 提交 Task
+    R-->>O: 状态更新
+    R-->>O: 返回 Artifact
+</pre>
+
+<p>A2A 标准化通信，但不会自动解决任务分解、信任、费用、冲突和全局调度。</p>
+<h2 id="919-shared-memory">9.19 Shared Memory 设计</h2>
+<p>Multi-Agent 不应共享全部 Messages。</p>
+<p>推荐分层：</p>
+<pre class="mermaid">flowchart TB
+    A1[Agent A] --> P1[Private Context A]
+    A2[Agent B] --> P2[Private Context B]
+    A1 --> WS[Shared Task Workspace]
+    A2 --> WS
+    WS --> VM[Validated Shared Memory]
+    A1 --> AUDIT[Audit Log]
+    A2 --> AUDIT
+</pre>
+
+<h3 id="9191-private-context">9.19.1 Private Context</h3>
+<p>保存 Agent 局部推理和任务状态。</p>
+<h3 id="9192-shared-task-workspace">9.19.2 Shared Task Workspace</h3>
+<p>保存：</p>
+<ul>
+<li>Task 状态；</li>
+<li>Artifact；</li>
+<li>已验证事实；</li>
+<li>未解决问题；</li>
+<li>依赖关系。</li>
+</ul>
+<h3 id="9193-validated-shared-memory">9.19.3 Validated Shared Memory</h3>
+<p>只保存经过验证、可跨任务复用的信息。</p>
+<h3 id="9194-audit-log">9.19.4 Audit Log</h3>
+<p>保存不可随意修改的消息和操作轨迹。</p>
+<h2 id="920">9.20 权限与安全</h2>
+<p>每个 Agent 应遵循最小权限：</p>
+<table>
+<thead>
+<tr>
+<th>Agent</th>
+<th>推荐权限</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Research Agent</td>
+<td>只读网络和知识库</td>
+</tr>
+<tr>
+<td>Coding Agent</td>
+<td>工作区文件和测试命令</td>
+</tr>
+<tr>
+<td>Review Agent</td>
+<td>只读代码与 Diff</td>
+</tr>
+<tr>
+<td>Deployment Agent</td>
+<td>受审批的部署权限</td>
+</tr>
+<tr>
+<td>Finance Agent</td>
+<td>受限业务 API 和强审计</td>
+</tr>
+</tbody>
+</table>
+<p>不要因为 Orchestrator 有高权限，就把相同凭据传给所有 Worker。</p>
+<p>Multi-Agent 扩大的攻击面包括：</p>
+<ul>
+<li>恶意 Agent 消息；</li>
+<li>Prompt Injection 跨 Agent 传播；</li>
+<li>Shared Memory Poisoning；</li>
+<li>身份冒充；</li>
+<li>Confused Deputy；</li>
+<li>越权任务委派；</li>
+<li>敏感 Artifact 泄露。</li>
+</ul>
+<p>需要消息认证、权限检查、来源追踪和信任边界。</p>
+<h2 id="921">9.21 失败传播与恢复</h2>
+<h3 id="9211">9.21.1 中心化架构</h3>
+<p>Orchestrator 可以统一处理：</p>
+<ul>
+<li>超时；</li>
+<li>Worker 失联；</li>
+<li>重试；</li>
+<li>更换 Worker；</li>
+<li>取消下游任务；</li>
+<li>部分结果返回。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    W[Worker Failure] --> O[Orchestrator]
+    O --> C{错误类型}
+    C -->|临时| R[重试]
+    C -->|能力不匹配| S[切换 Worker]
+    C -->|计划失效| P[重新规划]
+    C -->|高风险| H[人工处理]
+</pre>
+
+<h3 id="9212">9.21.2 去中心化架构</h3>
+<p>需要额外设计：</p>
+<ul>
+<li>Failure Detector；</li>
+<li>Task Lease 过期；</li>
+<li>重复执行去重；</li>
+<li>Leader 或 Result Owner；</li>
+<li>最终一致性；</li>
+<li>消息重放。</li>
+</ul>
+<h2 id="922">9.22 错误会如何复合</h2>
+<p>若一个顺序任务包含多个必须成功的 Agent 步骤，并暂时假设各步骤独立，则整体成功概率近似为：</p>
+<p>$$
+P_{system}\approx\prod_{i=1}^{n}p_i
+$$</p>
+<p>其中 <code>pᵢ</code> 是第 <code>i</code> 个步骤成功的概率。</p>
+<p>例如，五个步骤各自成功率为 95%，整体成功率约为：</p>
+<p>$$
+P_{system}\approx 0.95^5\approx 77.4\%
+$$</p>
+<p>这个计算只是简化示例，实际步骤通常并不独立。但它说明：</p>
+<blockquote>
+<p><strong>增加 Agent 和交互次数会增加错误复合机会。</strong></p>
+</blockquote>
+<p>因此需要验证、重试和减少不必要的交接。</p>
+<h2 id="923">9.23 延迟与协调成本</h2>
+<p>Multi-Agent 总时间不是所有 Worker 时间简单相加，也不等于最慢 Worker 时间。</p>
+<p>可以抽象为：</p>
+<p>$$
+T_{multi}=
+T_{critical}
++
+T_{coord}
++
+T_{merge}
++
+T_{retry}
+$$</p>
+<p>其中：</p>
+<ul>
+<li><code>T_critical</code>：任务 DAG 的关键路径时间；</li>
+<li><code>T_coord</code>：分配和通信时间；</li>
+<li><code>T_merge</code>：结果合并和冲突处理时间；</li>
+<li><code>T_retry</code>：失败恢复时间。</li>
+</ul>
+<p>如果协调和合并成本大于并行收益，Multi-Agent 会比 Single-Agent 更慢。</p>
+<h2 id="924-orchestrator">9.24 Orchestrator 的设计</h2>
+<p>一个成熟 Orchestrator 不只是“让 LLM 给 Worker 发消息”，还需要：</p>
+<ul>
+<li>Capability Registry；</li>
+<li>Task Decomposition；</li>
+<li>Dependency Graph；</li>
+<li>Task Ledger；</li>
+<li>Scheduler；</li>
+<li>Budget Manager；</li>
+<li>Permission Gate；</li>
+<li>Result Aggregator；</li>
+<li>Verifier；</li>
+<li>Failure Recovery；</li>
+<li>Trace。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    G[Goal] --> P[Planner]
+    P --> DAG[Task DAG]
+    DAG --> S[Scheduler]
+    S --> CR[Capability Registry]
+    CR --> W[Worker Selection]
+    W --> E[Execution]
+    E --> V[Verifier]
+    V -->|通过| A[Artifact Store]
+    V -->|失败| R[Retry / Replan]
+    A --> J[Join / Synthesis]
+</pre>
+
+<p>Orchestrator 的模型决策也应受到确定性 Runtime 的限制。</p>
+<h2 id="925-worker">9.25 Worker 的设计</h2>
+<p>一个 Worker 应有窄而明确的职责：</p>
+<ul>
+<li>明确 Capability；</li>
+<li>明确输入 Schema；</li>
+<li>明确输出 Schema；</li>
+<li>明确 Tools；</li>
+<li>明确权限；</li>
+<li>明确成功标准；</li>
+<li>明确超时和预算；</li>
+<li>明确错误类型。</li>
+</ul>
+<p>不推荐：</p>
+<ul>
+<li>“你是万能研究专家”；</li>
+<li>“尽力完成所有任务”；</li>
+<li>无边界地访问所有共享上下文；</li>
+<li>失败时只返回自由文本。</li>
+</ul>
+<h2 id="926">9.26 结果合并</h2>
+<p>多个 Worker 结果可能：</p>
+<ul>
+<li>重复；</li>
+<li>冲突；</li>
+<li>使用不同格式；</li>
+<li>引用不同来源；</li>
+<li>质量不一致。</li>
+</ul>
+<p>合并流程应包括：</p>
+<pre class="mermaid">flowchart LR
+    R[Worker Results] --> S[Schema Validation]
+    S --> D[Deduplicate]
+    D --> C[Conflict Detection]
+    C --> V[Evidence Verification]
+    V --> J[Join / Synthesis]
+</pre>
+
+<p>冲突不应由 Writer Agent 静默选择。应：</p>
+<ul>
+<li>标记冲突；</li>
+<li>比较来源可信度和时间；</li>
+<li>请求独立 Verifier；</li>
+<li>必要时返回给用户判断。</li>
+</ul>
+<h2 id="927-multi-agent">9.27 Multi-Agent 的常见失败模式</h2>
+<h3 id="9271">9.27.1 重复工作</h3>
+<p>多个 Agent 同时调研同一内容。</p>
+<p>解决：</p>
+<ul>
+<li>Task Ledger；</li>
+<li>唯一 Task ID；</li>
+<li>任务租约；</li>
+<li>Artifact 发现。</li>
+</ul>
+<h3 id="9272">9.27.2 任务遗漏</h3>
+<p>Orchestrator 拆分后没有 Agent 负责某个依赖。</p>
+<p>解决：</p>
+<ul>
+<li>DAG 完整性检查；</li>
+<li>验收条件映射；</li>
+<li>未分配任务检测。</li>
+</ul>
+<h3 id="9273">9.27.3 消息丢失或重复</h3>
+<p>解决：</p>
+<ul>
+<li>幂等消息；</li>
+<li>Acknowledgement；</li>
+<li>Retry；</li>
+<li>去重键。</li>
+</ul>
+<h3 id="9274-context">9.27.4 Context 丢失</h3>
+<p>Agent 交接时遗漏关键背景。</p>
+<p>解决：</p>
+<ul>
+<li>Task Contract；</li>
+<li>Artifact；</li>
+<li>来源引用；</li>
+<li>结构化 Handoff。</li>
+</ul>
+<h3 id="9275-agent">9.27.5 Agent 互相等待</h3>
+<p>形成 Deadlock。</p>
+<p>解决：</p>
+<ul>
+<li>依赖环检测；</li>
+<li>超时；</li>
+<li>Lease；</li>
+<li>Orchestrator 仲裁。</li>
+</ul>
+<h3 id="9276">9.27.6 无限讨论</h3>
+<p>Agent 不断互相批评但不执行。</p>
+<p>解决：</p>
+<ul>
+<li>最大回合数；</li>
+<li>明确 Decision Owner；</li>
+<li>验证阈值；</li>
+<li>强制提交 Artifact。</li>
+</ul>
+<h3 id="9277-shared-memory">9.27.7 Shared Memory 污染</h3>
+<p>一个 Agent 写入错误事实，影响所有 Agent。</p>
+<p>解决：</p>
+<ul>
+<li>来源；</li>
+<li>信任等级；</li>
+<li>写入审核；</li>
+<li>Validated Memory 与 Working Notes 分离。</li>
+</ul>
+<h2 id="928">9.28 研究系统示例</h2>
+<p>目标：</p>
+<blockquote>
+<p>调研三家竞品最近半年的变化，并输出带来源的比较报告。</p>
+</blockquote>
+<pre class="mermaid">flowchart TB
+    U[User Goal] --> O[Research Orchestrator]
+    O --> A[Competitor A Agent]
+    O --> B[Competitor B Agent]
+    O --> C[Competitor C Agent]
+    O --> T[Market Trend Agent]
+
+    A --> STORE[Artifact Store]
+    B --> STORE
+    C --> STORE
+    T --> STORE
+
+    STORE --> F[Fact-check Agent]
+    F --> V{证据通过?}
+    V -->|否| O
+    V -->|是| W[Writer Agent]
+    W --> O
+    O --> U
+</pre>
+
+<h3 id="9281-multi-agent">9.28.1 为什么适合 Multi-Agent</h3>
+<ul>
+<li>三家竞品可以独立调研；</li>
+<li>每个 Agent 只需要局部 Context；</li>
+<li>调研任务可以并行；</li>
+<li>Fact-check 与 Writer 具有不同职责；</li>
+<li>结果可通过统一 Artifact Schema 合并。</li>
+</ul>
+<h3 id="9282-agent">9.28.2 哪些部分不应交给自由 Agent</h3>
+<ul>
+<li>权限控制；</li>
+<li>任务预算；</li>
+<li>最大并发；</li>
+<li>引用 Schema；</li>
+<li>最终发布；</li>
+<li>敏感信息过滤。</li>
+</ul>
+<p>这些应由 Runtime 或 Workflow 控制。</p>
+<h2 id="929-single-agent-multi-agent">9.29 Single-Agent 与 Multi-Agent 对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Single-Agent</th>
+<th>Multi-Agent</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>控制主体</td>
+<td>一个</td>
+<td>多个</td>
+</tr>
+<tr>
+<td>上下文</td>
+<td>统一</td>
+<td>分区并通过协议交换</td>
+</tr>
+<tr>
+<td>状态管理</td>
+<td>相对简单</td>
+<td>分布式或共享状态</td>
+</tr>
+<tr>
+<td>专业化</td>
+<td>通过 Tools、Skills 和 Prompt</td>
+<td>可通过独立模型、工具、数据和权限</td>
+</tr>
+<tr>
+<td>并行性</td>
+<td>有限但仍可并行调用 Tool</td>
+<td>更自然地并行执行子任务</td>
+</tr>
+<tr>
+<td>调试</td>
+<td>路径较短</td>
+<td>需要跨 Agent Trace</td>
+</tr>
+<tr>
+<td>成本</td>
+<td>较低</td>
+<td>通信和重复调用成本高</td>
+</tr>
+<tr>
+<td>错误</td>
+<td>单点决策错误</td>
+<td>可能跨 Agent 传播和复合</td>
+</tr>
+<tr>
+<td>权限</td>
+<td>一套主要权限</td>
+<td>需要身份和最小权限隔离</td>
+</tr>
+<tr>
+<td>适用场景</td>
+<td>中等复杂度、高耦合任务</td>
+<td>可分解、异构、可并行任务</td>
+</tr>
+</tbody>
+</table>
+<h2 id="930">9.30 选型决策树</h2>
+<pre class="mermaid">flowchart TB
+    G[新任务] --> S{Single-Agent 能否稳定完成?}
+    S -->|是| SINGLE[使用 Single-Agent]
+    S -->|否| D{子任务能否清晰分离?}
+    D -->|否| IMPROVE[优化 Context、Tools、Memory 或 Workflow]
+    D -->|是| H{是否存在真实异构或并行收益?}
+    H -->|否| WORKFLOW[Single-Agent + Workflow]
+    H -->|是| C{协调成本是否可接受?}
+    C -->|否| LIMITED[少量并行 Worker]
+    C -->|是| M[Multi-Agent]
+    M --> T{需要开放式对等协作?}
+    T -->|否| O[Orchestrator / Hierarchical]
+    T -->|是| P[Hybrid / Peer-to-Peer]
+</pre>
+
+<h2 id="931-multi-agent">9.31 评估 Multi-Agent 是否值得</h2>
+<h3 id="9311">9.31.1 质量</h3>
+<ul>
+<li>整体任务成功率；</li>
+<li>每个 Agent 的验收通过率；</li>
+<li>冲突和遗漏比例；</li>
+<li>最终结果是否优于 Single-Agent 基线。</li>
+</ul>
+<h3 id="9312">9.31.2 效率</h3>
+<ul>
+<li>总 Token 和费用；</li>
+<li>关键路径延迟；</li>
+<li>并行效率；</li>
+<li>协调消息占比；</li>
+<li>重复工作比例。</li>
+</ul>
+<p>可以定义协调成本占比：</p>
+<p>$$
+R_{coord}=\frac{C_{coord}}{C_{total}}
+$$</p>
+<p>如果大量成本用于 Agent 互相交流而不是完成任务，需要简化拓扑或接口。</p>
+<h3 id="9313">9.31.3 稳定性</h3>
+<ul>
+<li>Worker 失败恢复时间；</li>
+<li>Task 遗漏率；</li>
+<li>Deadlock 和循环次数；</li>
+<li>重试是否局部化；</li>
+<li>状态是否一致。</li>
+</ul>
+<h3 id="9314">9.31.4 安全</h3>
+<ul>
+<li>是否遵循最小权限；</li>
+<li>是否发生跨 Agent 数据泄露；</li>
+<li>Shared Memory 是否被污染；</li>
+<li>高风险操作是否经过审批。</li>
+</ul>
+<h2 id="932">9.32 生产级检查表</h2>
+<h3 id="9321">9.32.1 选型</h3>
+<ul>
+<li>Single-Agent 基线是否已测量？</li>
+<li>是否存在真实可分解子任务？</li>
+<li>专业化是否来自能力差异，而非角色名？</li>
+<li>并行收益是否高于协调成本？</li>
+</ul>
+<h3 id="9322">9.32.2 拓扑</h3>
+<ul>
+<li>谁拥有最终目标？</li>
+<li>谁是最终 Decision Owner？</li>
+<li>是否需要单层、分层或混合 Orchestrator？</li>
+<li>为什么必须使用 Peer-to-Peer？</li>
+</ul>
+<h3 id="9323">9.32.3 协议</h3>
+<ul>
+<li>是否有 Task Contract？</li>
+<li>是否有结构化 Result 和 Error？</li>
+<li>是否使用唯一 ID、幂等键和 Trace ID？</li>
+<li>是否支持超时、取消和重试？</li>
+</ul>
+<h3 id="9324">9.32.4 状态</h3>
+<ul>
+<li>哪些状态私有？</li>
+<li>哪些 Artifact 共享？</li>
+<li>谁能写入共享长期记忆？</li>
+<li>冲突如何解决？</li>
+</ul>
+<h3 id="9325">9.32.5 安全</h3>
+<ul>
+<li>每个 Agent 的权限是否最小化？</li>
+<li>Agent 身份是否可验证？</li>
+<li>外部 Agent 是否处于独立信任边界？</li>
+<li>高风险任务是否需要人工审批？</li>
+</ul>
+<h3 id="9326">9.32.6 评估</h3>
+<ul>
+<li>是否与 Single-Agent 做质量、成本和延迟对比？</li>
+<li>是否测量协调开销？</li>
+<li>是否测试 Worker 失联、重复消息和冲突？</li>
+<li>是否能够重放完整执行轨迹？</li>
+</ul>
+<h2 id="933">9.33 本章总结</h2>
+<p>Single-Agent 与 Multi-Agent 的差别不只在数量，更在于谁持有目标、状态和下一步决策权。Single-Agent 由一个主体统筹全局；Multi-Agent 则把局部决策拆给多个角色。</p>
+<p>Multi-Agent 真正值得引入的场景，通常同时具备几件事：上下文可以按职责切开、能力或权限确实异构、子任务有并行收益，而且协调成本还在可控范围内。</p>
+<p>它也解决不了一些常被高估的问题：底层模型的 Context Window 不会因此变大，角色名不同也不会自动带来专业能力，并行化更不等于天然更快或更稳。</p>
+<p>生产系统更常见的升级路径是：</p>
+<blockquote>
+<p><strong>Single-Agent → Agentic Workflow → Orchestrator-Workers → Hierarchical / Hybrid Multi-Agent</strong></p>
+</blockquote>
+<p>只有在任务可分解、能力真实异构、并行收益明确且协调成本可接受时，Multi-Agent 才值得往前走这一步。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+<li><a href="https://www.anthropic.com/engineering/multi-agent-research-system">Anthropic: How we built our multi-agent research system</a></li>
+<li><a href="https://cognition.ai/blog/dont-build-multi-agents">Cognition: Don't Build Multi-Agents</a></li>
+<li><a href="https://arxiv.org/abs/2503.13657">Why Do Multi-Agent LLM Systems Fail? (MAST)</a></li>
+<li><a href="https://a2a-protocol.org/">Agent2Agent (A2A) Protocol</a></li>
+<li><a href="https://arxiv.org/abs/2308.08155">AutoGen: Enabling Next-Gen LLM Applications via Multi-Agent Conversation</a></li>
+<li><a href="https://arxiv.org/abs/2303.17760">CAMEL: Communicative Agents for Mind Exploration of Large Language Model Society</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

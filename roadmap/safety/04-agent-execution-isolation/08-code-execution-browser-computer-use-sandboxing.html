@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>代码与浏览器沙箱 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="代码与浏览器沙箱 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI 安全与治理</span> / <span>Agent 与执行环境</span> / <span>代码与浏览器沙箱</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="computer-use">第八章：代码执行、浏览器与 Computer Use 沙箱及网络隔离</h1>
+<h2 id="81">8.1 三类"给模型一双手"的能力，风险递增</h2>
+<p>代码解释器、浏览器自动化和 Computer Use（让模型直接操作图形界面、鼠标键盘）是当前 Agent 能力扩展最快的三类工具，也是攻击面最不容易被完整枚举的三类工具。它们的共同点是：<strong>执行的具体指令由模型运行时生成，无法在设计阶段穷举</strong>，因此防御重心必须放在"限制执行环境本身能造成的最大损害"，而不是"预判模型会生成什么指令"。</p>
+<pre class="mermaid">flowchart LR
+    A[代码执行<br/>风险：任意代码运行] --> B[浏览器自动化<br/>风险：+ 跨站身份/会话]
+    B --> C[Computer Use<br/>风险：+ 全操作系统访问面]
+</pre>
+
+<p>三者的风险依次叠加：代码解释器的风险边界通常局限在一个进程/容器内；浏览器自动化额外引入了用户登录态、Cookie、跨站请求等身份相关的风险面；Computer Use 则把风险边界扩大到整个操作系统——任何桌面应用、文件、剪贴板都可能被模型直接操作。</p>
+<h2 id="82">8.2 代码执行沙箱</h2>
+<h3 id="821">8.2.1 隔离层级选择</h3>
+<table>
+<thead>
+<tr>
+<th>隔离方式</th>
+<th>隔离强度</th>
+<th>典型场景</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>语言级沙箱（受限解释器）</td>
+<td>弱，容易被已知技巧绕过</td>
+<td>不推荐用于不可信代码</td>
+</tr>
+<tr>
+<td>容器（Docker 等）</td>
+<td>中，共享宿主内核</td>
+<td>内部可信度较高的场景，仍需配合内核加固</td>
+</tr>
+<tr>
+<td>用户态内核隔离（gVisor 等）</td>
+<td>较强，拦截并模拟系统调用，减少宿主内核暴露面</td>
+<td>多租户代码执行服务</td>
+</tr>
+<tr>
+<td>微虚拟机（Firecracker 等）</td>
+<td>强，独立内核和硬件虚拟化边界</td>
+<td>面向不可信代码的默认选择</td>
+</tr>
+</tbody>
+</table>
+<p><strong>原则</strong>：只要执行的代码来自模型生成、且模型的生成过程可能被 Prompt Injection 或越狱影响（见第二章），就应该按"不可信代码"的最高标准隔离，而不是按"这是我们自己 Agent 生成的代码，应该问题不大"的乐观假设。</p>
+<h3 id="822">8.2.2 资源与生命周期限制</h3>
+<ul>
+<li><strong>每次执行短生命周期、一次性环境</strong>：执行结束即销毁，不复用带有历史状态的沙箱，防止跨任务的状态污染或残留数据被后续任务读取；</li>
+<li><strong>CPU/内存/磁盘/执行时长硬限制</strong>：防止资源耗尽型攻击（构造无限循环、大量写盘、fork bomb）；</li>
+<li><strong>文件系统最小化</strong>：沙箱内不挂载宿主机的真实文件系统、不包含无关的凭据文件、环境变量默认不包含云凭据（呼应第三章"密钥不进上下文"）；</li>
+<li><strong>无出站网络或按需最小开放</strong>：默认禁止沙箱访问外部网络，确需网络能力时走 8.4 的出口控制，而不是给沙箱直连公网的能力。</li>
+</ul>
+<h2 id="83">8.3 浏览器自动化的特有风险</h2>
+<h3 id="831">8.3.1 身份与会话相关风险</h3>
+<p>浏览器自动化 Agent 往往需要复用用户的登录态才能完成任务（订票、查账单等），这带来了代码执行沙箱不存在的风险：</p>
+<ul>
+<li><strong>会话劫持面扩大</strong>：一旦浏览器自动化环境被诱导访问恶意页面，攻击者可能读取到当前登录会话的 Cookie 或 Token；</li>
+<li><strong>跨站请求伪造放大</strong>：模型在浏览网页时遇到的任何可点击元素、表单都可能是攻击者构造的诱导内容（视觉/文本层面的间接 Prompt Injection），诱导 Agent 在已登录状态下执行转账、修改密码等操作；</li>
+<li><strong>下载文件执行</strong>：浏览器下载的文件如果被后续步骤（代码解释器、桌面操作）打开或执行，等同于引入了一个新的、来源不可控的代码执行入口。</li>
+</ul>
+<h3 id="832">8.3.2 防御设计</h3>
+<ul>
+<li><strong>登录态最小化</strong>：只在完成特定任务必需时注入特定域名的登录态，不做"全程携带用户完整会话"的设计；任务结束后销毁会话；</li>
+<li><strong>页面内容视为不可信输入</strong>：网页的文本、alt 属性、隐藏元素都可能包含注入指令，处理方式与 <a href="../../rag/06-operations-security/20-rag-challenges-security.html">RAG 安全 20.3.2</a> 描述的间接注入防御一致——能力隔离和数据流控制是主防线，不能依赖"提醒模型小心网页内容"这种概率性缓解；</li>
+<li><strong>高风险操作二次确认</strong>：涉及支付、密码修改、数据提交类的页面操作，应有独立于模型判断的确定性规则触发人工确认，而不是让模型自己判断"这个操作安全吗"；</li>
+<li><strong>下载文件默认隔离</strong>：下载内容进入独立沙箱做扫描和格式校验，不自动传递给可执行环境。</li>
+</ul>
+<h2 id="84-computer-use">8.4 Computer Use 的特有风险</h2>
+<p>Computer Use 让模型通过截图理解界面状态、通过模拟鼠标键盘操作整个桌面环境，这是当前风险面最大、经验积累最少的一类能力。</p>
+<h3 id="841-prompt-injection">8.4.1 视觉层面的间接 Prompt Injection</h3>
+<p>模型依赖截图来"看懂"当前屏幕，任何出现在屏幕上的内容——包括其他窗口的通知、桌面壁纸上的文字、恶意网页渲染出的伪造系统对话框——都可能被模型当作需要响应的指令。<strong>这是间接 Prompt Injection 在视觉模态上的延伸</strong>，与文本文档中的隐藏指令原理相同，只是载体从文本变成了截图。</p>
+<h3 id="842">8.4.2 操作系统级攻击面</h3>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>剪贴板劫持</td>
+<td>模型可以读写系统剪贴板，可能被诱导读取剪贴板中的敏感数据并粘贴到不当位置，或反过来把恶意内容写入剪贴板供用户后续误粘贴</td>
+</tr>
+<tr>
+<td>伪造系统弹窗</td>
+<td>恶意页面可以渲染出与真实操作系统权限请求框高度相似的界面，诱导模型（或后续的人工审批者）误点"允许"</td>
+</tr>
+<tr>
+<td>跨应用数据串联</td>
+<td>模型可以在一个操作序列里跨越邮件、浏览器、文件管理器等多个应用，任何一环被注入都可能导致整个操作链被劫持</td>
+</tr>
+<tr>
+<td>无法细粒度限权</td>
+<td>相比 API 调用可以精确控制"允许调用哪个函数"，图形界面操作很难做到"只允许点击这个按钮"级别的白名单</td>
+</tr>
+</tbody>
+</table>
+<h3 id="843">8.4.3 防御设计</h3>
+<ul>
+<li><strong>默认在隔离桌面环境中运行</strong>：使用独立的虚拟桌面/容器化桌面环境执行 Computer Use 任务，与用户真实桌面环境物理隔离，即使被劫持也不能触及宿主机的真实数据；</li>
+<li><strong>任务范围声明与越界检测</strong>：在任务开始前声明允许操作的应用范围，运行时检测是否出现了超出声明范围的应用切换或窗口，超出则暂停并要求确认；</li>
+<li><strong>高权限操作的确定性拦截</strong>：涉及系统设置修改、权限授予、文件删除等操作，由操作系统层面的策略（而非模型自我克制）强制拦截或要求二次确认，这与浏览器自动化的"二次确认不能靠模型自我判断"是同一原则；</li>
+<li><strong>截图内容的输入检测</strong>：对截图做 OCR/内容分析，识别是否存在异常的、疑似注入的文字或界面元素，作为纵深防御的一层，但不能替代隔离桌面这一主防线。</li>
+</ul>
+<h2 id="85">8.5 统一的网络出口控制</h2>
+<p>三类执行环境都需要一致的网络隔离策略，这与 <a href="../../tools/02-mcp/15-tool-protocol-security.html">Tool Protocol 安全 15.3.1</a> 描述的 SSRF 防护原则相通；放到执行沙箱里，就是下面这套网络设计：</p>
+<pre class="mermaid">flowchart TB
+    E[执行环境<br/>代码/浏览器/Computer Use] --> P[强制走出口代理]
+    P --> W[域名/IP allowlist]
+    P --> N[拒绝 loopback/私网/metadata 地址]
+    P --> R[限制重定向次数与响应大小]
+    P --> L[无凭据网络段<br/>凭据由代理按需注入]
+</pre>
+
+<ul>
+<li>执行环境不直连公网，所有出站流量强制经过受控代理；</li>
+<li>代理层维护 allowlist 而非 blocklist，默认拒绝一切未声明的目的地；</li>
+<li>代理层负责在需要时按需注入凭据（如访问特定内部 API 需要的 Token），执行环境本身不持有长期凭据，这与<a href="../02-prompt-content-attacks/03-output-handling-secret-exfiltration.html">第三章</a>“凭据不进模型上下文”的原则一致；</li>
+<li>记录完整的出站请求日志，用于事后审计和异常检测。</li>
+</ul>
+<h2 id="86">8.6 上线检查表</h2>
+<ul>
+<li>[ ] 不可信代码执行默认使用微虚拟机/用户态内核隔离级别的沙箱，而非仅语言级沙箱；</li>
+<li>[ ] 执行环境短生命周期、一次性，结束即销毁，不复用历史状态；</li>
+<li>[ ] 沙箱内 CPU/内存/磁盘/执行时长有硬限制；</li>
+<li>[ ] 浏览器自动化的登录态按任务最小化注入，任务结束即销毁；</li>
+<li>[ ] 浏览器/Computer Use 中涉及支付、密码修改等高风险操作，由确定性规则强制人工确认，不依赖模型自我判断；</li>
+<li>[ ] Computer Use 默认运行在隔离桌面环境，与用户真实桌面物理隔离；</li>
+<li>[ ] 所有执行环境的出站网络强制走代理，采用 allowlist 且拒绝 loopback/私网/metadata 地址；</li>
+<li>[ ] 执行环境不持有长期凭据，按需通过代理注入。</li>
+</ul>
+<h2 id="87">8.7 常见错误</h2>
+<h3 id="871-agent">8.7.1 认为"代码是自己 Agent 生成的"所以风险较低</h3>
+<p>只要生成过程可能被 Prompt Injection 或越狱影响，就应按不可信代码的最高标准隔离。</p>
+<h3 id="872">8.7.2 浏览器自动化全程携带用户完整登录会话</h3>
+<p>应按任务最小化注入特定域名的登录态，而不是让 Agent 拥有用户的完整会话权限。</p>
+<h3 id="873">8.7.3 依赖提醒模型"小心可疑内容"作为注入防御</h3>
+<p>无论文本还是视觉模态的间接注入，都需要能力隔离和数据流控制作为主防线，提示词层面的提醒只是概率性缓解。</p>
+<h3 id="874-computer-use">8.7.4 Computer Use 在用户真实桌面环境直接运行</h3>
+<p>一旦被视觉层面的注入劫持，会直接影响宿主机的真实数据和应用，必须使用隔离桌面环境。</p>
+<h2 id="88">8.8 本章总结</h2>
+<ol>
+<li>代码执行、浏览器自动化、Computer Use 的风险依次叠加，防御重心应放在限制执行环境的最大损害，而非预判模型会生成什么指令；</li>
+<li>代码执行应使用微虚拟机/用户态内核级别的隔离、短生命周期环境和严格的资源限制；</li>
+<li>浏览器自动化的特有风险在于登录态和会话相关的攻击面，登录态应按任务最小化注入，网页内容按不可信输入处理；</li>
+<li>Computer Use 把风险扩大到整个操作系统，视觉层面的间接 Prompt Injection、剪贴板劫持和伪造系统弹窗是其特有风险，默认应运行在隔离桌面环境；</li>
+<li>三类执行环境应共享统一的网络出口控制策略——强制代理、allowlist、拒绝内网地址、按需注入凭据。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://genai.owasp.org/llmrisk/llm06-excessive-agency/">OWASP LLM06:2025 Excessive Agency</a></li>
+<li><a href="https://gvisor.dev/">gVisor: Application Kernel for Containers</a></li>
+<li><a href="https://firecracker-microvm.io/">Firecracker: Secure and Fast microVMs</a></li>
+<li><a href="https://docs.claude.com/en/docs/agents-and-tools/tool-use/computer-use-tool">Anthropic: Computer Use — Security Considerations</a></li>
+<li><a href="https://atlas.mitre.org/techniques/AML.T0051">MITRE ATLAS: Evade ML Model / LLM Prompt Injection</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

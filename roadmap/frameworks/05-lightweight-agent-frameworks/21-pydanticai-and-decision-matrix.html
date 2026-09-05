@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PydanticAI 与选型矩阵 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="PydanticAI 与选型矩阵 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>轻量级 Agent 框架</span> / <span>PydanticAI 与选型矩阵</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="pydanticai">第二十一章：PydanticAI 的类型安全范式与三者适用边界</h1>
+<h2 id="211">21.1 第三种路线：把「协作」问题换成「正确性」问题</h2>
+<p>第二十章的 AutoGen 和 CrewAI 都在回答「多个 Agent 怎么协作」。PydanticAI 关注的是另一类问题：<strong>单个 Agent 的输入输出，能不能像普通函数调用一样接受类型系统和运行时校验</strong>。它建立在 Pydantic——Python 生态里最常用的数据校验库——之上，把同一套「用类型注解声明数据形状、运行时自动校验」的做法带到了 Agent 开发里。</p>
+<blockquote>
+<p>PydanticAI 官方将其定位为「Python 的 AI SDK：一个类型化、可扩展的 Agent 循环」，文档反复强调「typed end to end」（端到端类型化），这也是它和本主题其他框架最明显的差异。</p>
+</blockquote>
+<h2 id="212-agentoutput_type">21.2 核心设计：<code>Agent</code>、<code>output_type</code> 与依赖注入</h2>
+<p>PydanticAI 的 <code>Agent</code> 对象接受一个 <code>output_type</code>（通常是 Pydantic <code>BaseModel</code>），运行结果会被自动校验并转换成对应类型，而不是返回一段需要自己解析的原始字符串：</p>
+<pre><code class="language-python">from typing import Literal
+from pydantic import BaseModel, Field
+from pydantic_ai import Agent, RunContext
+
+class Sentiment(BaseModel):
+    label: Literal[&quot;positive&quot;, &quot;negative&quot;, &quot;neutral&quot;]
+    score: float = Field(ge=-1, le=1)
+
+agent = Agent(&quot;openai:gpt-5.6-sol&quot;, output_type=Sentiment)
+
+@agent.tool
+def recent_reviews(ctx: RunContext[None], product: str) -&gt; list[str]:
+    &quot;&quot;&quot;获取某个产品的近期评论片段。&quot;&quot;&quot;
+    return review_service.fetch(product)
+
+result = agent.run_sync(&quot;最近大家对这款产品的评价怎么样？&quot;)
+print(result.output.label, result.output.score)
+</code></pre>
+<p>这里有两个工程上直接相关的点：</p>
+<ol>
+<li><strong><code>@agent.tool</code> 装饰的函数签名和 docstring 直接生成工具 Schema</strong>——这和 <a href="../../tools/">Tools 主题</a> 中 Function Calling 的 Schema 设计原则完全一致，PydanticAI 没有发明新协议，只是让 Schema 生成过程和 Python 类型注解无缝衔接；</li>
+<li><strong><code>RunContext</code> 是依赖注入的入口</strong>——工具函数通过 <code>ctx.deps</code> 访问运行时注入的依赖（数据库连接、当前用户身份等），这些依赖在测试时可以被替换成 mock 对象，不需要真的连接外部系统就能验证 Agent 的调用逻辑。</li>
+</ol>
+<h2 id="213">21.3 类型安全带来的工程收益</h2>
+<pre class="mermaid">flowchart LR
+    A["模型输出的原始文本"] --> B{"output_type 校验"}
+    B -->|"通过"| C["强类型对象<br/>可直接用于业务逻辑"]
+    B -->|"不通过"| D["自动重试<br/>把校验错误反馈给模型"]
+</pre>
+
+<p>当模型的输出不满足 <code>output_type</code> 声明的约束（比如 <code>score</code> 超出了 <code>[-1, 1]</code> 范围），PydanticAI 会把校验错误反馈给模型并触发重试，<strong>这个反馈闭环本身发生在框架内部，不需要开发者手写「解析失败就重新提示模型」的样板代码</strong>。这与 <a href="../01-langchain/02-agent-building/04-build-agent.html">LangChain 生态 · 第四章</a> 中结构化输出的处理方式目标一致，区别在于 PydanticAI 把这层校验做得更贴近 Python 静态类型工具链（配合 <code>mypy</code>/<code>pyright</code> 可以在编写阶段就发现类型不匹配问题）。</p>
+<h2 id="214-autogencrewaipydanticai">21.4 决策矩阵：AutoGen、CrewAI、PydanticAI 与本主题其他框架的适用边界</h2>
+<p>把本模块两章和前几个模块放在一起，可以按六个工程维度画出一张对照表（更完整的跨全部框架对照见 <a href="../06-selection-portability/22-cross-framework-technical-taxonomy.html">框架选型与可移植架构 · 第二十二章</a>）：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>AutoGen</th>
+<th>CrewAI</th>
+<th>PydanticAI</th>
+<th>Semantic Kernel</th>
+<th>LangGraph</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>核心问题</strong></td>
+<td>分布式多智能体协作</td>
+<td>角色化团队协作 + 确定性 Flow</td>
+<td>单 Agent 的类型安全与工具契约</td>
+<td>企业级流程与多智能体编排</td>
+<td>通用状态图编排</td>
+</tr>
+<tr>
+<td><strong>状态模型</strong></td>
+<td>Actor 间异步消息</td>
+<td>Crew 内隐式、Flow 内显式状态</td>
+<td>单次 Run 的依赖注入上下文</td>
+<td>Process 的显式状态转移</td>
+<td>显式共享 <code>State</code></td>
+</tr>
+<tr>
+<td><strong>持久化</strong></td>
+<td>需要外部方案</td>
+<td>Flow 状态可持久化，Crew 内部有限</td>
+<td>需要外部方案（框架本身偏无状态单次调用）</td>
+<td>Process 原生支持持久化与恢复</td>
+<td>Checkpointer 原生支持</td>
+</tr>
+<tr>
+<td><strong>工具契约</strong></td>
+<td>消息驱动的函数调用</td>
+<td>标准 Function Calling</td>
+<td>类型注解直接生成 Schema，校验最严格</td>
+<td>Plugin 统一 Semantic/Native Function</td>
+<td>标准 Function Calling</td>
+</tr>
+<tr>
+<td><strong>评测/可观测性</strong></td>
+<td>依赖外部 Tracing 集成</td>
+<td>内置 Trace，但生态工具相对年轻</td>
+<td>与 Pydantic Logfire 等工具集成较紧密</td>
+<td>与 Application Insights 等企业遥测集成</td>
+<td>LangSmith 原生集成最成熟</td>
+</tr>
+<tr>
+<td><strong>Lock-in 风险</strong></td>
+<td>中等：Actor 消息格式有一定绑定</td>
+<td>中等：YAML 配置和角色隐喻绑定较深</td>
+<td>较低：核心是标准 Python 类型和函数</td>
+<td>较高：企业治理能力换来生态绑定</td>
+<td>中等：State/Checkpointer 格式有一定绑定</td>
+</tr>
+</tbody>
+</table>
+<p>这张表反映的是取舍，而不是单一排名。需要长期持久化和恢复能力时，LangGraph 或 Semantic Kernel Process Framework 更合适；需要严格类型安全和更低框架绑定时，PydanticAI 更合适；需要快速验证角色化协作时，CrewAI 更合适；需要真正的分布式部署时，AutoGen 更合适。选型时更有效的做法，是先明确项目最看重的两三个维度，再对照矩阵筛选。</p>
+<h2 id="215">21.5 常见错误</h2>
+<h3 id="2151">21.5.1 认为类型校验能替代模型能力评测</h3>
+<p><code>output_type</code> 校验能保证「格式正确」，不能保证「内容正确」——一个格式完全合法但语义错误的 <code>Sentiment</code> 对象照样能通过校验，仍然需要独立的评测流程判断内容质量。</p>
+<h3 id="2152">21.5.2 把依赖注入当作可选的代码风格</h3>
+<p>不使用 <code>RunContext</code> 注入依赖，直接在工具函数里硬编码数据库连接或全局变量，会让单元测试必须依赖真实外部系统，失去类型安全设计本来要解决的可测试性收益。</p>
+<h3 id="2153">21.5.3 只看决策矩阵的单一维度就下结论</h3>
+<p>比如只看到「Lock-in 风险较低」就认定 PydanticAI 全面适合所有场景，忽视了它在长期持久化和多智能体协作上需要额外自建方案的事实。</p>
+<h3 id="2154">21.5.4 把角色化框架的「团队隐喻」当作技术架构本身</h3>
+<p>CrewAI 的 <code>role</code>/<code>goal</code>/<code>backstory</code> 是 Prompt 工程的组织方式，不代表底层有类似人类团队的组织架构或权限体系，不能替代真实的权限与审批设计。</p>
+<h2 id="216">21.6 本章总结</h2>
+<ol>
+<li><strong>PydanticAI 把「Agent 开发」重新定义为「类型安全的函数调用」</strong>：<code>output_type</code> 保证输出可被自动校验并重试，<code>RunContext</code> 提供可测试的依赖注入入口；</li>
+<li><strong>它的工具 Schema 生成方式与 Function Calling 协议完全兼容</strong>，没有发明新协议，只是让类型注解和 Schema 生成无缝衔接；</li>
+<li><strong>类型校验解决的是「格式正确性」，不是「内容正确性」</strong>，仍然需要独立的评测体系判断语义质量；</li>
+<li><strong>AutoGen、CrewAI、PydanticAI 在状态模型、持久化、工具契约、可观测性和 lock-in 风险上呈现出明显不同的取舍</strong>，没有一个框架在全部维度上都最优；</li>
+<li><strong>框架选型应该先明确项目最看重的两三个维度</strong>，再对照决策矩阵找最匹配的框架，而不是寻找一个「全能」选项。</li>
+</ol>
+<p>如果说 AutoGen 和 CrewAI 主要回答「多个 Agent 怎么协作」，那么 PydanticAI 处理的是另一层问题：单个 Agent 的输入输出能否获得和普通 Python 函数类似的类型安全保障。三者对应的是不同优化方向，而不是同一赛道上的直接替代关系。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://ai.pydantic.dev/">PydanticAI 官方文档</a></li>
+<li><a href="https://ai.pydantic.dev/agents/">PydanticAI: Agents 核心概念</a></li>
+<li><a href="https://ai.pydantic.dev/tools/">PydanticAI: Function Tools</a></li>
+<li><a href="https://ai.pydantic.dev/dependencies/">PydanticAI: Dependencies 依赖注入</a></li>
+<li><a href="https://microsoft.github.io/autogen/stable/">AutoGen 官方文档</a></li>
+<li><a href="https://docs.crewai.com/">CrewAI 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

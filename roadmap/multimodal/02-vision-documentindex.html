@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模块导览 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模块导览 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../roadmap/roadmap.css">
+  <script src="../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../home.html">首页</a>
+        <a href="../posts.html">随笔</a>
+        <a href="../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>多模态 AI</span> / <span>视觉与文档智能</span> / <span>模块导览</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">多模态 · 视觉与文档智能</h1>
+<p>覆盖视觉语言模型的能力谱系、视觉 Grounding、OCR/Document AI 与 Computer Use，即"模型如何看懂图像与界面，并把理解落到可验证的坐标或结构化输出上"。</p>
+<h2 id="_2">章节</h2>
+<ol>
+<li><a href="02-vlm-grounding.html">第二章：视觉语言模型与视觉 Grounding</a></li>
+<li><a href="03-ocr-document-ai.html">第三章：OCR 与 Document AI</a></li>
+<li><a href="04-computer-use.html">第四章：Computer Use 与 GUI Agent</a></li>
+</ol>
+<h2 id="_3">模块内关系</h2>
+<pre class="mermaid">flowchart LR
+    G[视觉语言模型与<br/>视觉 Grounding] --> O[OCR 与 Document AI]
+    G --> C[Computer Use 与 GUI Agent]
+</pre>
+
+<p>视觉 Grounding 提供的"语言指代 → 坐标"能力是后两章的共同基础：OCR/Document AI 把它用于版面与表格结构定位，Computer Use 把它用于界面元素点击定位。</p>
+<p>返回 <a href="../">多模态相关知识点</a>。</p>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

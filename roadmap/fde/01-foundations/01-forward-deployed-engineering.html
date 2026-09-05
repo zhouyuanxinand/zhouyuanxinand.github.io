@@ -1,0 +1,651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>从业务问题到可复用生产系统 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="从业务问题到可复用生产系统 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>FDE</span> / <span>基础与交付方法</span> / <span>从业务问题到可复用生产系统</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="forward-deployed-engineering">第一章：Forward Deployed Engineering：从业务问题到可复用生产系统</h1>
+<h2 id="11-fde">1.1 FDE 是什么</h2>
+<p>Forward Deployed Engineer（FDE，前线部署工程师）通常指<strong>直接进入客户或业务现场，并对技术方案从问题定义到生产结果承担端到端责任的工程师</strong>。</p>
+<p>这个名称最早因 Palantir 的 Forward Deployed Software Engineer（内部称 Delta）而广为人知。Palantir 曾用一句话区分平台工程与前线部署：</p>
+<ul>
+<li>平台工程师关注“一个能力服务多个客户”；</li>
+<li>FDE 关注“一个客户需要组合哪些能力”。</li>
+</ul>
+<p>OpenAI 等 AI 公司后来沿用了 FDE 名称，但具体职责、组织归属和客户类型并不相同。因此，<strong>FDE 不是具有统一认证和固定职责的行业标准岗位</strong>。本章把它作为一种工程方法来讨论：</p>
+<blockquote>
+<p>在高不确定性的真实环境中，用代码、数据和产品判断把通用 AI 能力转化为可验证的业务结果，并把现场经验沉淀回可复用平台。</p>
+</blockquote>
+<pre class="mermaid">flowchart LR
+    D["Discover<br/>发现真实问题"] --> M["Model<br/>定义任务与约束"]
+    M --> P["Prove<br/>用 Eval 验证价值"]
+    P --> I["Integrate<br/>接入数据与系统"]
+    I --> O["Operate<br/>生产运行"]
+    O --> G["Generalize<br/>沉淀可复用能力"]
+    G -.新基线.-> D
+</pre>
+
+<p>FDE 的关键不在“离客户近”，而在同时具备三种责任：</p>
+<ol>
+<li><strong>结果责任</strong>：成功标准是业务或任务结果，而不是完成一份方案；</li>
+<li><strong>工程责任</strong>：必要时直接修改和交付生产代码，而不是只提出建议；</li>
+<li><strong>产品化责任</strong>：把一次交付中验证过的模式提炼为平台能力、模板或工具。</li>
+</ol>
+<h2 id="12-fde">1.2 FDE 与相邻岗位的区别</h2>
+<p>岗位名称会因公司而变化。下表描述的是常见重心，不代表所有组织都严格如此。</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>FDE</th>
+<th>解决方案架构师</th>
+<th>ML Engineer</th>
+<th>产品工程师</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>主要目标</td>
+<td>让特定客户获得可衡量结果</td>
+<td>设计可行架构并推动采用</td>
+<td>训练、评估或部署模型能力</td>
+<td>为一类用户建设通用产品</td>
+</tr>
+<tr>
+<td>主要产物</td>
+<td>客户环境中的生产系统</td>
+<td>架构方案、参考实现、集成建议</td>
+<td>数据/训练流水线、模型与推理系统</td>
+<td>可复用产品功能和平台</td>
+</tr>
+<tr>
+<td>编码深度</td>
+<td>通常直接写和维护交付代码</td>
+<td>因组织而异，常偏设计和验证</td>
+<td>深入模型与数据工程</td>
+<td>深入核心产品代码</td>
+</tr>
+<tr>
+<td>客户接触</td>
+<td>持续嵌入发现、交付和迭代</td>
+<td>多集中于售前、设计和关键评审</td>
+<td>通常间接接触</td>
+<td>通常通过 PM、研究和支持团队获得反馈</td>
+</tr>
+<tr>
+<td>所有权周期</td>
+<td>从问题定义到稳定生产</td>
+<td>常在方案确认或交接后减弱</td>
+<td>模型生命周期</td>
+<td>产品路线图生命周期</td>
+</tr>
+<tr>
+<td>成功指标</td>
+<td>业务结果、采用率、生产可靠性和复用率</td>
+<td>方案被接受、项目推进和平台采用</td>
+<td>模型质量、效率和稳定性</td>
+<td>多客户采用、留存和产品指标</td>
+</tr>
+</tbody>
+</table>
+<p>真正的区别不是“谁更懂技术”，而是<strong>默认优化目标不同</strong>：</p>
+<ul>
+<li>FDE 优先缩短特定场景从问题到结果的距离；</li>
+<li>解决方案架构师优先保证整体方案正确、可集成；</li>
+<li>ML Engineer 优先提高模型和数据系统的能力边界；</li>
+<li>产品工程师优先建设可以被多个客户稳定复用的能力。</li>
+</ul>
+<p>成熟团队不会让这些岗位互相替代。FDE 发现并验证模式，产品与平台团队决定哪些模式进入主干产品；ML Engineer 解决模型或数据瓶颈；解决方案架构师维护跨系统架构与长期演进边界。</p>
+<h2 id="13">1.3 需求发现与问题建模</h2>
+<p>FDE 最危险的起点是客户已经给出了方案，例如“我们需要一个多 Agent 平台”。这只是方案假设，不是问题定义。</p>
+<h3 id="131">1.3.1 从业务目标还原任务</h3>
+<p>需求发现应至少回答六个问题：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>需要获得的证据</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>谁在什么流程中遇到问题</td>
+<td>用户访谈、流程观察、工单和操作日志</td>
+</tr>
+<tr>
+<td>当前流程为什么失败或昂贵</td>
+<td>基线耗时、错误率、人力成本和等待时间</td>
+</tr>
+<tr>
+<td>AI 需要完成哪个可观察任务</td>
+<td>输入、输出、允许动作和停止条件</td>
+</tr>
+<tr>
+<td>哪些错误不可接受</td>
+<td>风险分级、人工复核和回滚要求</td>
+</tr>
+<tr>
+<td>系统受哪些现实约束</td>
+<td>数据权限、时延、成本、部署位置和法规</td>
+</tr>
+<tr>
+<td>价值如何被确认</td>
+<td>业务 KPI、任务指标和采用指标</td>
+</tr>
+</tbody>
+</table>
+<p>问题陈述可以统一成：</p>
+<blockquote>
+<p>对于某类用户，在给定输入、权限和时间预算内，系统需要完成某项可观察任务，使某个业务指标从基线改善到目标，同时把特定高风险错误控制在阈值内。</p>
+</blockquote>
+<h3 id="132">1.3.2 建立现状基线</h3>
+<p>没有基线就无法证明 AI 创造了价值。PoC 之前至少记录：</p>
+<ul>
+<li>人工流程的完成时间、返工率和一致性；</li>
+<li>现有自动化规则的准确率、覆盖率和维护成本；</li>
+<li>典型样本、边界样本与历史事故；</li>
+<li>不同用户群和业务环境之间的分布差异。</li>
+</ul>
+<p>Palantir 所称的 technical decomposition，本质上就是把高层业务问题持续拆解到数据、决策、动作和代码边界。拆解的终点不是“调用一个模型”，而是可以被测量和验收的系统行为。</p>
+<h2 id="14-eval">1.4 用 Eval 定义验收标准</h2>
+<p>FDE 应在大规模实现之前与领域专家共同建立 Eval。Eval 不是项目完成后的展示报表，而是需求合同的可执行版本。</p>
+<h3 id="141">1.4.1 四层验收指标</h3>
+<table>
+<thead>
+<tr>
+<th>层次</th>
+<th>示例</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>任务质量</td>
+<td>正确率、召回率、引用准确性、工具调用成功率</td>
+<td>判断系统是否完成任务</td>
+</tr>
+<tr>
+<td>风险约束</td>
+<td>越权操作率、敏感数据泄漏率、高风险漏检率</td>
+<td>定义不能被平均分掩盖的底线</td>
+</tr>
+<tr>
+<td>系统性能</td>
+<td>P95 时延、可用性、单任务成本</td>
+<td>判断能否进入真实工作流</td>
+</tr>
+<tr>
+<td>业务结果</td>
+<td>处理时间、采用率、返工率、转化率</td>
+<td>判断是否值得继续投入</td>
+</tr>
+</tbody>
+</table>
+<p>一次发布只有同时满足质量、风险、性能和价值门槛才应通过。可以抽象为：</p>
+<p>$$
+A =
+\mathbb{1}[Q \ge Q_{\min}]
+\cdot
+\mathbb{1}[R \le R_{\max}]
+\cdot
+\mathbb{1}[L \le L_{\max}]
+\cdot
+\mathbb{1}[C \le C_{\max}]
+$$</p>
+<p>其中 $Q$ 是任务质量，$R$ 是风险指标，$L$ 是时延，$C$ 是成本。只有 $A=1$ 时验收通过。实际系统还应按高风险场景设置硬门禁，而不是简单求平均分。</p>
+<h3 id="142-eval">1.4.2 Eval 数据集来自现场</h3>
+<p>Eval 集应包括：</p>
+<ol>
+<li>高频正常任务；</li>
+<li>价值最高的关键任务；</li>
+<li>历史错误和事故样本；</li>
+<li>权限、注入、模糊输入等对抗样本；</li>
+<li>新用户、新地区和新数据源导致的分布变化。</li>
+</ol>
+<p>数据集必须持续扩充。上线后出现的新边界条件应进入回归集，形成“现场事件 → 标注样本 → 回归测试 → 发布门禁”的闭环。通用方法详见 <a href="../../engineering/04-evaluation-observability/07-offline-eval-eval-driven-development.html">AI Engineering 第七章</a>。</p>
+<h2 id="15-agentrag-harness">1.5 Agent、RAG 与 Harness 方案选型</h2>
+<p>FDE 的目标不是使用最多的 AI 组件，而是选择<strong>满足验收条件的最小系统</strong>。</p>
+<pre class="mermaid">flowchart TD
+    START["明确任务与 Eval"] --> KNOW{"需要私有或动态知识?"}
+    KNOW -->|否| CALL["单次模型调用<br/>+ 结构化输出"]
+    KNOW -->|是| RAG["RAG / 查询工具"]
+    CALL --> PATH{"步骤是否固定?"}
+    RAG --> PATH
+    PATH -->|是| FLOW["确定性 Workflow"]
+    PATH -->|否| ACTION{"是否需要自主选择动作?"}
+    ACTION -->|否| FLOW
+    ACTION -->|是| AGENT["Agent"]
+    AGENT --> DURABLE{"任务是否长时、有副作用<br/>或需要人工审批?"}
+    DURABLE -->|否| LOOP["轻量 Agent Loop"]
+    DURABLE -->|是| HARNESS["持久化 Harness<br/>Checkpoint / 权限 / HITL"]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>适用条件</th>
+<th>不应使用的信号</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单次模型调用</td>
+<td>输入输出明确，知识可放入上下文</td>
+<td>为展示“智能”而增加循环</td>
+</tr>
+<tr>
+<td>RAG</td>
+<td>答案依赖私有、动态或可引用知识</td>
+<td>问题其实是权限或数据质量不足</td>
+</tr>
+<tr>
+<td>Workflow</td>
+<td>步骤和分支可以预先定义</td>
+<td>强行让 Agent 重新发现固定流程</td>
+</tr>
+<tr>
+<td>Agent</td>
+<td>子任务和工具选择无法完全预定义</td>
+<td>错误代价高但没有审批与回滚</td>
+</tr>
+<tr>
+<td>Durable Harness</td>
+<td>长任务、有副作用、需恢复/审批/审计</td>
+<td>短请求却引入复杂状态基础设施</td>
+</tr>
+</tbody>
+</table>
+<p>先做单次调用或 Workflow 基线，再证明 Agent 的额外质量收益足以覆盖时延、成本和风险。Harness 不是 Agent 框架的同义词，其运行时边界详见 <a href="../../agent/02-runtime-harness/16-harness-definition-and-boundaries.html">Agent Harness 第十六章</a>。</p>
+<h2 id="16">1.6 客户数据、权限和既有系统集成</h2>
+<p>真实交付中，模型通常不是最困难的部分。难点往往是数据含义不一致、权限无法传递、旧系统缺乏稳定接口，以及生产责任边界不清晰。</p>
+<h3 id="161">1.6.1 数据先治理，再进入模型</h3>
+<p>FDE 需要明确：</p>
+<ul>
+<li>数据由谁控制，供应商和模型提供方分别扮演什么角色；</li>
+<li>哪些字段可以进入模型上下文，保留多长时间；</li>
+<li>数据是否跨区域、跨租户或用于训练；</li>
+<li>删除、更正、审计和事故响应如何执行；</li>
+<li>检索结果是否继承原始对象的访问控制。</li>
+</ul>
+<p>“拿到 API Key 就算完成集成”是典型错误。身份应从用户、Agent、工具一直传播到目标资源，授权在数据与动作执行点再次校验。MCP/A2A 等协议层风险见 <a href="../../tools/02-mcp/15-tool-protocol-security.html">Tool Protocol 安全</a>，跨系统身份治理见 <a href="../../safety/04-agent-execution-isolation/07-agent-tool-mcp-a2a-least-privilege-identity.html">AI 安全第七章</a>。</p>
+<h3 id="162">1.6.2 用适配层隔离客户差异</h3>
+<pre class="mermaid">flowchart LR
+    CORE["共享领域能力<br/>任务 / Eval / 策略"] --> PORT["稳定 Port<br/>检索 / 动作 / 身份"]
+    PORT --> A1["客户 A Adapter"]
+    PORT --> A2["客户 B Adapter"]
+    PORT --> A3["客户 C Adapter"]
+    A1 --> S1["CRM / ERP / 文档库"]
+    A2 --> S2["私有 API / 数据仓库"]
+    A3 --> S3["Legacy / On-prem"]
+</pre>
+
+<p>共享核心只依赖稳定契约，客户特有字段、认证、网络和旧系统行为收敛在 Adapter 中。这样既能快速适配现场，又不会把客户差异散落进核心业务逻辑。</p>
+<h2 id="17-poc">1.7 从 PoC 到生产的交付过程</h2>
+<p>PoC 证明“某些样本上可以工作”；生产系统必须证明“在权限、规模、异常和持续变化下仍可运营”。</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>核心产物</th>
+<th>退出条件</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Discover</td>
+<td>问题陈述、现状基线、风险清单</td>
+<td>业务负责人和一线用户确认问题值得解决</td>
+</tr>
+<tr>
+<td>Prototype</td>
+<td>最小方案、初始 Eval、失败案例</td>
+<td>在代表性样本上超过基线</td>
+</tr>
+<tr>
+<td>Pilot</td>
+<td>真实用户、影子流量、人工复核</td>
+<td>达到质量和风险门槛，确认实际采用</td>
+</tr>
+<tr>
+<td>Production</td>
+<td>SLO、观测、回滚、权限和运行手册</td>
+<td>值班团队能够独立运营</td>
+</tr>
+<tr>
+<td>Scale</td>
+<td>模板化部署、容量和成本模型</td>
+<td>新客户/业务线无需复制整套代码</td>
+</tr>
+</tbody>
+</table>
+<p>从 Pilot 进入 Production 前必须补齐：</p>
+<ul>
+<li>数据和权限评审；</li>
+<li>离线回归与在线观测；</li>
+<li>限流、超时、重试、回退和人工接管；</li>
+<li>Prompt、模型、数据和 Eval 版本绑定；</li>
+<li>灰度发布、回滚和事故响应；</li>
+<li>明确客户、FDE、平台团队和供应商的责任边界。</li>
+</ul>
+<p>生产化方法详见 <a href="../../engineering/">AI Engineering</a>。FDE 不应长期成为人工运维代理；交付完成的标志之一，是客户和平台团队能够通过文档、自动化和观测独立运营系统。</p>
+<h2 id="18">1.8 现场反馈如何进入数据飞轮</h2>
+<p>现场反馈只有经过结构化处理才能成为产品和模型改进信号。</p>
+<pre class="mermaid">flowchart LR
+    EVENT["线上事件 / 用户纠正"] --> TRIAGE["去敏、归因、风险分级"]
+    TRIAGE --> EVAL["加入 Eval 与回归集"]
+    TRIAGE --> PATTERN["聚类跨客户共性"]
+    PATTERN --> DECIDE{"复用层级?"}
+    DECIDE -->|配置| TEMPLATE["模板 / Playbook"]
+    DECIDE -->|能力| PLATFORM["平台组件 / API"]
+    DECIDE -->|模型| DATA["训练或优化数据"]
+    EVAL --> RELEASE["验证并灰度发布"]
+    TEMPLATE --> RELEASE
+    PLATFORM --> RELEASE
+    DATA --> RELEASE
+</pre>
+
+<p>每条反馈至少应带有：</p>
+<ul>
+<li>场景、输入分布和客户环境；</li>
+<li>期望行为、实际行为与业务影响；</li>
+<li>根因分类：模型、检索、工具、权限、数据还是流程；</li>
+<li>是否可跨客户复现；</li>
+<li>对应的 Eval、修复版本与发布结果。</li>
+</ul>
+<p>OpenAI 将这一循环概括为 <strong>build → prove → generalize</strong>：在现场构建，用结果证明，再沉淀成产品能力。Palantir 的前线部署实践同样强调让团队共享已经配置和验证过的工作流，从更成熟的基线开始下一次交付。</p>
+<h2 id="19">1.9 避免“一客一套、无法复用”</h2>
+<p>FDE 模式的结构性风险是：短期为了交付速度不断加入客户特例，最终形成没有人敢升级的定制系统。</p>
+<h3 id="191">1.9.1 建立复用阶梯</h3>
+<p>现场成果应被归入明确层级：</p>
+<table>
+<thead>
+<tr>
+<th>层级</th>
+<th>适合内容</th>
+<th>管理方式</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>客户配置</td>
+<td>字段映射、阈值、品牌文案</td>
+<td>配置文件和管理界面</td>
+</tr>
+<tr>
+<td>Adapter</td>
+<td>客户系统 API、身份和数据转换</td>
+<td>独立包、稳定接口、契约测试</td>
+</tr>
+<tr>
+<td>模板/Playbook</td>
+<td>可重复的行业流程和 Eval</td>
+<td>版本化模板，可按客户参数化</td>
+</tr>
+<tr>
+<td>平台能力</td>
+<td>多客户重复出现的基础能力</td>
+<td>产品团队接管，进入主干路线图</td>
+</tr>
+<tr>
+<td>临时特例</td>
+<td>尚未验证的单客户需求</td>
+<td>标明到期时间和移除条件</td>
+</tr>
+</tbody>
+</table>
+<p>可以持续观察复用率：</p>
+<p>$$
+U = \frac{H_r}{H_t}
+$$</p>
+<p>其中 $H_r$ 是交付中用于复用组件和配置的工程时间，$H_t$ 是总工程时间。这个指标不应追求机械地达到 100%，但如果随着交付次数增加仍长期不升，说明团队没有形成产品化飞轮。</p>
+<h3 id="192">1.9.2 设立产品化门槛</h3>
+<p>满足以下条件时，现场能力才应进入共享平台：</p>
+<ol>
+<li>至少在多个独立场景中重复出现；</li>
+<li>需求差异可以通过稳定参数或 Adapter 表达；</li>
+<li>已有跨客户 Eval 和兼容性测试；</li>
+<li>有明确的平台 owner、版本策略和弃用机制；</li>
+<li>不会把某个客户的数据或业务规则泄漏到共享层。</li>
+</ol>
+<p>FDE 与产品团队需要定期评审现场模式，而不是让 FDE 直接把所有客户代码合入核心产品。详见 <a href="../../frameworks/06-selection-portability/23-lockin-and-portable-architecture.html">框架锁定与可移植架构</a>。</p>
+<h2 id="110">1.10 大公司与一线工程师的真实实践</h2>
+<p>公开案例天然存在选择性披露：公司倾向于发布成功项目，个人分享也可能服务于招聘。这里仅采用能够访问原文、确认发布方的材料；厂商自报的目标和收益仍按自报数据处理，不能直接当作行业基准。</p>
+<h3 id="1101-palantir">1.10.1 Palantir：价值不只来自模型，而来自受治理的执行系统</h3>
+<p>Palantir 产品安全团队公开介绍了内部的 Security Forge：团队用一年以上时间，将多 Agent 安全分析与 AIP 编排、Foundry/Ontology 的组织上下文以及 Apollo 发布流程连接起来，随后把内部能力产品化。</p>
+<p>从工程实现看，Security Forge 暴露了三个容易被模型能力掩盖的问题：</p>
+<ul>
+<li><strong>Agent 必须运行在有边界的 Harness 中。</strong> 代码访问、任务范围、证据保留和结果流转都由系统控制，不能只依赖 Prompt；</li>
+<li><strong>组织上下文需要治理。</strong> 代码、资产、历史决策和数据血缘决定了发现是否可操作，同时必须满足数据主权要求；</li>
+<li><strong>瓶颈会迁移。</strong> 当 Agent 能快速发现大量问题后，修复、验证和发布反而成为新瓶颈，因此检测流水线必须接入正常的工程工作流。</li>
+</ul>
+<p>Palantir 给出的实践顺序是：资产盘点 → 有界任务 → 受控 Harness → 多模型/多次运行评测 → 保留证据与决策血缘 → 接入修复、发布和回滚。成功指标应是<strong>经过验证的风险降低</strong>，而不是生成了多少条发现。这段内容是 Palantir 对自有产品的官方工程叙述，没有公开可独立验证的效率数字，能确认的是这三个工程判断本身，不是量化收益。</p>
+<h3 id="1102-anthropicdescript-bolteval">1.10.2 Anthropic、Descript 与 Bolt：Eval 必须随产品成熟</h3>
+<p>Anthropic 在 Agent Eval 实践文章中总结了两个客户案例：</p>
+<table>
+<thead>
+<tr>
+<th>团队</th>
+<th>实际做法</th>
+<th>可复用经验</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Descript</td>
+<td>将视频编辑 Agent 拆成“不破坏已有内容、完成用户要求、完成质量足够好”三个维度；从人工评分逐步发展到 LLM Grader，并保留周期性人工校准</td>
+<td>先让产品和领域专家定义“好”的含义，再自动化评分；质量评测与回归保护应分开</td>
+</tr>
+<tr>
+<td>Bolt</td>
+<td>产品已有真实用户后，用三个月建立 Eval 系统；结合静态分析、浏览器 Agent 和 LLM Judge 验证生成应用</td>
+<td>不同失败类型需要不同 Grader；能用确定性检查的地方不要只依赖 LLM Judge</td>
+</tr>
+</tbody>
+</table>
+<p>Anthropic 进一步区分：</p>
+<ul>
+<li><strong>能力 Eval</strong>：初始通过率可以较低，用于寻找系统还能提升多少；</li>
+<li><strong>回归 Eval</strong>：通过率应接近稳定上限，用于阻止已经解决的问题重新出现。</li>
+</ul>
+<p>当某项能力成熟后，其代表性样本应从能力 Eval “毕业”进入回归集。这比维护一个不断膨胀、目标混杂的总分更容易定位退化。这两个案例由 Anthropic 官方转述，Descript 和 Bolt 并未联合署名；文中“三个月”只是 Bolt 这一个项目的周期，不能当作建立 Eval 系统的通用工期估算。</p>
+<h3 id="1103-microsoft">1.10.3 Microsoft：不要让专家评价长篇输出，要让专家核验原子事实</h3>
+<p>Microsoft 工程师分享过一个客户现场案例：团队用 Agent 为约 150 个 COBOL 模块中的一个生成逆向分析文档。最初把约 2,500 字输出直接交给领域专家并询问“是否符合预期”，得到的反馈只有“看起来不错”。</p>
+<p>问题不在专家不负责，而在评审任务不可执行：长篇文本混合了大量正确、错误和无法确认的陈述，专家很难给出稳定标签。</p>
+<p>改进方式是：</p>
+<ol>
+<li>从输出中提取离散的业务规则和事实声明；</li>
+<li>每条声明只表达一个可证伪判断；</li>
+<li>让专家逐条确认、纠正或标记证据不足；</li>
+<li>把确认结果写入 Eval，而不是只保留评审意见；</li>
+<li>用同一批原子检查比较不同模型、Prompt 和 Harness 版本。</li>
+</ol>
+<p>检查必须产出明确结果，否则无法进入 Eval。FDE 应负责把专家隐性的判断过程转成可执行验收，而不是持续消耗专家阅读模型长文。这段经验来自 Microsoft 工程师的第一人称记述，客户方始终匿名，具体准确率提升等项目细节无法独立核实，能借鉴的是评审方法，而不是它暗示的效果。</p>
+<h3 id="1104-openaibuildprovegeneralize">1.10.4 OpenAI：Build、Prove、Generalize</h3>
+<p>OpenAI Deployment Company 将现场循环概括为 <strong>build → prove → generalize</strong>：</p>
+<ol>
+<li><strong>Build</strong>：围绕真实工作流构建可以使用的系统，而不是孤立 Demo；</li>
+<li><strong>Prove</strong>：通过 Eval、业务指标和生产行为证明价值；</li>
+<li><strong>Generalize</strong>：把重复模式沉淀为 SDK、评测工具、可靠性组件和产品能力。</li>
+</ol>
+<p>OpenAI 的 FDE 职位描述也把职责写成：映射客户问题、组织交付、必要时直接写代码，并把可复用模式和现场信号反馈给 Product 与 Research。</p>
+<p>这说明“把项目做完”和“完成 FDE 闭环”并不相同。如果经验没有进入平台、Eval 或产品路线图，现场交付仍然是一次性工程。这套说法来自 OpenAI 对自身部署组织的公开定位，没有配套公布跨项目复用率或第三方对照数据，读作团队的目标设定比读作已验证效果更合适。</p>
+<h3 id="1105-baseten-fde-engineering">1.10.5 Baseten：让 FDE 留在 Engineering，并跟踪产品回流</h3>
+<p>Baseten 在官方博客和 X 账号中公开了其 FDE 团队设计：</p>
+<ul>
+<li>FDE 放在 Engineering，而不是 GTM，目的是保留技术深度、代码所有权和工程自主性；</li>
+<li>招聘优先考察软件工程基础和跨栈能力，ML 领域知识与客户沟通方式可以在工作中补齐；</li>
+<li>尽量移除会议协调等非工程负担，让 FDE 保持构建能力；</li>
+<li>将“FDE 构建内容有多少进入核心产品”作为 North Star。</li>
+</ul>
+<p>Baseten 给出的目标是 <strong>70% 的 FDE 工作最终进入产品</strong>，但这是团队自报的目标，不是审计后的实际达成率，发布这篇文章的同时也在招人。这个数字能证明的是“复用率需要被显式管理”，不能被机械复制为行业基准——不同公司所处阶段、产品成熟度和客户集中度不同，合理比例也会不同。</p>
+<p>更通用的做法是同时记录：</p>
+<ul>
+<li>现场代码进入共享产品、Adapter 或模板的比例；</li>
+<li>重复问题从首次发现到平台解决的时间；</li>
+<li>后续项目复用已有能力节省的交付时间；</li>
+<li>临时特例的数量、生命周期和移除率。</li>
+</ul>
+<h3 id="1106-aws-inrix-rag">1.10.6 AWS 与 INRIX：先对齐多角色工作流，再组合 RAG 和生成模型</h3>
+<p>AWS 与 INRIX 工程师共同撰写的案例介绍了交通规划 PoC：系统使用 RAG 生成规划建议，并使用图像生成模型展示道路安全改造的概念效果。</p>
+<p>该案例首先描述原流程涉及交通工程、城市规划、景观设计、CAD、安全分析和公共工程等多类角色，需要多轮评审，而不是从“应该使用哪个模型”开始。可复用经验包括：</p>
+<ol>
+<li>先画清跨角色工作流和审批节点；</li>
+<li>文本建议与视觉概念图解决的是不同子任务，应分别建立 Eval；</li>
+<li>生成结果用于加速讨论，不等于替代工程验证和正式设计；</li>
+<li>让客户工程师共同撰写案例，有助于暴露实际流程，而不只是供应商视角。</li>
+</ol>
+<p>文章称设计周期“可能从数周降到数天”，但使用的是潜在效果表述，没有公开对照实验。因此它适合作为方案模式参考，不应作为已证实 ROI。</p>
+<h3 id="1107-x-audit-evals-deployment">1.10.7 X 上的一线实践：Audit → Evals → Deployment</h3>
+<p>Varick Agents 从业者 <a href="https://x.com/vasuman">@vasuman</a> 在一篇可直接访问的 <a href="https://x.com/vasuman/article/2057177266984226892">X 长文</a> 中给出三阶段方法：</p>
+<p><strong>Audit</strong></p>
+<ul>
+<li>进入一线团队观察真实流程，而不是只访谈管理者；</li>
+<li>将候选任务分为确定性代码、适合 Agent 的任务，以及仍应保留人工判断的任务；</li>
+<li>先确认任务频率和价值，避免自动化一个几乎不会发生的流程。</li>
+</ul>
+<p><strong>Evals</strong></p>
+<ul>
+<li>追踪专家完成任务的真实步骤；</li>
+<li>建立小规模、高质量的 Golden Set；</li>
+<li>不只评价最终答案，还评价检索、决策、工具调用等关键 checkpoint。</li>
+</ul>
+<p><strong>Deployment</strong></p>
+<ul>
+<li>优先通过 API 适配既有数据层，避免为了 AI 项目先进行大规模数据迁移；</li>
+<li>在客户环境内建立受控沙箱；</li>
+<li>从最小自治单元开始，例如先让 Agent 调查问题并起草工单，再逐步开放写代码或提交 PR。</li>
+</ul>
+<p>这套做法把确定性步骤留给代码，只把需要判断的步骤交给模型，并根据 Eval 证据逐级开放自治权限。这是具名从业者的第一人称 X 内容，Varick 官方招聘页面确认了该公司确实有前线部署岗位，但具体项目和成效没有量化数据支撑，文章末尾还带着招聘宣传，因此只能作为从业者观点参考。</p>
+<h3 id="1108-best-practices">1.10.8 从案例中提炼的 Best Practices</h3>
+<table>
+<thead>
+<tr>
+<th>Best Practice</th>
+<th>真实案例信号</th>
+<th>落地动作</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>从工作流而不是模型开始</td>
+<td>Microsoft、AWS/INRIX、X 从业者</td>
+<td>现场观察用户、画出现状流程、记录基线和审批点</td>
+</tr>
+<tr>
+<td>把专家判断变成原子 Eval</td>
+<td>Microsoft、Descript</td>
+<td>提取可证伪声明，逐项确认并沉淀为回归数据</td>
+</tr>
+<tr>
+<td>分离能力 Eval 和回归 Eval</td>
+<td>Anthropic、Bolt</td>
+<td>新能力用低通过率数据找提升空间，成熟样本进入高通过率回归集</td>
+</tr>
+<tr>
+<td>选择最小自治单元</td>
+<td>X 从业者、Anthropic</td>
+<td>先只读、建议或草稿，再按 Eval 证据开放写入和执行</td>
+</tr>
+<tr>
+<td>把 Agent 放进受治理 Harness</td>
+<td>Palantir</td>
+<td>限定上下文、工具、权限和证据链，并接入发布与回滚</td>
+</tr>
+<tr>
+<td>显式衡量产品回流</td>
+<td>Baseten、OpenAI</td>
+<td>跟踪复用率、平台化周期、临时代码数量和后续交付节省</td>
+</tr>
+<tr>
+<td>预期瓶颈迁移</td>
+<td>Palantir</td>
+<td>自动化检测后同步扩展验证、修复和运营能力</td>
+</tr>
+<tr>
+<td>对厂商 ROI 数字保持克制</td>
+<td>AWS/INRIX、Baseten</td>
+<td>区分目标、潜在效果和实测结果，保留基线与对照</td>
+</tr>
+</tbody>
+</table>
+<h2 id="111">1.11 常见错误</h2>
+<ul>
+<li><strong>把客户给出的方案当成需求。</strong> “做一个 Agent”不等于已经定义问题，应先建立任务、基线和验收标准。</li>
+<li><strong>把 FDE 当成高级售前。</strong> 如果没有生产代码和结果所有权，就缺少 Forward Deployed Engineering 的关键闭环。</li>
+<li><strong>先做 Demo，最后才补 Eval。</strong> 没有初始 Eval，团队只能凭演示效果争论，无法判断改动是否退化。</li>
+<li><strong>默认选择最复杂的 Agent 架构。</strong> 应从最小可行方案开始，用 Eval 证明复杂度的收益。</li>
+<li><strong>将管理员 Token 交给 Agent。</strong> 身份和权限必须沿调用链传播，并在数据与动作边界重新校验。</li>
+<li><strong>把 PoC 指标直接当生产指标。</strong> 生产验收还包括时延、成本、SLO、安全、采用率与可运营性。</li>
+<li><strong>所有现场需求都进入核心产品。</strong> 未经跨客户验证的特例会把平台变成难以升级的定制代码集合。</li>
+<li><strong>交付后 FDE 永久承担运维。</strong> 应通过自动化、文档和责任移交让系统由正式运行团队接管。</li>
+</ul>
+<h2 id="112">1.12 本章总结</h2>
+<ol>
+<li>FDE 是一种贴近现场、对生产结果负责的工程模式，但不是统一标准岗位；</li>
+<li>需求发现应从业务基线、真实任务、失败代价和环境约束出发；</li>
+<li>Eval 是可执行的验收合同，需要同时覆盖质量、风险、性能和业务价值；</li>
+<li>Agent、RAG 与 Harness 不是默认答案，应选择满足 Eval 的最小系统；</li>
+<li>数据、身份、权限和旧系统集成通常比模型调用更决定项目成败；</li>
+<li>PoC 到生产需要补齐运营、安全、发布、回滚和责任边界；</li>
+<li>现场反馈必须转化成回归数据、模板、平台能力或模型改进；</li>
+<li>通过 Adapter、模板、产品化门槛和明确 owner，避免陷入“一客一套”。</li>
+</ol>
+<h2 id="113">1.13 一手参考资料</h2>
+<ul>
+<li><a href="https://medium.com/palantir/dev-versus-delta-demystifying-engineering-roles-at-palantir-ad44c2a6e87">Palantir：Dev versus Delta——工程角色的区别</a></li>
+<li><a href="https://medium.com/palantir/a-day-in-the-life-of-a-palantir-forward-deployed-software-engineer-45ef2de257b1">Palantir：A Day in the Life of a Forward Deployed Software Engineer</a></li>
+<li><a href="https://www.palantir.com/purpose-based-access-controls/">Palantir：Purpose-Based Access Controls</a></li>
+<li><a href="https://www.palantir.com/platforms/ontology/">Palantir Ontology</a></li>
+<li><a href="https://deploy.co/">OpenAI Deployment Company：Build, Prove, Generalize</a></li>
+<li><a href="https://jobs.ashbyhq.com/openai/db5a708d-1d7a-4aa3-8dd3-0d0423b6b69f">OpenAI：Forward Deployed Engineer, Gov</a></li>
+<li><a href="https://platform.openai.com/docs/guides/evaluation-best-practices">OpenAI：Evaluation best practices</a></li>
+<li><a href="https://platform.openai.com/docs/guides/production-best-practices">OpenAI：Production best practices</a></li>
+<li><a href="https://platform.openai.com/docs/guides/your-data">OpenAI：Data controls</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic：Building Effective AI Agents</a></li>
+<li><a href="https://blog.palantir.com/securing-software-at-the-speed-of-ai-0b1d7ddd2bf0">Palantir：Securing Software at the Speed of AI（官方工程案例，2026）</a></li>
+<li><a href="https://www.anthropic.com/engineering/demystifying-evals-for-ai-agents">Anthropic：Demystifying evals for AI agents（官方工程文章）</a></li>
+<li><a href="https://devblogs.microsoft.com/all-things-azure/only-believe-what-you-can-validate/">Microsoft：Only Believe What You Can Validate（客户现场工程分享，2026）</a></li>
+<li><a href="https://www.baseten.co/blog/forward-deployed-engineering/">Baseten：Forward Deployed Engineering on the Frontier of AI（官方团队实践，2025）</a></li>
+<li><a href="https://x.com/baseten/status/1932549196126593527">Baseten 官方 X：FDE 实践文章发布</a></li>
+<li><a href="https://aws.amazon.com/blogs/machine-learning/how-inrix-accelerates-transportation-planning-with-amazon-bedrock/">AWS 与 INRIX：交通规划 PoC 实践（客户与厂商共同撰写，2025）</a></li>
+<li><a href="https://x.com/vasuman/article/2057177266984226892">@vasuman：Forward Deployed Engineering 101（X 一线从业者长文）</a></li>
+</ul>
+<p>返回 <a href="./">FDE 模块目录</a>。</p>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

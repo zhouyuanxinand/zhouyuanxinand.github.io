@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>视频生成模型 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="视频生成模型 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>多模态 AI</span> / <span>多模态生成</span> / <span>视频生成模型</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第八章：视频生成模型</h1>
+<blockquote>
+<p>本章讨论视频生成相对图像生成新增的时序维度问题；扩散与 Flow Matching 的基础生成原理见 <a href="07-diffusion-flow-matching-image.html">第七章</a>，本章默认读者已了解该基础，只展开视频特有的架构扩展与评测。</p>
+</blockquote>
+<h2 id="81">8.1 视频比图像多出的维度</h2>
+<p>把图像生成模型直接逐帧独立应用于视频，会产生帧与帧之间闪烁、物体形状漂移、运动不连贯等问题——因为逐帧生成没有任何机制保证相邻帧属于"同一个连续物理过程"。视频生成模型必须显式建模<strong>时间维度</strong>，核心新增问题是：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>时序一致性</td>
+<td>同一物体在连续帧之间的外观、位置应平滑变化，不能突变</td>
+</tr>
+<tr>
+<td>运动建模</td>
+<td>需要生成合理的物体运动轨迹，而不只是静态外观的堆叠</td>
+</tr>
+<tr>
+<td>计算与显存成本</td>
+<td>视频比单张图像多一个时间轴，序列长度和显存占用随时长、帧率显著增长</td>
+</tr>
+<tr>
+<td>长时长生成</td>
+<td>超出训练时长后的外推容易出现内容漂移、遗忘早期帧的信息</td>
+</tr>
+</tbody>
+</table>
+<h2 id="82">8.2 架构路线：从"加时间层"到"时空一体建模"</h2>
+<p>第一代视频扩散模型的常见做法是在预训练好的图像扩散模型基础上插入<strong>时间层</strong>（如时间维度的注意力或卷积），让原本逐帧独立的去噪过程能够跨帧共享信息，同时尽量复用图像扩散模型已经学到的空间先验。Video Diffusion Models 与 Imagen Video 是这一路线早期的代表工作，证明了在图像扩散框架上做时序扩展是可行的。</p>
+<p>Sora 代表的第二代路线不再把时间维度当作附加模块，而是从底层表示开始就把视频当作<strong>时空一体</strong>的数据：技术报告将视频和图像统一表示为"时空 patch”（spacetime patches）——把视频在空间和时间上同时切块，得到的 patch 序列直接交给 Diffusion Transformer 处理，不再区分"空间层"和"时间层"。这一设计天然支持可变时长、可变分辨率和可变宽高比的训练数据，不需要像早期方法那样把所有视频裁剪填充到统一尺寸。</p>
+<h2 id="83-patch-transformer">8.3 时空 Patch 与 Transformer 骨干的扩展性</h2>
+<p>把视频统一编码为时空 patch 序列后，视频生成的骨干网络可以直接复用 <a href="07-diffusion-flow-matching-image.html">第七章 7.5 节</a>描述的 Diffusion Transformer + Flow Matching 组合，只是输入序列的语义从"图像 patch"扩展为"时空 patch"。这带来两个直接后果：</p>
+<ol>
+<li><strong>扩展性（scalability）</strong>：Transformer 架构对训练数据量和模型规模的扩展性已经在语言和图像领域被反复验证，视频生成的技术报告同样观察到模型规模和数据量增加带来的生成质量、时长和一致性的持续改善；</li>
+<li><strong>计算成本的非线性增长</strong>：时空 patch 序列长度随分辨率和时长近似乘性增长，注意力计算成本又随序列长度平方增长，这是视频生成相比图像生成推理成本高出数量级的直接原因，也是长视频生成必须依赖分层生成、滚动预测等工程手段的根本原因。</li>
+</ol>
+<h2 id="84">8.4 一致性、可控性与长视频生成的局限</h2>
+<p>视频生成模型的可控性通常包括文本到视频、图像到视频（给定首帧或参考图像延展出动态视频，如 Stable Video Diffusion 的定位）、以及部分系统支持的相机运镜控制。这些能力都建立在 8.1–8.3 节的时空建模基础之上，但仍存在共性局限：</p>
+<ul>
+<li><strong>长视频的漂移</strong>：训练时长有限，超出训练时长范围的外推生成容易出现内容主体漂移、物体消失重现、场景突变等不一致现象；</li>
+<li><strong>物理规律的近似性</strong>：技术报告和公开评测都强调，这类模型学到的是对物理世界规律的统计近似，而非显式的物理模拟，复杂的碰撞、液体、多物体交互等场景仍容易出现不符合物理直觉的结果，评测和产品说明应明确这一局限，避免夸大为"世界模拟器"的确定性能力；</li>
+<li><strong>成本与延迟</strong>：生成一段数秒视频的计算成本和延迟远高于生成一张图像，产品化时需要明确时长、分辨率上限和排队/异步生成的工程方案。</li>
+</ul>
+<h2 id="85">8.5 评测</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>指标</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>视觉质量与时序一致性</td>
+<td>FVD（Fréchet Video Distance）</td>
+<td>在 FID 基础上扩展到视频特征空间，同时反映画质和时序连贯性的统计差异</td>
+</tr>
+<tr>
+<td>文本一致性</td>
+<td>图文/图像-视频对齐分数、人工评估</td>
+<td>衡量生成内容是否遵循文本描述的主体、动作、风格</td>
+</tr>
+<tr>
+<td>运动质量</td>
+<td>人工评估运动自然度、物理合理性</td>
+<td>目前缺少被广泛接受的自动化指标，仍高度依赖人工评审</td>
+</tr>
+<tr>
+<td>时长与分辨率鲁棒性</td>
+<td>分时长/分辨率分别报告的质量下降曲线</td>
+<td>避免只展示最佳条件下的少量精选样本</td>
+</tr>
+</tbody>
+</table>
+<p>视频生成评测的自动化程度显著低于图像生成，FVD 等指标同样存在对参考数据集和特征提取器敏感的问题，公开评测中的分数比较应核实是否使用了相同的评测协议和参考视频集合。</p>
+<h2 id="86">8.6 常见错误</h2>
+<h3 id="861">8.6.1 把"能生成长视频"等同于"长视频质量稳定"</h3>
+<p>超过训练时长的外推生成经常伴随漂移和一致性下降，评测和宣传都应明确报告不同时长区间下的质量变化，而非只展示精选的最佳片段。</p>
+<h3 id="862">8.6.2 把展示视频当作物理仿真能力的证据</h3>
+<p>生成结果视觉上合理不代表模型具备可靠的物理规律理解，复杂交互场景的失败率通常显著高于宣传素材所展示的效果，涉及需要物理正确性的应用应额外验证，不能直接采信演示视频。</p>
+<h3 id="863">8.6.3 忽视计算成本对产品设计的约束</h3>
+<p>视频生成的延迟和算力成本远高于图像生成，直接套用图像生成产品"同步等待返回结果"的交互设计通常不可行，需要设计异步生成、进度反馈和排队机制。</p>
+<h2 id="87">8.7 本章总结</h2>
+<ol>
+<li>视频生成相比图像生成新增了时序一致性、运动建模和显著更高的计算成本这三类问题；</li>
+<li>早期路线在图像扩散模型上增加时间层；Sora 代表的路线把视频统一表示为时空 patch，从底层复用 Diffusion Transformer 架构，天然支持可变时长/分辨率；</li>
+<li>时空 patch 序列长度随分辨率和时长乘性增长，是视频生成成本远高于图像生成的根本原因；</li>
+<li>长视频生成存在内容漂移，模型对物理规律的建模是统计近似而非精确仿真，两者都需要在产品说明中明确边界；</li>
+<li>视频生成评测（FVD、运动质量人工评估）的自动化程度低于图像生成，应结合分时长/分辨率的鲁棒性报告和人工评估。</li>
+</ol>
+<blockquote>
+<p>视频生成比图像生成多出的难点，是时间一致性和成本同时放大；时空一体建模能缓解，但还没有消掉长视频漂移和物理失真。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2204.03458">Video Diffusion Models</a></li>
+<li><a href="https://arxiv.org/abs/2210.02303">Imagen Video: High Definition Video Generation with Diffusion Models</a></li>
+<li><a href="https://openai.com/index/video-generation-models-as-world-simulators/">OpenAI: Video generation models as world simulators (Sora 技术报告)</a></li>
+<li><a href="https://arxiv.org/abs/2311.15127">Stable Video Diffusion: Scaling Latent Video Diffusion Models to Large Datasets</a></li>
+<li><a href="https://arxiv.org/abs/1812.01717">Towards Accurate Generative Models of Video: A New Metric &amp; Challenges (FVD)</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  
+</body>
+</html>

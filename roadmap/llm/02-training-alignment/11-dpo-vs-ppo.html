@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DPO vs PPO · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="DPO vs PPO — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>训练与对齐</span> / <span>DPO vs PPO</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="dpo-vs-ppo">第十一章：DPO vs PPO 深度对比</h1>
+<blockquote>
+<p>PPO 和 DPO 经常被放在一起比较，因为它们解决的是同一件事：让模型在 SFT 之后学会区分「能答」与「答得更好」。</p>
+</blockquote>
+<h2 id="111">11.1 一句话抓住区别</h2>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>类比</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PPO</strong></td>
+<td><strong>先培养裁判，再训练选手</strong>。裁判（奖励模型）学会打分，选手不断上场比赛拿分，教练根据分数调整训练</td>
+</tr>
+<tr>
+<td><strong>DPO</strong></td>
+<td><strong>直接拿比赛录像告诉选手哪个动作对</strong>。跳过裁判，直接对照「好动作 / 坏动作」学</td>
+</tr>
+</tbody>
+</table>
+<p>这个类比能快速抓住两者的结构差异，比直接堆术语更清楚。</p>
+<h2 id="112-ppo">11.2 PPO：先培养裁判，再训练选手</h2>
+<p>PPO（Proximal Policy Optimization）本身是强化学习的经典算法，最早不是为大模型设计的，OpenAI 在 InstructGPT 里把它用进了 RLHF 流程。</p>
+<h3 id="1121">11.2.1 第一步：训练奖励模型</h3>
+<p>标注员拿到「同一问题的多个回答」按质量排名——比如问「解释什么是递归」，得到 A 优于 B、B 优于 C。</p>
+<p>用这些排名训练一个专门的奖励模型，让它学会给回答打质量分。<strong>这个奖励模型就是裁判，它代替人类完成后续的自动评分。</strong></p>
+<h3 id="1122-ppo">11.2.2 第二步：用 PPO 优化主模型</h3>
+<pre class="mermaid">flowchart LR
+    P["主模型<br/>生成回答"] --> RM["奖励模型<br/>打分"]
+    RM --> PPO["PPO 调参<br/>往高分方向走"]
+    PPO --> P
+    REF["参考模型（冻结）"] -.->|KL 散度约束<br/>不许走太远| PPO
+
+    style REF fill:#fff4e5
+</pre>
+
+<h3 id="1123-kl">11.2.3 KL 约束这根绳子</h3>
+<p><strong>危险在于</strong>：如果只追求高分，模型可能学会钻空子——生成奖励模型给高分但实际没用的内容，这就是 <strong>reward hacking</strong>。</p>
+<p>典型表现包括疯狂堆字数、无脑加免责声明、反复复述问题，因为这些模式在偏好数据里恰好与「好回答」相关。</p>
+<p><strong>防御手段</strong>：维护一个参考模型（SFT 模型的冻结副本），用 KL 散度约束主模型不要偏离太远。</p>
+<p>$$
+\mathrm{objective} = \mathbb{E}\big[r(x,y)\big] - \beta \cdot D_{KL}\big(\pi_\theta \,|\, \pi_{\mathrm{ref}}\big)
+$$</p>
+<blockquote>
+<p><strong>KL 散度就像一根绳子</strong>：主模型可以向高分方向移动，但不能走太远。</p>
+</blockquote>
+<h3 id="1124">11.2.4 四个模型分别干什么</h3>
+<pre><code class="language-python"># PPO 训练时需要同时维护的四个模型
+policy_model    = load_sft_model()     # 主模型（正在被优化）
+reference_model = load_sft_model()     # 参考模型（冻结副本，用于 KL 约束）
+reward_model    = load_reward_model()  # 奖励模型（裁判，给回答打分）
+value_model     = load_value_model()   # 价值模型（估算未来奖励期望，做优势基线）
+</code></pre>
+<p><strong>这四个角色分不清，就很难解释 PPO 为什么重、GRPO 又到底省掉了什么</strong>——尤其 value model，不知道它干什么就理解不了 GRPO 的创新点。</p>
+<p>4 个模型同时加载进显存，每个都和主模型差不多大，<strong>光显存占用就是 SFT 训练的好几倍</strong>。加上 RL 本身的不稳定性（超参敏感、易 reward hacking、训练曲线震荡），能驾驭 PPO 的团队在业界凤毛麟角。</p>
+<h2 id="113-dpo">11.3 DPO：绕过裁判，直接看回放</h2>
+<h3 id="1131">11.3.1 核心是一个数学等价转化</h3>
+<p>研究者发现：<strong>带 KL 约束的 RLHF 优化目标，可以推导改写成一个纯监督学习的损失函数</strong>，不需要显式训练和调用奖励模型。</p>
+<p>直觉上，奖励模型的功能被「<strong>主模型相对于参考模型的概率比值</strong>」完全替代了：</p>
+<p>$$
+r(x, y) \;\propto\; \beta \log \frac{\pi_\theta(y \mid x)}{\pi_{\mathrm{ref}}(y \mid x)}
+$$</p>
+<p><strong>如果主模型在某个回答上比参考模型提升了更多概率，那这个回答就被认为更受偏好。</strong></p>
+<h3 id="1132">11.3.2 损失函数在做什么</h3>
+<pre><code class="language-python"># DPO 损失函数直觉（简化版，不是完整公式）
+loss = -log(sigmoid(
+    beta * (
+        log(policy(chosen)   / ref(chosen))
+      - log(policy(rejected) / ref(rejected))
+    )
+))
+</code></pre>
+<p>同时发生两件事：</p>
+<ol>
+<li>模型对<strong>好回答</strong>的概率，相对参考模型<strong>升高</strong>；</li>
+<li>模型对<strong>差回答</strong>的概率，相对参考模型<strong>降低</strong>。</li>
+</ol>
+<h3 id="1133">11.3.3 只需两个模型</h3>
+<pre><code class="language-python">policy_model    = load_sft_model()   # 主模型（正在被优化）
+reference_model = load_sft_model()   # 参考模型（冻结，用于计算概率比）
+# 相比 PPO 少了 reward_model 和 value_model，资源需求减半
+</code></pre>
+<p>DPO 把对齐训练变成了普通的监督学习问题，<strong>用现成的深度学习框架就能实现</strong>，训练稳定、超参好调。这就是开源社区大量采用它的原因——<strong>不需要复杂的 RL 基础设施</strong>。</p>
+<h2 id="114">11.4 完整对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>PPO</th>
+<th>DPO</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>是否需要奖励模型</strong></td>
+<td>需要（要单独训练）</td>
+<td><strong>不需要</strong></td>
+</tr>
+<tr>
+<td><strong>同时维护的模型数</strong></td>
+<td>4 个</td>
+<td><strong>2 个</strong></td>
+</tr>
+<tr>
+<td><strong>训练稳定性</strong></td>
+<td>较差（RL 本身不稳定）</td>
+<td><strong>好（等价于监督学习）</strong></td>
+</tr>
+<tr>
+<td><strong>实现难度</strong></td>
+<td>高（需要 RL 基础设施）</td>
+<td>低（标准训练框架即可）</td>
+</tr>
+<tr>
+<td><strong>表达能力</strong></td>
+<td><strong>强（可探索训练数据之外的空间）</strong></td>
+<td>稍弱（受偏好数据分布限制）</td>
+</tr>
+<tr>
+<td><strong>对数据质量的敏感度</strong></td>
+<td>中（RM 可平滑部分噪声）</td>
+<td><strong>高（偏好对有噪声直接学歪）</strong></td>
+</tr>
+<tr>
+<td><strong>代表模型</strong></td>
+<td>InstructGPT、ChatGPT 早期、Llama 2-Chat</td>
+<td>Zephyr、部分 Mistral / Qwen 派生 Instruct 模型</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1141">11.4.1 那个最关键的权衡</h3>
+<p><strong>DPO 的优化目标是「往偏好数据分布靠拢」</strong>，它永远只能在你给的 chosen/rejected 之间做取舍。</p>
+<p><strong>PPO 是在线采样的</strong>：主模型自己生成回答、拿到分数、再调整。它<strong>能发现偏好数据里根本不存在的更好回答方式</strong>。</p>
+<p>这就是「表达能力」那一行的实质含义——不是 DPO 学得不好，而是<strong>它天然被数据分布圈住了</strong>。</p>
+<h2 id="115-grpo">11.5 GRPO：站在两者中间的方案</h2>
+<p>GRPO 是 DeepSeek 在 DeepSeekMath 里提出的 PPO 改进版，<strong>核心创新是砍掉 Value Model</strong>。</p>
+<p>在 PPO 里，Value Model 估计「当前状态的预期奖励」作为基线，用来算优势函数。它是独立神经网络、规模和主模型差不多、要单独训练和占显存。</p>
+<p>GRPO 的做法是：对一个问题采样 $G$ 个回答（典型 $G=8$），用组内归一化算相对优势：</p>
+<p>$$
+A_i = \frac{r_i - \mathrm{mean}(r_1 \dots r_G)}{\mathrm{std}(r_1 \dots r_G)}
+$$</p>
+<p><strong>组内平均分充当了 Value Model 的角色</strong>，这个基线天然就有，不用单独训练。</p>
+<pre class="mermaid">flowchart LR
+    A["PPO<br/>4 模型<br/>探索能力强<br/>显存大 · 难训"]
+    B["GRPO<br/>3 模型<br/>保留探索能力<br/>显存接近 DPO"]
+    C["DPO<br/>2 模型<br/>无探索能力<br/>最省最稳"]
+    A --- B --- C
+
+    style B fill:#e6f4ea
+</pre>
+
+<p><strong>GRPO 的杀手级特性</strong>：对可验证任务特别友好。数学题、代码题这类「对就是对、错就是错」的场景，$r_i$ 直接用 0/1 判定，<strong>连 Reward Model 都能省</strong>——DeepSeek R1-Zero 就是纯靠这个训出推理能力的。</p>
+<p>实际讨论里，GRPO 的关键就落在这句「<strong>砍掉 Value Model，用组内归一化代替</strong>」。</p>
+<h2 id="116">11.6 各自适合什么场景</h2>
+<table>
+<thead>
+<tr>
+<th>方案</th>
+<th>适合谁</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>PPO</strong></td>
+<td>对齐效果要求极高、<strong>资源充足、有 RL 工程能力</strong>的团队。ChatGPT 早期的强大效果很大程度来自精心调优的 PPO 流程，但门槛极高</td>
+</tr>
+<tr>
+<td><strong>DPO</strong></td>
+<td><strong>快速迭代、GPU 有限、开源社区场景</strong>。不需要 RL 工程能力，偏好数据众包打排名就能收集，训练一次成功率高</td>
+</tr>
+<tr>
+<td><strong>GRPO</strong></td>
+<td><strong>可验证任务</strong>（数学、代码），想保留 RL 探索能力但显存吃紧</td>
+</tr>
+</tbody>
+</table>
+<h3 id="1161">11.6.1 一条简单的判断原则</h3>
+<blockquote>
+<p><strong>想在已有偏好数据的分布上把质量提升一步 → DPO 够用且高效。</strong>
+<strong>需要模型探索超出现有数据的能力边界，或对齐效果要求接近顶级水平 → 才值得投入 PPO 的工程成本。</strong></p>
+</blockquote>
+<h2 id="117">11.7 常见错误</h2>
+<h3 id="1171">11.7.1 说不清两者都在解决什么问题</h3>
+<p>先铺垫「SFT 让模型学会按指令回答，但不知道哪种回答更受欢迎」，再讲两条路径。跳过这句就显得只在背算法。</p>
+<h3 id="1172-ppo">11.7.2 讲不出 PPO 的四个模型各自的职责</h3>
+<p>policy / reference / reward / value。尤其 value model 做优势基线这一点，是理解 GRPO 的前提。</p>
+<h3 id="1173-kl-reward-hacking">11.7.3 忘记提 KL 约束和 reward hacking</h3>
+<p>这是 PPO 最关键的工程细节。没有 KL 这根绳子，模型会去讨好奖励模型而不是真的变好。</p>
+<h3 id="1174-dpo-ppo">11.7.4 认为 DPO 全面碾压 PPO</h3>
+<p>DPO 省资源、更稳，但<strong>受偏好数据分布限制、没有在线探索能力</strong>。这是明确的权衡不是纯优势。</p>
+<h3 id="1175-dpo">11.7.5 说不出 DPO 的等价转换是什么</h3>
+<p>奖励模型的功能被「policy 相对 ref 的对数概率比」替代。这是 DPO 的全部精髓。</p>
+<h3 id="1176-dpo">11.7.6 忽略 DPO 对数据质量更敏感</h3>
+<p>PPO 里的 RM 能平滑一部分标注噪声，DPO 直接在偏好对上学，<strong>噪声会被原样学进去</strong>。</p>
+<h3 id="1177-grpo">11.7.7 不提 GRPO</h3>
+<p>它是现在这条线上最热的方案。能说出「砍掉 Value Model 用组内归一化代替」就是加分项。</p>
+<h2 id="118">11.8 本章总结</h2>
+<ol>
+<li><strong>两者目标一致</strong>：都在解决 SFT 之后「知道合格但不知道哪个更好」的问题；</li>
+<li><strong>PPO 是先培养裁判再训练选手</strong>：训 RM → 生成 → 打分 → 调参循环；</li>
+<li><strong>KL 散度是防 reward hacking 的绳子</strong>，允许移动但不许走太远；</li>
+<li><strong>PPO 要同时维护 4 个模型</strong>，显存是 SFT 的好几倍，训练不稳定、超参敏感；</li>
+<li><strong>DPO 的精髓是一个等价转换</strong>：奖励模型被「policy 相对 ref 的对数概率比」替代；</li>
+<li><strong>DPO 只需 2 个模型</strong>，变成普通监督学习，标准框架就能跑；</li>
+<li><strong>最关键的权衡是探索能力</strong>：PPO 在线采样能发现数据外的好回答，DPO 只能在给定偏好对之间取舍；</li>
+<li><strong>DPO 对偏好数据质量更敏感</strong>，因为没有 RM 帮忙平滑噪声；</li>
+<li><strong>GRPO 站在两者中间</strong>：砍掉 Value Model 用组内归一化替代，显存接近 DPO 但保留 RL 探索能力；</li>
+<li><strong>选型原则</strong>：在已有数据分布内提升选 DPO，要突破数据边界才值得投 PPO 的工程成本。</li>
+</ol>
+<blockquote>
+<p>PPO 和 DPO 的分水岭不在口号式的「谁更强」，而在你是否需要在线探索能力，以及是否愿意为此承担奖励模型和 RL 基础设施的成本。</p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1707.06347">Proximal Policy Optimization Algorithms（PPO）</a></li>
+<li><a href="https://arxiv.org/abs/2203.02155">Training language models to follow instructions with human feedback（InstructGPT）</a></li>
+<li><a href="https://arxiv.org/abs/2305.18290">Direct Preference Optimization: Your Language Model is Secretly a Reward Model</a></li>
+<li><a href="https://arxiv.org/abs/2402.03300">DeepSeekMath: Pushing the Limits of Mathematical Reasoning in Open Language Models（GRPO）</a></li>
+<li><a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning</a></li>
+<li><a href="https://arxiv.org/abs/2307.09288">Llama 2: Open Foundation and Fine-Tuned Chat Models</a></li>
+<li><a href="https://arxiv.org/abs/2310.16944">Zephyr: Direct Distillation of LM Alignment</a></li>
+<li><a href="https://github.com/huggingface/trl">Hugging Face TRL</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

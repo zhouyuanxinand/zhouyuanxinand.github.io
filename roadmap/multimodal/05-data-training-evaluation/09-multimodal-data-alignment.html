@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多模态训练数据与对齐 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="多模态训练数据与对齐 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>多模态 AI</span> / <span>训练、评测与服务</span> / <span>多模态训练数据与对齐</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第九章：多模态训练数据与对齐</h1>
+<blockquote>
+<p><a href="../../llm/06-multimodal/23-multimodal-models.html">LLM · 多模态模型 23.4 节</a>已指出"数据质量比模态数量更关键"这一结论，本章展开这句话背后具体的数据收集、过滤与对齐工程；文本对齐技术（RLHF、DPO）的通用原理见 <a href="../../llm/02-training-alignment/">LLM · 训练与对齐</a>，本章只讨论其在多模态场景下的延伸与特有问题。</p>
+</blockquote>
+<h2 id="91">9.1 数据是能力的主要瓶颈</h2>
+<p>多模态模型的三类典型训练阶段——对比预训练、生成式预训练、指令微调——分别依赖性质完全不同的数据，且规模逐级递减、质量要求逐级提高：</p>
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>数据规模量级</th>
+<th>数据来源</th>
+<th>质量要求</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>对比/生成式预训练</td>
+<td>数亿至数十亿图文对</td>
+<td>网络爬取</td>
+<td>大规模但噪声高，依赖自动过滤</td>
+</tr>
+<tr>
+<td>多模态指令微调</td>
+<td>数万至数百万条指令样本</td>
+<td>模型生成 + 人工标注/审核</td>
+<td>需要格式规范、内容准确、覆盖任务多样</td>
+</tr>
+<tr>
+<td>偏好对齐</td>
+<td>数千至数万条偏好对</td>
+<td>人工或模型标注的偏好比较</td>
+<td>高精度，直接决定对齐效果</td>
+</tr>
+</tbody>
+</table>
+<p>架构设计（<a href="../01-foundations/01-multimodal-fusion-architecture.html">第一章</a>）决定了模型"能不能"处理多模态输入，但最终效果的上限主要由这张表里的数据质量和覆盖面决定。</p>
+<h2 id="92">9.2 大规模图文对：来源与噪声</h2>
+<p>网络爬取的图文对（图像 + alt text、周边文本）是预训练阶段的主要数据来源，LAION-5B 是这一类公开数据集的代表——从 Common Crawl 中提取图像及其关联文本，并用 CLIP 相似度对图文对做初步过滤。这类数据的核心问题是<strong>噪声</strong>：alt text 经常是无关描述、SEO 关键词堆砌或与图像内容完全不匹配的文本，直接使用未经过滤的原始爬取数据训练出的模型，图文对齐质量和文本遵循能力都会明显下降。</p>
+<h2 id="93">9.3 数据质量过滤与合成描述</h2>
+<p>提升预训练数据质量的常见做法包括：</p>
+<ul>
+<li><strong>相似度过滤</strong>：用 CLIP 一类图文相似度模型给每个图文对打分，剔除低相似度样本，减少图文不匹配的比例；</li>
+<li><strong>去重</strong>：网络爬取数据中大量重复或近似重复的图像/文本会造成数据分布偏斜，需要在图像特征和文本层面分别去重；</li>
+<li><strong>合成/重新生成描述</strong>：alt text 质量参差不齐的问题也可以从"重新生成描述"入手——DALL·E 3 的技术报告提出用专门训练的图像描述模型为训练图像重新生成更详细、更准确的描述，替换原始网络文本，作者报告这一步显著提升了最终模型对文本提示的遵循能力（见 <a href="../04-generation/07-diffusion-flow-matching-image.html">第七章 7.6 节</a>）；</li>
+<li><strong>安全与合规过滤</strong>：剔除包含儿童性虐待材料（CSAM）、非自愿隐私内容等违法或高风险内容，以及在许可与版权允许范围之外的素材，这一步不是可选项，而是数据管线中不可缺失的合规前置环节。</li>
+</ul>
+<h2 id="94">9.4 多模态指令微调数据的构建</h2>
+<p>预训练阶段学到的是"图文如何关联"，指令微调阶段要教会模型"如何按人类期望的格式回答问题、遵循指令、引用图像证据"。LLaVA 展示了一种规模化构建指令数据的思路：用纯文本大模型（如 GPT-4），基于图像的结构化标注（物体框、描述、区域说明）生成对话式的问答、详细描述和复杂推理样本，而不依赖大规模人工标注——语言模型看不到图像本身，只能依据结构化的文本标注"想象"合理的问答内容，这类合成数据的质量因此直接受限于原始标注的完整性和准确性。</p>
+<p>纯模型生成的指令数据存在放大标注偏差、生成不准确细节等风险，生产级别的指令微调集通常还需要人工审核抽样、针对已知薄弱任务（如计数、空间关系、OCR）补充专门标注数据，而不能完全依赖自动生成管线。</p>
+<h2 id="95">9.5 交错图文数据与上下文学习能力</h2>
+<p>指令微调关注"单轮问答"，但多模态模型的上下文学习能力（在一次对话里给出多个图文示例，模型据此类推）依赖另一类数据：<strong>交错图文文档</strong>（Interleaved Image-Text Documents）——保留网页、文章中图片与文字自然穿插出现的原始顺序和上下文关系，而不是把图文拆成独立的成对样本。Flamingo 的训练数据中包含专门构建的交错网页数据集；OBELICS 是这类数据集的公开代表，通过对 Common Crawl 网页做结构化解析，抽取并保留图文交错的原始文档结构。这类数据让模型在训练阶段就见过"多图多文混排、需要跨图文关联理解"的样本分布，是模型具备多图推理和少样本上下文学习能力的重要前提，仅靠成对的图文数据难以覆盖这类分布。</p>
+<h2 id="96">9.6 多模态偏好对齐</h2>
+<p>文本领域的 RLHF/DPO（见 <a href="../../llm/02-training-alignment/">LLM · 训练与对齐</a>）同样被扩展到多模态场景，但多模态偏好数据要额外解决<strong>幻觉降权</strong>问题：模型描述图像时可能生成语法通顺但与图像内容不符的细节（如描述图中不存在的物体），单纯基于"哪个回答更详细/更流畅"收集的偏好数据无法抑制这类幻觉，反而可能因为更详细的回答更"像模型认为的好答案"而被优先选择。LLaVA-RLHF 一类工作提出用<strong>事实增强</strong>的方式构建奖励信号——引入图像的结构化标注作为事实校验的参照，让奖励模型能够识别并惩罚与图像内容矛盾的生成内容，而不仅依赖标注者的主观偏好判断。</p>
+<h2 id="97">9.7 常见错误</h2>
+<h3 id="971">9.7.1 只看数据规模，不看图文匹配质量</h3>
+<p>大规模但低质量过滤的图文对数据集，训练出的模型在图文对齐和指令遵循上的表现，通常不如规模小一个数量级但经过严格相似度过滤和去重的数据集，数据管线的过滤环节投入往往比单纯扩大爬取规模更具性价比。</p>
+<h3 id="972">9.7.2 用纯成对图文数据覆盖多图/上下文学习能力需求</h3>
+<p>如果训练数据里没有交错图文文档，模型很难具备可靠的多图推理和少样本上下文学习能力，即使成对图文数据规模很大，也无法替代交错文档提供的跨图文关联分布（见 9.5 节）。</p>
+<h3 id="973">9.7.3 用通用偏好数据直接做多模态对齐</h3>
+<p>直接套用文本领域"哪个回答更详细/更有帮助"的偏好标注标准，容易鼓励模型生成更长但包含虚构细节的回答，多模态偏好数据采集应显式加入事实一致性校验（见 9.6 节）。</p>
+<h2 id="98">9.8 本章总结</h2>
+<ol>
+<li>多模态训练分预训练、指令微调、偏好对齐三个阶段，数据规模递减、质量要求递增，是能力上限的主要决定因素；</li>
+<li>大规模图文对普遍存在噪声，相似度过滤、去重、合成/重新生成描述和安全合规过滤是必要的数据处理步骤；</li>
+<li>多模态指令微调数据可通过纯文本模型基于结构化标注合成生成，但需要人工审核和针对薄弱任务的专门补充；</li>
+<li>交错图文文档是模型获得多图推理和上下文学习能力的关键数据类型，无法被成对图文数据替代；</li>
+<li>多模态偏好对齐需要显式的事实一致性校验，以避免奖励模型鼓励更详细但存在幻觉的回答。</li>
+</ol>
+<blockquote>
+<p>多模态训练里最值得花力气的地方，通常不是再多爬一点数据，而是把图文匹配、交错文档和事实校验做好。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2210.08402">LAION-5B: An Open Large-Scale Dataset for Training Next Generation Image-Text Models</a></li>
+<li><a href="https://cdn.openai.com/papers/dall-e-3.pdf">OpenAI DALL·E 3: Improving Image Generation with Better Captions</a></li>
+<li><a href="https://arxiv.org/abs/2304.08485">LLaVA: Visual Instruction Tuning</a></li>
+<li><a href="https://arxiv.org/abs/2204.14198">Flamingo: a Visual Language Model for Few-Shot Learning</a></li>
+<li><a href="https://arxiv.org/abs/2306.16527">OBELICS: An Open Web-Scale Filtered Dataset of Interleaved Image-Text Documents</a></li>
+<li><a href="https://arxiv.org/abs/2309.14525">Aligning Large Multimodal Models with Factually Augmented RLHF (LLaVA-RLHF)</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  
+</body>
+</html>

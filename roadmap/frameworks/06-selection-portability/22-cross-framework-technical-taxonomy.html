@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>跨框架技术解构 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="跨框架技术解构 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>选型与可移植架构</span> / <span>跨框架技术解构</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第二十二章：跨框架技术解构：状态、持久化、工具契约与可观测性</h1>
+<h2 id="221">22.1 为什么不能只按功能清单比较框架</h2>
+<p>前五个模块已经分别讲过每个框架的核心抽象。如果把它们记成一份产品清单——「LangChain 是通用 Agent 框架」「LlamaIndex 是 RAG 框架」「AutoGen 是多智能体框架」——这种分类很快就会失效：<strong>几乎每个框架都在往相邻能力范围扩张</strong>（LlamaIndex 有 Agent 和 Workflows，LangChain 有完整的检索组件，Semantic Kernel 既能做流程编排又能做多智能体协作）。功能清单式的比较会不断过时，也回答不了真正影响工程决策的问题：<strong>如果今天选了 A，明天需要迁移到 B，代价落在哪些地方？</strong></p>
+<p>本章换一种比较方法——不看「能做什么」，看「怎么做」，拆成四个跨所有框架都存在、但实现方式各不相同的技术维度。</p>
+<h2 id="222">22.2 维度一：状态模型</h2>
+<p>「状态」指的是一次多步骤执行过程中，需要在步骤之间传递和积累的数据。各框架对「状态」的建模方式，决定了它的可调试性和扩展性：</p>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>状态模型</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LangGraph</td>
+<td>显式共享 <code>State</code>（TypedDict/Pydantic 模型），节点读写同一份状态</td>
+<td>状态结构在编写时就完全确定，调试时能直接看到某一步的完整状态快照</td>
+</tr>
+<tr>
+<td>LlamaIndex Workflows</td>
+<td>隐式，通过 <code>Event</code> 类型的生产消费关系传递</td>
+<td>无需预先设计 Schema，但状态全貌需要靠梳理事件流才能看清</td>
+</tr>
+<tr>
+<td>DSPy</td>
+<td><code>Program</code>（Python 对象）的实例属性，控制流是普通函数调用</td>
+<td>状态就是普通 Python 对象状态，心智模型最贴近传统编程</td>
+</tr>
+<tr>
+<td>Semantic Kernel Process Framework</td>
+<td>显式 Step + Event，与 LangGraph 的图模型接近</td>
+<td>建模语言更贴近传统 BPM（业务流程管理）术语</td>
+</tr>
+<tr>
+<td>AutoGen Core</td>
+<td>Actor 之间的异步消息，没有全局共享状态</td>
+<td>每个 Agent 只维护自己的内部状态，符合分布式系统的设计假设</td>
+</tr>
+<tr>
+<td>CrewAI</td>
+<td>Crew 内隐式（依赖任务输出串联），Flow 内显式（<code>self.state</code>）</td>
+<td>简单协作靠任务串联的隐式状态，需要确定性控制时切到 Flow 的显式状态</td>
+</tr>
+<tr>
+<td>PydanticAI</td>
+<td>单次 <code>Run</code> 的局部上下文，无跨 Run 状态</td>
+<td>框架本身假设「无状态单次调用」，多轮状态需要应用层自己管理</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid">flowchart TB
+    S1["显式共享状态<br/>LangGraph / SK Process Framework"]
+    S2["隐式事件驱动状态<br/>LlamaIndex Workflows / CrewAI Flow"]
+    S3["普通对象状态<br/>DSPy Program"]
+    S4["Actor 局部状态，无全局共享<br/>AutoGen Core"]
+    S5["无跨调用状态<br/>PydanticAI"]
+</pre>
+
+<p>如果团队经常需要回答「第 N 步执行时，系统里到底有哪些数据」，显式共享状态模型（LangGraph、Process Framework）更容易调试；如果更看重扩展新步骤的便利性，并愿意沿事件流排查问题，隐式事件驱动模型（Workflows、Flow）更合适。</p>
+<h2 id="223">22.3 维度二：持久化</h2>
+<p>持久化决定了「一次执行能不能被打断、之后从断点恢复」，这是生产系统里长时间运行任务、人工审批、故障恢复的基础：</p>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>持久化机制</th>
+<th>恢复粒度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LangGraph</td>
+<td><code>Checkpointer</code>，对整个 <code>State</code> 做快照</td>
+<td>可精确恢复到任意一个节点执行前后</td>
+</tr>
+<tr>
+<td>Semantic Kernel Process Framework</td>
+<td>原生支持流程状态持久化</td>
+<td>Step 级别</td>
+</tr>
+<tr>
+<td>LlamaIndex Workflows</td>
+<td>依赖 <code>Context</code> 的序列化</td>
+<td>事件流粒度，需要框架版本兼容序列化格式</td>
+</tr>
+<tr>
+<td>CrewAI Flow</td>
+<td>Flow 状态可持久化</td>
+<td>Flow 步骤级别，Crew 内部协作过程通常不做细粒度持久化</td>
+</tr>
+<tr>
+<td>DSPy / AutoGen Core / PydanticAI</td>
+<td>无原生高层持久化抽象</td>
+<td>需要应用层自己设计（数据库记录中间结果、重放消息日志等）</td>
+</tr>
+</tbody>
+</table>
+<p>持久化能力的差异不在「有没有」，而在恢复粒度。恢复粒度越细，需要保存和维护的状态版本兼容性成本也越高。长时间运行、需要人工审批介入的场景（如 <a href="../01-langchain/04-langgraph/10-langgraph-advantages.html">LangGraph 核心优势</a> 讨论的人工介入模式）应把这一项列为选型的硬性约束，而不是留到后期补。</p>
+<h2 id="224">22.4 维度三：工具契约</h2>
+<p>所有框架最终都要解决「模型怎么调用外部能力」，本质都建立在 Function Calling 之上（见 <a href="../../tools/01-function-calling/01-function-calling.html">Tools 主题 · Function Calling</a>），差异在于<strong>契约生成方式</strong>和<strong>能否直接复用同一套工具定义</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>Schema 生成方式</th>
+<th>跨框架复用难度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PydanticAI</td>
+<td>从类型注解 + docstring 自动生成，校验最严格</td>
+<td>低：本质是标准 JSON Schema，容易被其他框架消费</td>
+</tr>
+<tr>
+<td>LangChain</td>
+<td><code>@tool</code> 装饰器 + 类型注解</td>
+<td>低：同样生成标准 Schema，是 07 章讨论互操作的基础</td>
+</tr>
+<tr>
+<td>LlamaIndex</td>
+<td><code>FunctionTool</code> 包装普通函数</td>
+<td>低：同上</td>
+</tr>
+<tr>
+<td>Semantic Kernel</td>
+<td><code>[KernelFunction]</code>/<code>@kernel_function</code> 装饰 Native Function，或 Prompt 模板作为 Semantic Function</td>
+<td>中：Semantic Function 部分不是标准函数 Schema，迁移时需要单独处理</td>
+</tr>
+<tr>
+<td>AutoGen</td>
+<td>工具注册到 Agent 的消息处理逻辑</td>
+<td>中：底层同样是 Function Calling，但消息路由逻辑与框架运行时耦合</td>
+</tr>
+<tr>
+<td>DSPy</td>
+<td><code>ReAct</code> Module 内建的工具调用循环</td>
+<td>中：工具本身是标准函数，但调用循环逻辑绑定在 DSPy 的编译流程里</td>
+</tr>
+<tr>
+<td>CrewAI</td>
+<td>Tool 类（继承 <code>BaseTool</code>）或函数装饰器</td>
+<td>中：标准函数部分容易复用，但 Agent 的角色化 Prompt 组织方式不易迁移</td>
+</tr>
+</tbody>
+</table>
+<p>凡是「Schema 生成方式基于标准类型注解」的框架，工具定义本身通常都更容易移植。同一个 Python 函数配合类型注解，理论上可以被 LangChain、LlamaIndex、PydanticAI 直接消费，这也是这三者经常出现在同一个系统里互相调用的技术基础。真正难迁的通常不是工具本身，而是<strong>工具调用的编排逻辑</strong>（谁来决定调用顺序、怎么处理调用失败）。</p>
+<h2 id="225">22.5 维度四：评测与可观测性</h2>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>评测/可观测性生态</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>LangChain/LangGraph</td>
+<td>LangSmith：Trace、Dataset、离线评测、生产反馈闭环</td>
+<td>生态最成熟，覆盖开发到生产全流程</td>
+</tr>
+<tr>
+<td>DSPy</td>
+<td>编译期指标驱动的评测（见 <a href="../03-dspy/17-compiler-and-optimizers.html">第十七章</a>）</td>
+<td>评测即优化，但生产期在线监控仍需外部工具</td>
+</tr>
+<tr>
+<td>Semantic Kernel</td>
+<td>与 Application Insights、OpenTelemetry 集成</td>
+<td>企业级遥测标准，适配已有的 .NET/云监控体系</td>
+</tr>
+<tr>
+<td>PydanticAI</td>
+<td>与 Pydantic Logfire 集成较紧密</td>
+<td>同样基于 OpenTelemetry，适合已用 Pydantic 生态的团队</td>
+</tr>
+<tr>
+<td>AutoGen / CrewAI</td>
+<td>内置基础 Trace，社区生态相对年轻</td>
+<td>复杂生产可观测性通常需要接入外部 APM 工具</td>
+</tr>
+</tbody>
+</table>
+<p><a href="https://github.com/open-telemetry/semantic-conventions-genai">OpenTelemetry GenAI 语义约定</a> 是行业里正在收敛的一条线索：它为「模型调用」「Agent 步骤」「工具调用」定义统一的 Span 命名和属性规范，让不同框架产生的 Trace 能被同一套观测后端消费。评估框架的可观测性时，除了看自带 UI，还要看它是否遵循这类开放标准；这会直接影响未来更换可观测性后端，甚至更换编排框架时，监控体系能保留多少投入。</p>
+<h2 id="226">22.6 常见错误</h2>
+<h3 id="2261">22.6.1 用「有没有某个功能」代替「这个功能怎么实现的」做比较</h3>
+<p>例如只问「LlamaIndex 有没有 Agent」，而不问「LlamaIndex 的 Agent 编排模型（事件驱动）和 LangGraph（状态图）在调试体验上有什么区别」——后者才是真正影响长期维护成本的问题。</p>
+<h3 id="2262">22.6.2 忽视工具契约和编排逻辑的耦合程度不同</h3>
+<p>误以为「工具能跨框架复用」就等于「整个 Agent 能轻松迁移」——工具定义的可移植性和编排逻辑的可移植性是两个独立的问题，后者通常耦合度更高、更难迁移。</p>
+<h3 id="2263">22.6.3 把「持久化」简化成「有没有存数据库」</h3>
+<p>真正的差异在恢复粒度：能不能精确恢复到某一步、状态版本变化后旧的持久化数据还能不能被正确恢复，这些细节往往比「是否支持持久化」这个二元判断更重要。</p>
+<h3 id="2264-ui">22.6.4 只关注框架自带的可观测性 UI，忽视底层数据格式是否开放</h3>
+<p>如果 Trace 数据格式是框架私有的、不遵循 OpenTelemetry 之类的开放标准，即使 UI 再好用，长期看也会增加更换可观测性后端的成本。</p>
+<h2 id="227">22.7 本章总结</h2>
+<ol>
+<li><strong>不应该用产品清单式的功能罗列比较框架</strong>，因为几乎每个框架都在扩张覆盖其他框架的能力范围，功能列表很快过时；</li>
+<li><strong>状态模型分为显式共享状态、隐式事件驱动状态、普通对象状态、Actor 局部状态、无跨调用状态五类</strong>，选择应基于「调试时需要多大程度看清系统全貌」；</li>
+<li><strong>持久化的核心问题是恢复粒度，不是「有没有」的二元判断</strong>，长时间运行和人工审批场景应把持久化粒度列为选型硬约束；</li>
+<li><strong>工具契约的可移植性和编排逻辑的可移植性是两个独立维度</strong>，基于标准类型注解生成 Schema 的框架之间工具定义更容易复用，但这不代表整个 Agent 编排逻辑也容易迁移；</li>
+<li><strong>评测与可观测性生态的成熟度差异很大</strong>，LangSmith 覆盖最全面，其他框架各有侧重，但行业正在向 OpenTelemetry GenAI 语义约定这样的开放标准收敛，评估框架时应该同时关注这一点。</li>
+</ol>
+<blockquote>
+<p>比较框架时，更有用的做法是把「状态怎么建模」「怎么持久化和恢复」「工具契约怎么生成」「怎么评测和观测」拆成独立技术维度，而不是罗列各自支持哪些功能；真正决定系统可维护性和可迁移性的，是这些维度组合出来的约束。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/persistence">LangGraph: Persistence 概念</a></li>
+<li><a href="https://developers.llamaindex.ai/python/llamaagents/workflows/">LlamaIndex: Workflows</a></li>
+<li><a href="https://learn.microsoft.com/en-us/semantic-kernel/frameworks/process/process-framework">Semantic Kernel: Process Framework</a></li>
+<li><a href="https://github.com/open-telemetry/semantic-conventions-genai">OpenTelemetry Generative AI 语义约定仓库</a></li>
+<li><a href="https://docs.smith.langchain.com/">LangSmith 官方文档</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

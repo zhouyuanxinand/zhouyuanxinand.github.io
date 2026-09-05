@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模块导览 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模块导览 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../roadmap/roadmap.css">
+  <script src="../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../home.html">首页</a>
+        <a href="../posts.html">随笔</a>
+        <a href="../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>轻量级 Agent 框架</span> / <span>模块导览</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="agent-autogencrewai-pydanticai">框架与编排 · 轻量级 Agent 框架：AutoGen、CrewAI 与 PydanticAI</h1>
+<p>前四个模块的框架覆盖了编排、数据层或企业中间件等多个层面。本模块涉及的三个框架更聚焦：它们主要解决「多智能体协作」或「单个 Agent 的类型安全」，数据处理、生产可观测性等能力通常需要外部组件补齐。阅读时更值得关注能力边界，而不只是 API 名称。</p>
+<h2 id="_1">章节</h2>
+<ol>
+<li><a href="20-autogen-and-crewai.html">第二十章：AutoGen 与 CrewAI 的多智能体抽象</a></li>
+<li><a href="21-pydanticai-and-decision-matrix.html">第二十一章：PydanticAI 的类型安全范式与三者适用边界</a></li>
+</ol>
+<h2 id="_2">模块关系</h2>
+<pre class="mermaid">flowchart LR
+    A["AutoGen<br/>Actor 模型 + 事件驱动运行时"] -.对话式多智能体.-> D["适用边界对照<br/>（第二十一章）"]
+    C["CrewAI<br/>角色化 Crew / Process / Flow"] -.角色化多智能体.-> D
+    P["PydanticAI<br/>类型校验 + 依赖注入"] -.单 Agent 类型安全.-> D
+</pre>
+
+<h2 id="_3">阅读建议</h2>
+<ul>
+<li>如果需要多个 Agent 协作，可读第二十章，对比「分布式 / 事件驱动」和「角色化快速搭建」两种路线；</li>
+<li>如果更关心单 Agent 的工程正确性（类型、校验、依赖注入），可直接读第二十一章前半部分；</li>
+<li>如果正在选型、不确定用哪个，可直接看第二十一章的决策矩阵，再跳转 <a href="../06-selection-portability/">框架选型与可移植架构</a> 看跨全部框架的统一对照。</li>
+</ul>
+<p>返回 <a href="../">AI 框架与编排 相关知识点</a>。</p>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

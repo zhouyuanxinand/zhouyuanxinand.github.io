@@ -1,0 +1,1096 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LLM 与 Agent 规划能力 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="LLM 与 Agent 规划能力 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>推理、规划与反思</span> / <span>LLM 与 Agent 规划能力</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="llm-agent">第十一章：如何赋予 LLM 与 Agent 规划能力</h1>
+<h2 id="111-cot">11.1 规划不等于 CoT</h2>
+<p>最常见的误区是：</p>
+<blockquote>
+<p><strong>CoT = 规划能力</strong></p>
+</blockquote>
+<p>CoT 只是帮助模型沿一条路径展开中间推理的方法。规划则需要面向未来行动，处理：</p>
+<ul>
+<li>目标；</li>
+<li>当前状态；</li>
+<li>可用动作；</li>
+<li>依赖关系；</li>
+<li>资源和权限；</li>
+<li>动作可能产生的结果；</li>
+<li>风险和回退；</li>
+<li>完成条件。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    R[Reasoning] --> Q[回答：为什么、是什么、能否推出]
+    P[Planning] --> A[回答：为了目标，接下来做什么]
+
+    Q --> COT[CoT / ToT / GoT]
+    A --> PLAN[Plan / DAG / Policy]
+    PLAN --> EXEC[Execution]
+    EXEC --> OBS[Observation]
+    OBS --> PLAN
+</pre>
+
+<p>推理方法可以帮助生成计划，但不能单独构成可靠规划系统。</p>
+<h2 id="112-reasoning-planning">11.2 Reasoning 与 Planning 的区别</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Reasoning</th>
+<th>Planning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>核心目标</td>
+<td>推导结论</td>
+<td>选择行动序列</td>
+</tr>
+<tr>
+<td>输入</td>
+<td>问题、事实、规则</td>
+<td>目标、状态、动作、约束</td>
+</tr>
+<tr>
+<td>输出</td>
+<td>答案或判断</td>
+<td>可执行计划或策略</td>
+</tr>
+<tr>
+<td>是否改变环境</td>
+<td>通常不直接改变</td>
+<td>计划由执行器作用于环境</td>
+</tr>
+<tr>
+<td>是否需要反馈</td>
+<td>不一定</td>
+<td>通常需要</td>
+</tr>
+<tr>
+<td>是否需要重规划</td>
+<td>较少</td>
+<td>环境变化时需要</td>
+</tr>
+<tr>
+<td>成功标准</td>
+<td>推理正确</td>
+<td>目标在约束内完成</td>
+</tr>
+</tbody>
+</table>
+<p>例如：</p>
+<ul>
+<li>“为什么 API 调用失败？”是 Reasoning；</li>
+<li>“接下来按什么步骤修复 API？”是 Planning；</li>
+<li>“执行修复并根据测试结果调整”是 Agent Control Loop。</li>
+</ul>
+<h2 id="113">11.3 为什么需要显式规划</h2>
+<p>LLM 可以直接生成答案或动作，但复杂任务容易出现：</p>
+<ul>
+<li>跳过关键步骤；</li>
+<li>忽略依赖；</li>
+<li>工具调用顺序错误；</li>
+<li>缺少成功标准；</li>
+<li>过早结束；</li>
+<li>在局部问题上反复循环；</li>
+<li>无法估算成本和风险。</li>
+</ul>
+<p>显式规划能把这些问题前置暴露出来：</p>
+<ul>
+<li>将目标转化为可执行步骤；</li>
+<li>暴露依赖和并行机会；</li>
+<li>在执行前检查权限与风险；</li>
+<li>为每一步定义验收条件；</li>
+<li>支持局部重试和故障恢复；</li>
+<li>根据真实 Observation 动态调整。</li>
+</ul>
+<blockquote>
+<p><strong>规划机制要产出可执行、可验证、可更新的控制结构；把思路展开只是其中一种手段。</strong></p>
+</blockquote>
+<h2 id="114">11.4 规划能力来自两个层次</h2>
+<h3 id="1141-model-level-planning">11.4.1 Model-level Planning</h3>
+<p>模型层能力包括：</p>
+<ul>
+<li>理解目标；</li>
+<li>分解问题；</li>
+<li>预测动作结果；</li>
+<li>比较候选方案；</li>
+<li>生成步骤；</li>
+<li>识别依赖；</li>
+<li>根据反馈修订。</li>
+</ul>
+<p>这些能力可以通过以下方式增强：</p>
+<ul>
+<li>预训练和后训练；</li>
+<li>高质量规划示例；</li>
+<li>Instruction Tuning；</li>
+<li>Tool-use Training；</li>
+<li>Reinforcement Learning；</li>
+<li>Verifiable Rewards；</li>
+<li>推理时搜索和验证。</li>
+</ul>
+<h3 id="1142-system-level-planning">11.4.2 System-level Planning</h3>
+<p>系统层负责将模型输出变成可靠计划：</p>
+<ul>
+<li>计划 Schema；</li>
+<li>Planner；</li>
+<li>Plan Validator；</li>
+<li>Scheduler；</li>
+<li>Executor；</li>
+<li>State Store；</li>
+<li>Verifier；</li>
+<li>Replanner；</li>
+<li>Budget 与 Guardrails。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    G[Goal + Constraints] --> P[LLM Planner]
+    P --> S[Structured Plan]
+    S --> V[Plan Validator]
+    V -->|不通过| P
+    V -->|通过| SCH[Scheduler]
+    SCH --> E[Executor]
+    E --> O[Observation]
+    O --> CHECK{目标或假设变化?}
+    CHECK -->|否| SCH
+    CHECK -->|是| RP[Replanner]
+    RP --> S
+</pre>
+
+<p>一个强模型如果缺少 Runtime 和验证，仍可能生成不可执行计划；一个中等模型配合良好 Schema、Tools 和 Verifier，反而可能更可靠。</p>
+<h2 id="115">11.5 规划问题的基本元素</h2>
+<p>可以将一个规划问题抽象为：</p>
+<ul>
+<li><code>G</code>：目标；</li>
+<li><code>S₀</code>：初始状态；</li>
+<li><code>A</code>：可用动作集合；</li>
+<li><code>C</code>：约束；</li>
+<li><code>B</code>：预算；</li>
+<li><code>T</code>：终止条件。</li>
+</ul>
+<p>一个动作应声明：</p>
+<ul>
+<li>前置条件；</li>
+<li>输入；</li>
+<li>预期效果；</li>
+<li>副作用；</li>
+<li>费用和时间；</li>
+<li>风险等级；</li>
+<li>失败方式。</li>
+</ul>
+<pre><code class="language-json">{
+  &quot;action&quot;: &quot;deploy_service&quot;,
+  &quot;preconditions&quot;: [
+    &quot;tests_passed&quot;,
+    &quot;human_approval_received&quot;
+  ],
+  &quot;inputs&quot;: {
+    &quot;service&quot;: &quot;payment&quot;,
+    &quot;version&quot;: &quot;v2.4.1&quot;
+  },
+  &quot;effects&quot;: [
+    &quot;production_version_updated&quot;
+  ],
+  &quot;risk_level&quot;: &quot;high&quot;,
+  &quot;timeout_seconds&quot;: 600
+}
+</code></pre>
+<p>如果 Agent 不知道动作前置条件和效果，就很难真正进行可靠规划。</p>
+<h2 id="116-cot">11.6 CoT：单路径推理，不是完整规划器</h2>
+<blockquote>
+<p>CoT 的机制、适用任务与解释性局限已在<a href="05-agent-reasoning-methods.html">第五章</a>详述；这里仅说明它为何不能替代有状态、可验证的规划器。</p>
+</blockquote>
+<p>CoT（Chain of Thought）让模型沿一条中间推理链得到结论：</p>
+<pre class="mermaid">flowchart LR
+    Q[问题] --> S1[步骤 1]
+    S1 --> S2[步骤 2]
+    S2 --> S3[步骤 N]
+    S3 --> A[答案或初步计划]
+</pre>
+
+<p>它可以帮助模型：</p>
+<ul>
+<li>提取约束；</li>
+<li>分解简单步骤；</li>
+<li>减少直接跳到答案；</li>
+<li>生成初步行动列表。</li>
+</ul>
+<p>但 CoT 缺少：</p>
+<ul>
+<li>多路径探索；</li>
+<li>回溯；</li>
+<li>真实环境反馈；</li>
+<li>状态持久化；</li>
+<li>计划验证；</li>
+<li>动态重规划；</li>
+<li>权限和资源调度。</li>
+</ul>
+<h3 id="1161">11.6.1 工程边界</h3>
+<p>CoT 会消耗推理预算并占用上下文，但不提供多路径搜索、环境反馈、状态持久化、计划验证或权限调度。规划系统应输出可验证的结构化步骤、依赖、成功标准、工具和风险，而不要求公开隐藏 Thought。其成本与可审计轨迹的记录原则分别见<a href="05-agent-reasoning-methods.html">第五章</a>和<a href="../05-production/14-agent-evaluation.html">第十四章</a>。</p>
+<h2 id="117-task-decomposition">11.7 Task Decomposition：从目标生成子任务</h2>
+<p>规划的第一步通常是将目标分解为可执行任务。</p>
+<pre class="mermaid">flowchart TB
+    G[复杂目标] --> M1[里程碑 1]
+    G --> M2[里程碑 2]
+    G --> M3[里程碑 3]
+    M1 --> T11[子任务 1.1]
+    M1 --> T12[子任务 1.2]
+</pre>
+
+<p>高质量子任务应具有：</p>
+<ul>
+<li>明确目标；</li>
+<li>独立输入输出；</li>
+<li>依赖；</li>
+<li>执行器；</li>
+<li>验收条件；</li>
+<li>风险和预算；</li>
+<li>可重试性。</li>
+</ul>
+<p>分解只是产生计划结构，不代表计划正确。还需要验证依赖、可执行性和完整性。</p>
+<h2 id="118-plan-and-solve">11.8 Plan-and-Solve：先形成解题计划</h2>
+<p>Plan-and-Solve 先生成问题求解计划，再沿计划完成推理。</p>
+<pre><code class="language-text">Plan:
+1. 提取目标和约束
+2. 识别所需事实
+3. 计算中间结果
+4. 检查答案是否满足约束
+</code></pre>
+<p>它比简单 CoT 更明确地区分：</p>
+<ul>
+<li>Planning；</li>
+<li>Solving。</li>
+</ul>
+<p>但它主要仍工作在模型推理层，不一定包含外部 Tool、状态和重规划。</p>
+<h2 id="119-tot">11.9 ToT：搜索多个候选方向</h2>
+<p>ToT（Tree of Thoughts）把中间推理状态组织成树，在每个节点：</p>
+<ol>
+<li>生成多个候选；</li>
+<li>评价候选；</li>
+<li>选择部分候选继续；</li>
+<li>必要时回溯。</li>
+</ol>
+<pre class="mermaid">flowchart TB
+    S0[Initial State] --> A[Candidate A]
+    S0 --> B[Candidate B]
+    S0 --> C[Candidate C]
+
+    A --> A1[Expand A1]
+    A --> A2[Expand A2]
+    B --> B1[Expand B1]
+    B --> B2[Expand B2]
+
+    A1 --> E[Evaluate / Select]
+    A2 --> E
+    B1 --> E
+    B2 --> E
+</pre>
+
+<p>ToT 给系统提供的是一套探索、选择和回溯候选路径的框架：</p>
+<blockquote>
+<p><strong>允许系统探索多个方向，并在评价函数有效时进行选择和回溯。</strong></p>
+</blockquote>
+<p>如果候选质量差或 Evaluator 判断错误，ToT 仍可能选择错误路径。</p>
+<h2 id="1110-tot-3-5">11.10 ToT 的成本不能写成固定 3 到 5 倍</h2>
+<p>ToT 成本取决于：</p>
+<ul>
+<li>每个节点的分支数 <code>b</code>；</li>
+<li>搜索深度 <code>d</code>；</li>
+<li>保留的 Beam Width <code>k</code>；</li>
+<li>每个节点生成候选的模型调用数；</li>
+<li>Evaluator 调用数；</li>
+<li>是否批处理；</li>
+<li>剪枝和提前终止。</li>
+</ul>
+<p>完整树节点数为：</p>
+<p>$$
+N=\sum_{i=0}^{d}b^i
+$$</p>
+<p>当分支数大于 1 时，节点数可能随深度快速增长。</p>
+<p>若使用 Beam Search，每层只保留 <code>k</code> 个候选，计算量可以粗略近似为：</p>
+<p>$$
+N\approx kbd
+$$</p>
+<p>因此，ToT 可能是 CoT 的数倍，也可能高出一个数量级以上。只有在固定具体分支数、深度、剪枝和模型调用策略后，才能给出倍数。</p>
+<h3 id="11101-tot">11.10.1 控制 ToT 成本</h3>
+<ul>
+<li>限制搜索深度；</li>
+<li>限制 Beam Width；</li>
+<li>批量生成候选；</li>
+<li>使用小模型初筛；</li>
+<li>使用规则或程序验证；</li>
+<li>低分节点提前剪枝；</li>
+<li>达到置信阈值后停止；</li>
+<li>只对高风险或高难问题启用。</li>
+</ul>
+<h2 id="1111-got">11.11 GoT：合并和复用中间结果</h2>
+<p>GoT（Graph of Thoughts）允许多个推理路径：</p>
+<ul>
+<li>分叉；</li>
+<li>合并；</li>
+<li>复用；</li>
+<li>迭代修订；</li>
+<li>建立依赖。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    A[Analysis A] --> M[Merge]
+    B[Analysis B] --> M
+    C[Evidence C] --> M
+    M --> R[Refine]
+    R --> V[Verify]
+    V -->|需要修订| R
+    V -->|通过| O[Output]
+</pre>
+
+<p>它针对树结构的局限：</p>
+<ul>
+<li>树中不同分支难以共享中间结果；</li>
+<li>相同子问题可能被重复计算；</li>
+<li>多个候选结论无法自然合并。</li>
+</ul>
+<h3 id="11111-got">11.11.1 GoT 的生产成熟度</h3>
+<p>需要区分两个概念：</p>
+<h4 id="graph-of-thoughts">Graph of Thoughts 研究范式</h4>
+<p>将“Thought”作为图节点，由模型生成、聚合和转换。它仍缺少统一的生产标准和通用实现。</p>
+<h4 id="graph-based-agent-orchestration">Graph-based Agent Orchestration</h4>
+<p>使用 DAG、状态图、任务图或 Workflow 表示计划，已经广泛用于生产系统。</p>
+<p>两者思想相似，但工程系统通常操作的是：</p>
+<ul>
+<li>Task；</li>
+<li>State；</li>
+<li>Artifact；</li>
+<li>Dependency；</li>
+<li>Transition。</li>
+</ul>
+<p>而不是不可验证的自由文本 Thought。</p>
+<blockquote>
+<p><strong>GoT 研究标签尚未成为统一生产标准，但图结构规划本身已经是成熟工程方法。</strong></p>
+</blockquote>
+<h2 id="1112-thought-graph-task-graph">11.12 从 Thought Graph 升级为 Task Graph</h2>
+<p>生产系统更适合把图节点定义为可执行 Task：</p>
+<pre class="mermaid">flowchart LR
+    A[Collect Product Data] --> D[Compare Products]
+    B[Collect Pricing Data] --> D
+    C[Collect Market Data] --> E[Analyze Market]
+    D --> F[Generate Report]
+    E --> F
+    F --> V[Verify Sources]
+</pre>
+
+<p>每个节点应包含：</p>
+<ul>
+<li>输入；</li>
+<li>输出；</li>
+<li>依赖；</li>
+<li>Executor；</li>
+<li>Success Criteria；</li>
+<li>Retry Policy；</li>
+<li>Artifact。</li>
+</ul>
+<p>这种图可以被 Scheduler、Verifier 和 Runtime 直接使用。</p>
+<h2 id="1113-planner-executor-replanner">11.13 Planner-Executor-Replanner</h2>
+<p>赋予 Agent 规划能力最常见的系统架构是：</p>
+<pre class="mermaid">flowchart TB
+    G[Goal] --> P[Planner]
+    P --> PLAN[Structured Plan]
+    PLAN --> E[Executor]
+    E --> O[Observation]
+    O --> V{计划仍有效?}
+    V -->|是| E
+    V -->|否| RP[Replanner]
+    RP --> PLAN
+    V -->|目标完成| DONE[Finish]
+</pre>
+
+<h3 id="11131-planner">11.13.1 Planner</h3>
+<p>负责：</p>
+<ul>
+<li>理解目标；</li>
+<li>生成里程碑；</li>
+<li>拆分任务；</li>
+<li>建立依赖；</li>
+<li>指定验收条件；</li>
+<li>估算风险和资源。</li>
+</ul>
+<h3 id="11132-executor">11.13.2 Executor</h3>
+<p>负责：</p>
+<ul>
+<li>执行当前步骤；</li>
+<li>调用 Tool；</li>
+<li>返回真实 Observation；</li>
+<li>保存 Artifact；</li>
+<li>报告结构化错误。</li>
+</ul>
+<h3 id="11133-replanner">11.13.3 Replanner</h3>
+<p>负责判断：</p>
+<ul>
+<li>结果是否符合预期；</li>
+<li>哪个假设已经失效；</li>
+<li>是否需要新增、删除或重排步骤；</li>
+<li>是否可以提前结束；</li>
+<li>是否需要人工介入。</li>
+</ul>
+<h2 id="1114">11.14 动态重规划</h2>
+<p>原始计划为 <code>Pₜ</code>，执行获得新观察 <code>oₜ₊₁</code> 后，Replanner 更新计划：</p>
+<p>$$
+P_{t+1}=R(P_t,o_{t+1},s_t,g)
+$$</p>
+<p>需要触发重规划的常见事件：</p>
+<ul>
+<li>Tool 返回意外结果；</li>
+<li>前置假设错误；</li>
+<li>新约束出现；</li>
+<li>某个任务失败；</li>
+<li>预算变化；</li>
+<li>用户修改目标；</li>
+<li>外部环境变化；</li>
+<li>Verifier 判断计划无法达到目标。</li>
+</ul>
+<h3 id="11141">11.14.1 不要每一步都完整重规划</h3>
+<p>每一步都重写全计划会：</p>
+<ul>
+<li>增加成本；</li>
+<li>造成计划漂移；</li>
+<li>丢失已验证结构；</li>
+<li>退化为昂贵 ReAct。</li>
+</ul>
+<p>更好的方式是：</p>
+<ul>
+<li>只更新受影响子图；</li>
+<li>保留已完成节点；</li>
+<li>对稳定里程碑加锁；</li>
+<li>记录 Plan Diff；</li>
+<li>重大假设变化才整体重规划。</li>
+</ul>
+<h2 id="1115-hierarchical-planning">11.15 Hierarchical Planning</h2>
+<p>分层规划先确定高层里程碑，再按需展开当前阶段：</p>
+<pre class="mermaid">flowchart TB
+    G[Global Goal] --> M1[Research]
+    G --> M2[Implementation]
+    G --> M3[Validation]
+
+    M1 --> T11[Search Sources]
+    M1 --> T12[Extract Facts]
+
+    M2 --> T21[Design]
+    M2 --> T22[Code]
+
+    M3 --> T31[Test]
+    M3 --> T32[Review]
+</pre>
+
+<p>优势：</p>
+<ul>
+<li>保留全局方向；</li>
+<li>避免一次生成过长计划；</li>
+<li>降低远期计划失效；</li>
+<li>支持阶段预算；</li>
+<li>适合长任务。</li>
+</ul>
+<h2 id="1116-rolling-horizon-planning">11.16 Rolling Horizon Planning</h2>
+<p>滚动规划只详细规划近期步骤：</p>
+<pre class="mermaid">flowchart LR
+    S[Current State] --> P[Plan Next Horizon]
+    P --> E[Execute Next Step]
+    E --> O[Observe]
+    O --> U[Update State]
+    U --> P
+</pre>
+
+<p>适合：</p>
+<ul>
+<li>环境变化快；</li>
+<li>远期信息不可靠；</li>
+<li>工具结果决定后续路径；</li>
+<li>任务可能随时被用户调整。</li>
+</ul>
+<p>它适合放在全局计划和纯 ReAct 之间，兼顾前瞻性和响应速度。</p>
+<h2 id="1117-react">11.17 ReAct 在规划中的作用</h2>
+<p>ReAct 不是完整全局规划器，但适合执行计划中的局部开放任务：</p>
+<pre class="mermaid">flowchart TB
+    P[Global Plan] --> S[Current Step]
+    S --> O[Observe]
+    O --> D[Decide]
+    D --> A[Act]
+    A --> O
+    D -->|局部完成| NEXT[Next Plan Step]
+</pre>
+
+<p>推荐组合：</p>
+<ul>
+<li>Planner 负责全局结构；</li>
+<li>ReAct 负责局部 Tool 选择；</li>
+<li>Replanner 处理计划失效；</li>
+<li>Verifier 检查步骤结果。</li>
+</ul>
+<h2 id="1118-reflection">11.18 Reflection 与规划质量</h2>
+<p>Reflection 可以在规划前后加入质量检查。</p>
+<h3 id="11181-plan-critique">11.18.1 Plan Critique</h3>
+<p>检查：</p>
+<ul>
+<li>是否遗漏步骤；</li>
+<li>依赖是否正确；</li>
+<li>是否可执行；</li>
+<li>是否存在权限问题；</li>
+<li>是否定义成功条件；</li>
+<li>是否存在更低成本路径。</li>
+</ul>
+<h3 id="11182-execution-reflection">11.18.2 Execution Reflection</h3>
+<p>根据执行结果检查：</p>
+<ul>
+<li>哪个步骤失败；</li>
+<li>原因是计划错误还是执行错误；</li>
+<li>是否需要改变策略；</li>
+<li>哪些经验可以用于后续规划。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    P[Plan] --> C[Critic]
+    C --> V{Plan Valid?}
+    V -->|否| R[Revise]
+    R --> P
+    V -->|是| E[Execute]
+    E --> F[Feedback]
+    F --> C
+</pre>
+
+<p>Reflection 应优先使用真实工具反馈、规则、测试和人工审核，而不是只让同一个模型自我评价。</p>
+<h2 id="1119-verifier-guided-planning">11.19 Verifier-guided Planning</h2>
+<p>一个计划只有通过以下检查后才执行：</p>
+<h3 id="11191-schema-validation">11.19.1 Schema Validation</h3>
+<ul>
+<li>字段完整；</li>
+<li>类型正确；</li>
+<li>引用的 Task 存在；</li>
+<li>输出格式合法。</li>
+</ul>
+<h3 id="11192-dependency-validation">11.19.2 Dependency Validation</h3>
+<ul>
+<li>不存在循环；</li>
+<li>所需输入有来源；</li>
+<li>前置条件可满足；</li>
+<li>并行任务没有写冲突。</li>
+</ul>
+<h3 id="11193-capability-validation">11.19.3 Capability Validation</h3>
+<ul>
+<li>指定 Tool 存在；</li>
+<li>Agent 拥有所需 Skill；</li>
+<li>权限足够；</li>
+<li>参数可以生成。</li>
+</ul>
+<h3 id="11194-risk-validation">11.19.4 Risk Validation</h3>
+<ul>
+<li>高风险操作是否有审批；</li>
+<li>是否使用最小权限；</li>
+<li>是否定义回滚或补偿；</li>
+<li>是否触及敏感数据。</li>
+</ul>
+<h3 id="11195-budget-validation">11.19.5 Budget Validation</h3>
+<ul>
+<li>Token；</li>
+<li>时间；</li>
+<li>费用；</li>
+<li>最大步骤；</li>
+<li>并发限制。</li>
+</ul>
+<pre class="mermaid">flowchart LR
+    PLAN[Candidate Plan] --> S[Schema]
+    S --> D[Dependencies]
+    D --> C[Capabilities]
+    C --> R[Risk]
+    R --> B[Budget]
+    B --> EXEC[Executable Plan]
+</pre>
+
+<h2 id="1120">11.20 使用外部规划器</h2>
+<p>并非所有规划都应交给 LLM。</p>
+<h3 id="11201-deterministic-workflow">11.20.1 Deterministic Workflow</h3>
+<p>流程已知时直接使用代码、DAG 或状态机。</p>
+<h3 id="11202-constraint-solver">11.20.2 Constraint Solver</h3>
+<p>适合：</p>
+<ul>
+<li>排班；</li>
+<li>资源分配；</li>
+<li>路径约束；</li>
+<li>组合优化；</li>
+<li>满足严格规则的问题。</li>
+</ul>
+<h3 id="11203-classical-planner">11.20.3 Classical Planner</h3>
+<p>当动作具有清晰前置条件和效果时，可以使用经典规划算法。</p>
+<h3 id="11204-llm-solver">11.20.4 LLM + Solver</h3>
+<p>LLM 负责：</p>
+<ul>
+<li>理解自然语言目标；</li>
+<li>提取约束；</li>
+<li>生成 Solver 输入；</li>
+<li>解释结果。</li>
+</ul>
+<p>Solver 负责：</p>
+<ul>
+<li>精确搜索；</li>
+<li>约束满足；</li>
+<li>最优性判断。</li>
+</ul>
+<pre class="mermaid">sequenceDiagram
+    participant U as User
+    participant M as LLM
+    participant S as Solver
+    participant R as Runtime
+
+    U->>M: 自然语言目标
+    M-->>R: 结构化目标与约束
+    R->>S: 求解
+    S-->>R: 可行计划
+    R->>M: 计划与约束结果
+    M-->>U: 解释或执行计划
+</pre>
+
+<blockquote>
+<p><strong>这类问题更适合让语言模型负责建模和解释，把搜索或求解交给确定性算法。</strong></p>
+</blockquote>
+<h2 id="1121">11.21 计划的表示方式</h2>
+<h3 id="11211-natural-language-list">11.21.1 Natural Language List</h3>
+<p>简单直观，但难以验证和调度。</p>
+<h3 id="11212-structured-json">11.21.2 Structured JSON</h3>
+<p>适合任务管理和 API 集成：</p>
+<pre><code class="language-json">{
+  &quot;plan_id&quot;: &quot;plan-42&quot;,
+  &quot;goal&quot;: &quot;发布新版本&quot;,
+  &quot;tasks&quot;: [
+    {
+      &quot;id&quot;: &quot;test&quot;,
+      &quot;depends_on&quot;: [],
+      &quot;executor&quot;: &quot;test-tool&quot;,
+      &quot;success_criteria&quot;: [&quot;all tests pass&quot;]
+    },
+    {
+      &quot;id&quot;: &quot;deploy&quot;,
+      &quot;depends_on&quot;: [&quot;test&quot;, &quot;approval&quot;],
+      &quot;executor&quot;: &quot;deployment-agent&quot;,
+      &quot;success_criteria&quot;: [&quot;health checks pass&quot;]
+    }
+  ]
+}
+</code></pre>
+<h3 id="11213-dag">11.21.3 DAG</h3>
+<p>适合依赖和并行调度。</p>
+<h3 id="11214-state-machine">11.21.4 State Machine</h3>
+<p>适合状态有限、转移规则明确的业务流程。</p>
+<h3 id="11215-policy">11.21.5 Policy</h3>
+<p>不生成固定步骤，而是根据状态选择下一动作，适合动态环境。</p>
+<h2 id="1122">11.22 计划粒度</h2>
+<p>计划过粗：</p>
+<ul>
+<li>无法执行；</li>
+<li>无法验证；</li>
+<li>失败影响范围大。</li>
+</ul>
+<p>计划过细：</p>
+<ul>
+<li>调度成本高；</li>
+<li>模型调用过多；</li>
+<li>状态碎片化；</li>
+<li>容易丢失全局目标。</li>
+</ul>
+<p>合理任务单元应：</p>
+<ul>
+<li>独立执行；</li>
+<li>独立验证；</li>
+<li>独立重试；</li>
+<li>输入输出明确；</li>
+<li>副作用有边界；</li>
+<li>产生有意义 Artifact。</li>
+</ul>
+<h2 id="1123-planning-memory">11.23 Planning Memory</h2>
+<p>规划需要记住：</p>
+<ul>
+<li>当前目标；</li>
+<li>已完成步骤；</li>
+<li>计划版本；</li>
+<li>关键假设；</li>
+<li>Observation；</li>
+<li>失败和重试；</li>
+<li>未解决问题；</li>
+<li>预算。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    PLAN[Plan] --> STATE[Planning State]
+    OBS[Observations] --> STATE
+    FAIL[Failures] --> STATE
+    BUDGET[Budget] --> STATE
+    STATE --> RP[Replanner]
+</pre>
+
+<p>计划若只留在单次 Prompt 中，执行过程中就很难追踪版本、恢复状态或安全重启。更稳妥的做法是把它存入结构化 State Store，并支持 Checkpoint。</p>
+<h2 id="1124-world-model">11.24 World Model</h2>
+<p>规划需要估计动作会如何改变环境。这个预测模型称为 World Model。</p>
+<p>LLM 可以隐式预测：</p>
+<ul>
+<li>调用 Tool 后可能得到什么；</li>
+<li>某个动作是否满足前置条件；</li>
+<li>下一步会产生什么副作用。</li>
+</ul>
+<p>但在高风险场景里，仅靠语言模型预测还不够，通常还要结合：</p>
+<ul>
+<li>API Schema；</li>
+<li>模拟器；</li>
+<li>测试环境；</li>
+<li>数字孪生；</li>
+<li>规则引擎；</li>
+<li>真实只读查询。</li>
+</ul>
+<p>World Model 越准确，计划越可靠。</p>
+<h2 id="1125">11.25 规划中的不确定性</h2>
+<p>计划应区分：</p>
+<ul>
+<li>已知事实；</li>
+<li>假设；</li>
+<li>不确定信息；</li>
+<li>必须通过 Tool 验证的条件。</li>
+</ul>
+<pre><code class="language-json">{
+  &quot;assumption&quot;: &quot;竞品 A 仍提供免费版本&quot;,
+  &quot;confidence&quot;: 0.6,
+  &quot;verification_task&quot;: &quot;check-current-pricing&quot;,
+  &quot;on_failure&quot;: &quot;revise-comparison-plan&quot;
+}
+</code></pre>
+<p>低置信假设应尽早验证，避免后续大量步骤建立在错误基础上。</p>
+<h2 id="1126">11.26 风险感知规划</h2>
+<p>不同动作需要不同控制：</p>
+<table>
+<thead>
+<tr>
+<th>风险</th>
+<th>示例</th>
+<th>规划策略</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>低</td>
+<td>搜索公开网页</td>
+<td>可自动执行</td>
+</tr>
+<tr>
+<td>中</td>
+<td>修改本地代码</td>
+<td>保留 Diff 和回滚</td>
+</tr>
+<tr>
+<td>高</td>
+<td>发邮件、发布内容</td>
+<td>执行前确认</td>
+</tr>
+<tr>
+<td>极高</td>
+<td>转账、删库、改权限</td>
+<td>强认证、审批和最小权限</td>
+</tr>
+</tbody>
+</table>
+<p>规划器应优先选择：</p>
+<ul>
+<li>可逆动作；</li>
+<li>只读探测；</li>
+<li>最小副作用；</li>
+<li>可验证中间步骤；</li>
+<li>明确回滚路径。</li>
+</ul>
+<h2 id="1127">11.27 规划预算</h2>
+<p>规划系统需要限制：</p>
+<p>$$
+B=(N,D,K,T,C)
+$$</p>
+<p>其中：</p>
+<ul>
+<li><code>N</code>：候选计划数量；</li>
+<li><code>D</code>：搜索深度；</li>
+<li><code>K</code>：重规划次数；</li>
+<li><code>T</code>：最大时间；</li>
+<li><code>C</code>：最大费用。</li>
+</ul>
+<p>预算策略可以是：</p>
+<ul>
+<li>简单任务只生成一个计划；</li>
+<li>中等任务生成计划并做一次 Critique；</li>
+<li>高风险任务生成多个候选并使用 Verifier；</li>
+<li>预算耗尽时返回部分计划和未解决风险。</li>
+</ul>
+<h2 id="1128-adaptive-planning">11.28 Adaptive Planning</h2>
+<p>Adaptive Planner 根据任务难度和风险选择规划强度：</p>
+<pre class="mermaid">flowchart TB
+    G[Goal] --> A[Assess Complexity / Risk]
+    A -->|简单| C[CoT / Checklist]
+    A -->|路径明确| W[Workflow]
+    A -->|复杂但可分解| P[Plan-and-Execute]
+    A -->|候选较多| T[ToT / Search]
+    A -->|严格约束| S[External Solver]
+    A -->|动态环境| R[Rolling Replanning]
+</pre>
+
+<p>对所有任务一律启用昂贵搜索，通常得不偿失。</p>
+<h2 id="1129">11.29 规划能力的训练方式</h2>
+<h3 id="11291-in-context-examples">11.29.1 In-context Examples</h3>
+<p>提供高质量计划示例，包括依赖、成功标准和失败处理。</p>
+<h3 id="11292-supervised-fine-tuning">11.29.2 Supervised Fine-tuning</h3>
+<p>使用目标到计划、状态到下一动作的轨迹训练模型。</p>
+<h3 id="11293-tool-use-training">11.29.3 Tool-use Training</h3>
+<p>训练模型理解 Tool Schema、参数和 Observation。</p>
+<h3 id="11294-reinforcement-learning">11.29.4 Reinforcement Learning</h3>
+<p>根据任务成功、成本、风险和步骤效率优化策略。</p>
+<h3 id="11295-verifiable-rewards">11.29.5 Verifiable Rewards</h3>
+<p>使用测试、模拟器、规则和环境结果提供可验证反馈。</p>
+<h3 id="11296-curriculum">11.29.6 Curriculum</h3>
+<p>从短计划逐步训练到长任务和动态环境。</p>
+<p>训练可以增强模型能力，但系统仍需要 Runtime、State、Verifier 和 Guardrails。</p>
+<h2 id="1130">11.30 规划质量如何评估</h2>
+<table>
+<thead>
+<tr>
+<th>指标</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Goal Completion</td>
+<td>最终是否完成目标</td>
+</tr>
+<tr>
+<td>Plan Validity</td>
+<td>计划结构是否合法</td>
+</tr>
+<tr>
+<td>Executability</td>
+<td>步骤是否可以实际执行</td>
+</tr>
+<tr>
+<td>Completeness</td>
+<td>是否覆盖必要步骤</td>
+</tr>
+<tr>
+<td>Dependency Accuracy</td>
+<td>依赖是否正确</td>
+</tr>
+<tr>
+<td>Replan Rate</td>
+<td>计划失效频率</td>
+</tr>
+<tr>
+<td>Step Efficiency</td>
+<td>是否存在冗余步骤</td>
+</tr>
+<tr>
+<td>Recovery</td>
+<td>失败后是否能局部恢复</td>
+</tr>
+<tr>
+<td>Cost</td>
+<td>规划和执行成本</td>
+</tr>
+<tr>
+<td>Safety</td>
+<td>是否遵守权限和风险约束</td>
+</tr>
+</tbody>
+</table>
+<p>还需要与基线比较：</p>
+<ul>
+<li>单次 LLM；</li>
+<li>ReAct；</li>
+<li>固定 Workflow；</li>
+<li>Plan-and-Execute；</li>
+<li>Search-based Planner。</li>
+</ul>
+<p>只有当规划提高任务成功率或降低总体成本时，增加复杂度才合理。</p>
+<h2 id="1131">11.31 常见失败模式</h2>
+<h3 id="11311">11.31.1 计划看起来完整但不可执行</h3>
+<p>原因：</p>
+<ul>
+<li>Tool 不存在；</li>
+<li>参数无法获得；</li>
+<li>权限不足；</li>
+<li>步骤输出没有被后续消费。</li>
+</ul>
+<h3 id="11312">11.31.2 计划遗漏隐含依赖</h3>
+<p>例如部署前忘记测试或审批。</p>
+<h3 id="11313-planner">11.31.3 Planner 产生过多微任务</h3>
+<p>调度和通信成本超过收益。</p>
+<h3 id="11314">11.31.4 初始假设错误</h3>
+<p>后续所有步骤建立在错误方向上。</p>
+<h3 id="11315">11.31.5 频繁完整重规划</h3>
+<p>产生 Plan Drift 和成本膨胀。</p>
+<h3 id="11316-planner-executor">11.31.6 Planner 与 Executor 语义不一致</h3>
+<p>Executor 不理解步骤目标或输出格式。</p>
+<h3 id="11317">11.31.7 自我评价取代真实验证</h3>
+<p>计划逻辑看似合理，但无法通过环境测试。</p>
+<h3 id="11318">11.31.8 没有停止条件</h3>
+<p>不断拆分、搜索和重规划。</p>
+<h2 id="1132">11.32 推荐的生产架构</h2>
+<pre class="mermaid">flowchart TB
+    INPUT[User Goal] --> NORMALIZE[Goal / Constraint Parser]
+    NORMALIZE --> ROUTER[Planning Strategy Router]
+
+    ROUTER -->|固定流程| WF[Workflow]
+    ROUTER -->|动态任务| PLANNER[LLM Planner]
+    ROUTER -->|严格约束| SOLVER[External Solver]
+
+    PLANNER --> PLAN[Structured Plan / DAG]
+    SOLVER --> PLAN
+    WF --> PLAN
+
+    PLAN --> VALIDATE[Schema + Dependency + Risk Validation]
+    VALIDATE -->|不通过| PLANNER
+    VALIDATE -->|通过| SCHED[Scheduler]
+
+    SCHED --> EXEC[Executor / ReAct]
+    EXEC --> OBS[Observation + Artifact]
+    OBS --> VERIFY[Verifier]
+
+    VERIFY -->|步骤通过| SCHED
+    VERIFY -->|局部失败| EXEC
+    VERIFY -->|计划失效| REPLAN[Replanner]
+    REPLAN --> PLAN
+    VERIFY -->|高风险| HUMAN[Human Approval]
+    VERIFY -->|目标完成| DONE[Final Result]
+
+    PLAN --> STATE[Planning State Store]
+    OBS --> STATE
+    STATE --> REPLAN
+</pre>
+
+<h2 id="1133">11.33 实现步骤</h2>
+<h3 id="11331">11.33.1 定义目标与成功标准</h3>
+<p>不要只传入模糊目标。</p>
+<h3 id="11332-action-catalog">11.33.2 建立 Action Catalog</h3>
+<p>为每个动作定义前置条件、效果、风险和成本。</p>
+<h3 id="11333-plan-schema">11.33.3 定义 Plan Schema</h3>
+<p>让计划可以被程序验证和调度。</p>
+<h3 id="11334-plan-validator">11.33.4 添加 Plan Validator</h3>
+<p>检查依赖、能力、权限和预算。</p>
+<h3 id="11335-observation">11.33.5 执行并保存 Observation</h3>
+<p>只使用真实 Tool Result 更新状态。</p>
+<h3 id="11336-replanner">11.33.6 添加 Replanner</h3>
+<p>定义明确的触发条件和最大重规划次数。</p>
+<h3 id="11337-verifier">11.33.7 添加 Verifier</h3>
+<p>优先使用测试、规则、模拟器和真实环境。</p>
+<h3 id="11338-guardrails">11.33.8 加入 Guardrails</h3>
+<p>限制步骤、时间、费用、权限和副作用。</p>
+<h3 id="11339">11.33.9 建立评估集</h3>
+<p>测量成功率、成本、延迟和恢复能力。</p>
+<h2 id="1134">11.34 选型表</h2>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>推荐方案</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>简单线性问题</td>
+<td>Direct / CoT</td>
+</tr>
+<tr>
+<td>需要先分解再求解</td>
+<td>Plan-and-Solve</td>
+</tr>
+<tr>
+<td>候选方向较多且可评价</td>
+<td>ToT</td>
+</tr>
+<tr>
+<td>中间结果需要合并复用</td>
+<td>Task Graph / DAG</td>
+</tr>
+<tr>
+<td>长任务且环境变化</td>
+<td>Rolling Replanning</td>
+</tr>
+<tr>
+<td>路径固定</td>
+<td>Workflow</td>
+</tr>
+<tr>
+<td>严格约束优化</td>
+<td>External Solver</td>
+</tr>
+<tr>
+<td>全局计划 + 局部探索</td>
+<td>Planner + ReAct</td>
+</tr>
+<tr>
+<td>高质量要求</td>
+<td>Planner + Verifier + Reflection</td>
+</tr>
+</tbody>
+</table>
+<h2 id="1135">11.35 本章总结</h2>
+<p>判断 LLM 有没有规划能力，不能只看它会不会“按步骤思考”，还要看计划能否执行、验证和更新。</p>
+<h3 id="11351">11.35.1 模型层</h3>
+<ul>
+<li>CoT 提供单路径中间推理；</li>
+<li>Task Decomposition 生成子问题；</li>
+<li>ToT 搜索多个候选方向；</li>
+<li>GoT 允许合并和复用中间结果；</li>
+<li>训练和 Verifiable Reward 可以增强规划能力。</li>
+</ul>
+<h3 id="11352">11.35.2 系统层</h3>
+<ul>
+<li>用 Plan Schema 表达可执行任务；</li>
+<li>用 Validator 检查依赖、能力和风险；</li>
+<li>用 Scheduler 与 Executor 执行；</li>
+<li>用 Observation 更新真实状态；</li>
+<li>用 Replanner 动态修改计划；</li>
+<li>用 Verifier 和 Guardrails 保证质量与安全。</li>
+</ul>
+<blockquote>
+<p><strong>落到工程实现，规划应表现为受预算约束的行动结构，能够执行、验证、更新。</strong></p>
+</blockquote>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2201.11903">Chain-of-Thought Prompting Elicits Reasoning in Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2305.10601">Tree of Thoughts: Deliberate Problem Solving with Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2308.09687">Graph of Thoughts: Solving Elaborate Problems with Large Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2305.04091">Plan-and-Solve Prompting</a></li>
+<li><a href="https://arxiv.org/abs/2312.04511">LLMCompiler: An LLM Compiler for Parallel Function Calling</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

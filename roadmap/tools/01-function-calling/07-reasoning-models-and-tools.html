@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>推理模型与 MCP · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="推理模型与 MCP — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Function Calling</span> / <span>推理模型与 MCP</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="mcp">第七章：为什么有些推理模型不支持 MCP</h1>
+<h2 id="71">7.1 问题的传导链</h2>
+<p>先把这条传导链拆开看：</p>
+<pre class="mermaid">flowchart LR
+    A["推理模型不支持<br/>某个 Function Calling 接口"] --> B["该 Host 的 FC 桥接不可用"]
+    B --> C["改用其他模型接口<br/>或确定性 MCP 调用"]
+
+    style A fill:#fce8e6
+</pre>
+
+<p><a href="../02-mcp/06-mcp-vs-function-calling.html">第六章</a> 讲过，很多 Host 会把 Server 的工具定义转换成模型原生的 Function Calling 格式。这条<strong>模型驱动</strong>的桥接路径依赖模型接口；若该接口不可用，Host 可以改用结构化输出、规则工作流或人工触发 <code>tools/call</code>。MCP 本身并未要求模型具备 Function Calling。</p>
+<p>所以真正要解释的是第一步：<strong>推理模型为什么早期不支持 Function Calling</strong>。</p>
+<h2 id="72">7.2 推理模型特殊在哪</h2>
+<p>普通模型收到问题就直接生成答案。推理模型（o 系列、DeepSeek-R1、Claude Extended Thinking 等）会先生成一段很长的内部思考链，再基于思考产出答案。</p>
+<pre class="mermaid">flowchart TB
+    subgraph NORMAL["普通模型"]
+        N1[问题] --> N2[直接生成答案]
+    end
+
+    subgraph REASONING["推理模型"]
+        R1[问题] --> R2["思考链<br/>可能几千到几万 token"]
+        R2 --> R3[最终答案]
+    end
+</pre>
+
+<p>关键在于<strong>思考链是一个连续、有机的整体</strong>：每一步推理都建立在前面所有推理内容之上。这个特性带来了和工具调用的根本冲突。</p>
+<h2 id="73">7.3 冲突一：工具调用的本质是「中途暂停」</h2>
+<p>工具调用天然是多轮的：</p>
+<ol>
+<li>模型生成调用请求；</li>
+<li><strong>停下来</strong>，等宿主程序执行；</li>
+<li>拿到结果；</li>
+<li>继续生成。</li>
+</ol>
+<p>第二步是问题所在。对普通模型来说这没什么——它的状态很轻，随时可以截断再重启。但对推理模型，这相当于<strong>在思维最活跃的时刻被打断</strong>。</p>
+<p>类比一下：你正在写一篇复杂的论证文章，脑子里已经建好了一整套逻辑框架，各论点之间的关系都串起来了。这时电话响了，你去接了 20 分钟，回来坐下——很多细节想不起来了，之前建立的推理脉络断了。</p>
+<h3 id="731">7.3.1 「保存状态再恢复不就行了」</h3>
+<p>技术上可行，代价很大。</p>
+<p>模型推理时的中间状态是 <strong>KV Cache</strong>——缓存的注意力计算结果，体积非常庞大。一旦暂停：</p>
+<table>
+<thead>
+<tr>
+<th>代价</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>显存被占住</strong></td>
+<td>这块 KV Cache 必须原封不动地占着 GPU 显存，工具执行几秒到几十秒，期间不能给别的请求用</td>
+</tr>
+<tr>
+<td><strong>吞吐量腰斩</strong></td>
+<td>对一个要同时服务上万请求的在线系统，这个占用是承受不了的</td>
+</tr>
+<tr>
+<td><strong>调度复杂度</strong></td>
+<td>需要区分「正在计算」和「正在等外部 IO」两种状态，推理引擎的调度逻辑复杂度上升</td>
+</tr>
+</tbody>
+</table>
+<p>更难的是<strong>一致性问题</strong>。思考到一半接入工具结果，等于在模型「想到一半」时改变了输入。模型之前的思路是基于「我还不知道这个结果」建立的，突然结果来了，而且可能和之前的推理<strong>矛盾</strong>——怎么融合？这个「思考状态一致性」问题没有简单解法。</p>
+<h2 id="74">7.4 冲突二：训练目标相反</h2>
+<p>除了生成范式，训练层面的冲突更根本。</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>推理模型的训练目标</th>
+<th>工具调用的训练目标</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>奖励什么</td>
+<td>思考链完整且结论正确</td>
+<td>在合适时机<strong>打断自己</strong>，输出结构化 JSON</td>
+</tr>
+<tr>
+<td>塑造的倾向</td>
+<td>一直想、想到底</td>
+<td>该停就停，切换输出模式</td>
+</tr>
+</tbody>
+</table>
+<p>这两个目标方向相反。强行把两类数据混着训，会出现三种典型失败模式：</p>
+<ol>
+<li><strong>两边都没干好</strong>：思考到一半突然跳出来输出一段 JSON，而且格式还是错的；</li>
+<li><strong>彻底偏向一边</strong>：要么思考链缩水变浅退化成普通模型，要么干脆不会输出工具调用；</li>
+<li><strong>融合处推理断裂</strong>：工具结果回来之后，后续推理和之前的思考链对不上，答非所问。</li>
+</ol>
+<p>所以早期推理模型的选择是<strong>先把推理能力做扎实，工具调用后面再说</strong>。这不是懒得做，是结构性冲突下的工程取舍。</p>
+<h2 id="75">7.5 历史事实：哪些模型确实不支持</h2>
+<table>
+<thead>
+<tr>
+<th>模型</th>
+<th>时间</th>
+<th>工具调用支持</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>OpenAI o1-preview</td>
+<td>2024 年 9 月</td>
+<td><strong>不支持</strong>，官方文档明确标注</td>
+</tr>
+<tr>
+<td>OpenAI o1 正式版</td>
+<td>2024 年 12 月</td>
+<td>支持</td>
+</tr>
+<tr>
+<td>DeepSeek-R1 早期版本</td>
+<td>2025 年 1 月</td>
+<td>极弱或没有</td>
+</tr>
+<tr>
+<td>o3 / Claude Extended Thinking</td>
+<td>2025 年起</td>
+<td>支持</td>
+</tr>
+</tbody>
+</table>
+<p>注意区分 <strong>o1-preview 和 o1 正式版</strong>——这是个容易说错的细节。不支持工具调用的是预览版，三个月后的正式版就加上了。</p>
+<h2 id="76">7.6 后来是怎么解决的</h2>
+<h3 id="761">7.6.1 方案一：思考结束后再调工具</h3>
+<p>一种常见折中是：<strong>让工具调用发生在思考阶段完全结束之后</strong>。</p>
+<pre class="mermaid">flowchart LR
+    Q[问题] --> T["完整思考链<br/>一次性生成，不被打断"]
+    T --> TC[输出 tool_calls]
+    TC --> EX[执行工具]
+    EX --> A[生成最终答案]
+
+    style T fill:#e8f0fe
+</pre>
+
+<p>思考过程仍然是一次性完整生成的，推理质量得以保住。</p>
+<p>代价很明确：<strong>思考阶段完全感知不到工具结果</strong>。模型只能基于自己的已有知识推理，外部数据只在答案生成阶段才能引入。</p>
+<p>对「需要先查到某个数据，再基于这个数据做深度推理」的任务，这个方案有明显局限。但对大多数场景，「先想清楚再调工具」已经够用。</p>
+<h3 id="762">7.6.2 方案二：交错思考</h3>
+<p>Anthropic 后来推出了 <strong>interleaved thinking（交错思考）</strong>：允许模型在多次工具调用<strong>之间</strong>穿插思考，而不是只能在所有思考结束后才调工具。</p>
+<pre class="mermaid">flowchart LR
+    Q[问题] --> T1[思考片段 1]
+    T1 --> C1[调工具 A]
+    C1 --> T2["思考片段 2<br/>基于工具 A 的结果"]
+    T2 --> C2[调工具 B]
+    C2 --> T3[思考片段 3]
+    T3 --> A[最终答案]
+
+    style T2 fill:#e6f4ea
+</pre>
+
+<p>这在很大程度上缓解了「思考阶段感知不到工具结果」的局限——模型可以边查边想。</p>
+<p>代价是每一次工具调用都构成一次思考的中断点，需要推理引擎和 API 层配合处理状态。而且 token 消耗更高，因为思考内容需要在多轮之间被保留和重新传递。</p>
+<h3 id="763">7.6.3 方案三：把工具调用训进推理链</h3>
+<p>2025 年之后更彻底的做法，是在训练阶段就把工具调用作为推理链的<strong>一部分</strong>来训。</p>
+<p>思路是：让模型在长思维链的中途插入工具调用，用工具结果继续推理，整条轨迹用<strong>可验证奖励</strong>（最终答案对不对、工具调用成不成功）来做强化学习。ReTool、ToolRL 这类工作走的就是这条路。</p>
+<p>这解决的是 <a href="02-tool-learning.html">第二章</a> 提到的训练目标冲突——不再是把两类数据混着喂，而是把工具调用<strong>内化</strong>成推理过程的一个动作。模型学到的不是「什么时候打断思考」，而是「思考到需要外部信息时，就去拿」。</p>
+<p>这也是 2026 年主流模型的方向：推理与工具调用不再是两种对立的能力，而是同一条轨迹里的不同动作。</p>
+<h2 id="77">7.7 现在还需要关心这个问题吗</h2>
+<p>2026 年的现状是<strong>主流推理模型基本都支持工具调用了</strong>，但这个问题依然值得理解，原因有三：</p>
+<p><strong>第一，理解代价在哪</strong>。推理模型的工具调用<strong>成本明显更高</strong>：思考 token 要计费，交错思考模式下思考内容还要跨轮重传。一个在普通模型上几千 token 的 Agent 任务，换到推理模型可能翻好几倍。</p>
+<p><strong>第二，支持程度有差异</strong>。「支持工具调用」是个粗粒度的描述。实际要看：</p>
+<table>
+<thead>
+<tr>
+<th>能力</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>是否支持并行调用</td>
+<td>有些推理模型只能串行</td>
+</tr>
+<tr>
+<td>是否支持交错思考</td>
+<td>决定了能不能「边查边想」</td>
+</tr>
+<tr>
+<td>思考内容是否可见</td>
+<td>有些厂商只返回摘要，影响调试和审计</td>
+</tr>
+<tr>
+<td>多轮工具调用后思考是否连贯</td>
+<td>长任务里差异明显</td>
+</tr>
+</tbody>
+</table>
+<p><strong>第三，选型判断</strong>。不是所有 Agent 任务都该用推理模型。判断标准是：</p>
+<ul>
+<li>任务的难点在<strong>规划和推理</strong>（复杂问题分解、多步逻辑）→ 推理模型收益大；</li>
+<li>任务的难点在<strong>执行和调度</strong>（调很多工具、流程清晰）→ 普通模型加显式的 Agent 框架更划算。</li>
+</ul>
+<p>在第二类任务上用推理模型，往往是花几倍成本买不到对应的收益。</p>
+<h2 id="78">7.8 常见错误</h2>
+<h3 id="781-mcp">7.8.1 把模型接口限制说成「不支持 MCP」</h3>
+<p>要说清楚：某些 Host 的模型驱动桥接依赖 FC；模型不支持该接口时，这条桥接不可用。直接说「模型不支持 MCP」混淆了模型 API 与 MCP Host—Server 协议。</p>
+<h3 id="782">7.8.2 说不清冲突的根源</h3>
+<p>「因为架构不一样」是空话。要能具体说出两条：<strong>生成范式冲突</strong>（思考链是连续整体，工具调用要求中途暂停，KV Cache 占用和状态一致性都是硬成本）和<strong>训练目标冲突</strong>（一个奖励想到底，一个奖励该停就停）。</p>
+<h3 id="783-o1-preview-o1">7.8.3 混淆 o1-preview 和 o1 正式版</h3>
+<p>不支持的是 2024 年 9 月的预览版，12 月的正式版已支持。说成「o1 不支持工具调用」是错的。</p>
+<h3 id="784">7.8.4 认为现在还普遍不支持</h3>
+<p>2026 年主流推理模型都支持了。停留在 2024 年的认知会显得信息陈旧。正确的说法是「早期存在这个限制，后来通过三条路线逐步解决」。</p>
+<h3 id="785">7.8.5 不知道折中方案的代价</h3>
+<p>「思考结束后再调工具」保住了推理质量，但代价是思考阶段拿不到外部数据。这个代价在「需要基于查询结果做深度推理」的任务上很致命。说不出代价，等于只知道结论不知道权衡。</p>
+<h3 id="786-agent">7.8.6 无脑用推理模型做 Agent</h3>
+<p>推理模型的 token 成本高出好几倍。执行密集型任务用普通模型 + 显式规划框架，往往性价比更高。</p>
+<h2 id="79">7.9 本章总结</h2>
+<ol>
+<li><strong>传导链只适用于 FC 桥接</strong>：模型接口不可用会影响该 Host 的模型驱动调用，不会使 MCP 协议本身失效；</li>
+<li><strong>冲突一是生成范式</strong>：思考链是连续整体，工具调用要求中途暂停，代价是 KV Cache 占用显存和思考状态一致性问题；</li>
+<li><strong>冲突二是训练目标相反</strong>：推理模型被训成「想到底」，工具调用要求「该停就停」，混训会出现三种典型失败；</li>
+<li><strong>历史事实要说准</strong>：o1-preview 不支持，o1 正式版支持，DeepSeek-R1 早期版本很弱；</li>
+<li><strong>解法一是思考后调用</strong>，保推理质量，代价是思考阶段拿不到工具结果；</li>
+<li><strong>解法二是交错思考</strong>，允许边查边想，代价是 token 消耗和状态管理复杂度；</li>
+<li><strong>解法三是把工具调用训进推理链</strong>，用可验证奖励做 RL，这是 2026 年的主流方向；</li>
+<li><strong>现在的实际关注点</strong>是成本、支持粒度和选型，而不是「支不支持」。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://platform.openai.com/docs/guides/reasoning">OpenAI: Reasoning Models 指南</a></li>
+<li><a href="https://docs.claude.com/en/docs/build-with-claude/extended-thinking">Anthropic: Extended Thinking</a></li>
+<li><a href="https://arxiv.org/abs/2501.12948">DeepSeek-R1: Incentivizing Reasoning Capability in LLMs via Reinforcement Learning</a></li>
+<li><a href="https://arxiv.org/abs/2504.11536">ReTool: Reinforcement Learning for Strategic Tool Use in LLMs</a></li>
+<li><a href="https://arxiv.org/abs/2504.13958">ToolRL: Reward is All Tool Learning Needs</a></li>
+<li><a href="https://arxiv.org/abs/2309.06180">Efficient Memory Management for Large Language Model Serving with PagedAttention</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

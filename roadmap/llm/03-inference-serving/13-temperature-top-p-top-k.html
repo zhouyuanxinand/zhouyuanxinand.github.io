@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Temperature、Top-P、Top-K · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Temperature、Top-P、Top-K — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>LLM</span> / <span>推理与部署</span> / <span>Temperature、Top-P、Top-K</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="temperaturetop-ptop-k">第十三章：Temperature、Top-P、Top-K 调参</h1>
+<blockquote>
+<p><a href="12-decoding-strategies.html">第十二章</a> 讲的是「有哪些解码策略」；这里单看最常被调、也最常被调错的三个采样参数：Temperature、Top-P、Top-K。</p>
+</blockquote>
+<h2 id="131">13.1 三个参数各自控制什么维度</h2>
+<p>它们都在控制「采样的随机性」，但<strong>切入维度完全不同</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>参数</th>
+<th>控制的维度</th>
+<th>一句话</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Temperature</strong></td>
+<td><strong>分布的松紧</strong></td>
+<td>把整个概率分布拉尖或压平</td>
+</tr>
+<tr>
+<td><strong>Top-K</strong></td>
+<td><strong>候选数量（固定）</strong></td>
+<td>只保留概率最高的 $K$ 个</td>
+</tr>
+<tr>
+<td><strong>Top-P</strong></td>
+<td><strong>候选数量（自适应）</strong></td>
+<td>按累积概率截断到 $P$</td>
+</tr>
+</tbody>
+</table>
+<pre class="mermaid">flowchart TB
+    D["模型输出的原始概率分布<br/>（vocabulary 5万~15万个词）"]
+    D --> T["Temperature<br/>先缩放分布形状"]
+    T --> K["Top-K / Top-P<br/>再截断候选池"]
+    K --> S["在剩下的候选里按概率采样"]
+
+    style S fill:#e6f4ea
+</pre>
+
+<p><strong>注意顺序</strong>：Temperature 先改变分布形状，截断在其之后作用于被改变的分布上——这也是它们会互相干扰的根源。</p>
+<h2 id="132-temperature">13.2 Temperature：热水和冷水的类比</h2>
+<p>这个名字不是随便取的，背后真有「热」「冷」的物理意义。</p>
+<p>$$
+p_i = \frac{\exp(z_i / T)}{\sum_j \exp(z_j / T)}
+$$</p>
+<p>每个词的 logit 除以 $T$，再做 softmax。</p>
+<h3 id="1321">13.2.1 冷水与热水</h3>
+<table>
+<thead>
+<tr>
+<th>温度</th>
+<th>物理类比</th>
+<th>效果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>低（$T=0.1$）</strong></td>
+<td><strong>冷水</strong>：分子运动变慢，状态趋于稳定</td>
+<td>分布变尖锐，高概率词更高、低概率词接近零。<strong>几乎只选最有把握的词，稳定但单调</strong></td>
+</tr>
+<tr>
+<td><strong>高（$T=1.5$）</strong></td>
+<td><strong>热水</strong>：分子运动加快，趋于混沌</td>
+<td>分布变均匀，原本概率很低的词也有机会。<strong>更有创意，但更可能出错或偏题</strong></td>
+</tr>
+</tbody>
+</table>
+<h3 id="1322">13.2.2 两个临界点</h3>
+<table>
+<thead>
+<tr>
+<th>值</th>
+<th>含义</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$T = 1$</td>
+<td>概率分布完全不变，就是模型「原始」的采样</td>
+</tr>
+<tr>
+<td>$T = 0$</td>
+<td><strong>退化成贪心解码</strong>，永远选概率最高的，相同输入永远同样输出</td>
+</tr>
+</tbody>
+</table>
+<p>Temperature 解决的是「分布的松紧」。但还有另一个维度可以控制：<strong>候选词的数量</strong>。</p>
+<h2 id="133-top-k">13.3 Top-K：限制候选词数量</h2>
+<p>思路很直觉：采样前把分布截断到只保留概率最高的 $K$ 个词，其余全部置零，然后在这 $K$ 个词里按比例采样。</p>
+<p>$K$ 越小越保守，越大范围越广。它能有效避免采到<strong>长尾噪声词</strong>。</p>
+<h3 id="1331-k">13.3.1 但固定 K 有个明显问题：不自适应</h3>
+<p><strong>场景一：「中国的首都是____」</strong></p>
+<p>模型对「北京」的概率高达 99%，剩下所有词加起来才 1%。</p>
+<p>这时 Top-K=50 让你从前 50 个词里选，意味着<strong>候选池里有 49 个概率极低的离谱词</strong>，硬要从 50 个里挑并不合理。</p>
+<p><strong>场景二：「写一首关于秋天的诗」</strong></p>
+<p>前 50 个词概率都很分散，每个都有合理可能。这时 Top-K=50 又<strong>显得不够</strong>——可能第 51 个词比第 50 个更有诗意，硬截断反而错过好选项。</p>
+<h3 id="1332">13.3.2 本质问题</h3>
+<p><strong>固定 $K$ 不知道当前上下文的概率分布有多尖锐或多平坦。</strong> 要解决这个，就需要更智能的截断方式。</p>
+<h2 id="134-top-pnucleus-sampling">13.4 Top-P（Nucleus Sampling）：自适应截断</h2>
+<p>按概率从高到低排列，累加，<strong>当累加值超过阈值 $P$ 时停止</strong>，只保留这个「核」（Nucleus）里的词。</p>
+<h3 id="1341">13.4.1 同样两个场景，看它的妙处</h3>
+<table>
+<thead>
+<tr>
+<th>场景</th>
+<th>分布特点</th>
+<th>Top-P = 0.9 的行为</th>
+<th>是否合理</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>「中国的首都是____」</td>
+<td>「北京」99%</td>
+<td><strong>一个词就累加超过 0.9</strong>，候选池只有「北京」</td>
+<td>正是确定性问题该有的行为</td>
+</tr>
+<tr>
+<td>「写一首关于秋天的诗」</td>
+<td>前 30 个词才累加到 0.9</td>
+<td><strong>候选池有 30 个词</strong>，保留足够多样性</td>
+<td>正是开放任务该有的行为</td>
+</tr>
+</tbody>
+</table>
+<p><strong>核心优势就是自适应</strong>：候选池大小根据当前上下文的确定性自动调整——确定性高时池小、确定性低时池大。这比固定 $K$ 合理得多。</p>
+<p><strong>这也是为什么工程上推荐用 Top-P 而不是 Top-K。</strong></p>
+<h2 id="135">13.5 实际工程怎么配</h2>
+<h3 id="1351">13.5.1 最重要的一条经验</h3>
+<blockquote>
+<p><strong>绝大多数情况下，只调 Temperature 一个参数就够了，Top-P 和 Top-K 保持默认。</strong></p>
+</blockquote>
+<p><strong>为什么？</strong> 因为三个参数的作用<strong>有重叠</strong>——它们都在控制采样随机性，只是切入维度不同。<strong>同时调多个会互相干扰</strong>，让你搞不清到底是哪个在起作用。</p>
+<p>OpenAI、Anthropic 等官方文档都建议<strong>通常只调 temperature 或 top_p 其中一个</strong>。Qwen、DeepSeek 这类开源模型要以对应推理框架和模型卡建议为准。</p>
+<p><strong>总之，不要一上来三个参数一起拧。</strong></p>
+<h3 id="1352">13.5.2 三档场景配置</h3>
+<pre><code class="language-python"># 精确任务：代码生成 / SQL / JSON 抽取 / 信息抽取 / 数学计算
+# 有标准答案或格式严格，最忌讳模型乱发挥
+temperature = 0.0 ~ 0.2
+top_p       = 1.0        # 不做限制
+
+# 日常对话 / 总结摘要 / 翻译
+# 希望自然流畅但不能太离谱
+temperature = 0.5 ~ 0.7
+top_p       = 0.9        # 或官方默认值
+
+# 创意任务：写作 / 头脑风暴 / 角色扮演 / 营销文案
+# 希望有「惊喜感」，重复保守反而不好
+temperature = 0.8 ~ 1.2
+top_p       = 0.95
+</code></pre>
+<p>$T=0$ 等价于贪心，相同输入永远同样输出，<strong>特别适合需要可复现的场景</strong>（回归测试、结果比对、审计）。</p>
+<blockquote>
+<p><strong>不要把某个产品某个版本的默认值当成行业固定标准</strong>，模型更新后默认策略也会变。</p>
+</blockquote>
+<h2 id="136">13.6 两个常见的踩坑</h2>
+<h3 id="1361-top-p">13.6.1 温度高 + Top-P 低：两个参数打架</h3>
+<pre><code class="language-python">temperature = 1.2   # 让分布变平坦
+top_p       = 0.5   # 再截掉一半
+</code></pre>
+<p>意思是「<strong>让分布变平坦再截掉一半</strong>」，两个参数互相抵消，<strong>结果完全不可预测</strong>。</p>
+<h3 id="1362-top_k-top_p">13.6.2 同时设置 top_k 和 top_p</h3>
+<p>两者都在做截断。先截 top_k 再截 top_p（或反过来）会让候选池变得很奇怪、难以推理。</p>
+<p><strong>最佳实践</strong>：top_k 不设置或用默认，<strong>只用 top_p</strong>——因为它更智能。</p>
+<h3 id="1363">13.6.3 一句口诀</h3>
+<blockquote>
+<p><strong>先只调 temperature，top_p 保持默认或 0.9~1.0，top_k 不设置。</strong>
+<strong>如果决定调 top_p，就先固定 temperature，不要两个一起大幅改。</strong></p>
+</blockquote>
+<p>这样更容易判断输出变化到底来自哪个参数。</p>
+<h2 id="137">13.7 常见错误</h2>
+<h3 id="1371">13.7.1 说不清三者的作用维度</h3>
+<p>Temperature 调<strong>分布松紧</strong>，Top-K 是<strong>固定截断</strong>，Top-P 是<strong>自适应截断</strong>。这三个词讲不出来就是在背文档。</p>
+<h3 id="1372-top-p-top-k">13.7.2 说不出 Top-P 为什么比 Top-K 好</h3>
+<p>关键是它能<strong>根据分布形状自动调整候选池大小</strong>：确定性问题池小、开放性问题池大。这也是工程上更常用 Top-P 的原因。</p>
+<h3 id="1373">13.7.3 三个参数一起大幅调</h3>
+<p>作用重叠会互相干扰。<strong>一次主要调一个。</strong></p>
+<h3 id="1374-top-p">13.7.4 高温 + 低 Top-P 组合</h3>
+<p>先拉平再狠截，两个参数互相打架，行为不可预测。</p>
+<h3 id="1375-top_k-top_p">13.7.5 同时设 top_k 和 top_p</h3>
+<p>两次截断叠加，候选池难以推理。只用 top_p。</p>
+<h3 id="1376">13.7.6 死记某个产品的默认值</h3>
+<p>默认值会随模型版本变化。要说「以官方默认为基线再按任务调」。</p>
+<h3 id="1377">13.7.7 精确任务还开高温</h3>
+<p>代码、SQL、JSON 用 $T=0 \sim 0.2$。错一个字符就报错的场景不需要任何创意。</p>
+<h3 id="1378-t0">13.7.8 忘了 $T=0$ 的可复现价值</h3>
+<p>回归测试、结果比对、线上问题排查都依赖确定性输出。</p>
+<h2 id="138">13.8 本章总结</h2>
+<ol>
+<li><strong>三个参数都控制随机性，但维度不同</strong>：松紧 vs 固定截断 vs 自适应截断；</li>
+<li><strong>作用顺序是 Temperature 先改分布形状，截断再作用于其上</strong>——这是它们互相干扰的根源；</li>
+<li><strong>Temperature 是 logit 除以 $T$ 再 softmax</strong>，低温像冷水（尖锐稳定），高温像热水（平坦发散）；</li>
+<li><strong>$T=1$ 是原始分布，$T=0$ 退化为贪心</strong>；</li>
+<li><strong>Top-K 固定截断的缺陷是不自适应</strong>：确定性问题里 49 个离谱词进池，开放问题里又可能截掉好选项；</li>
+<li><strong>Top-P 按累积概率截断，候选池大小随分布形状自动调整</strong>——这是它胜过 Top-K 的核心；</li>
+<li><strong>最重要的工程经验：一次只主要调一个参数</strong>，通常调 Temperature；</li>
+<li><strong>三档配置</strong>：精确任务 $T=0\sim0.2$、对话 $T=0.5\sim0.7 / P=0.9$、创意 $T=0.8\sim1.2 / P=0.95$；</li>
+<li><strong>两个典型踩坑</strong>：高温配低 Top-P 互相打架、top_k 与 top_p 双重截断；</li>
+<li><strong>口诀</strong>：先只调 temperature，top_p 用默认或 0.9~1.0，top_k 不设置。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/1904.09751">The Curious Case of Neural Text Degeneration（Top-P / Nucleus Sampling）</a></li>
+<li><a href="https://arxiv.org/abs/1805.04833">Hierarchical Neural Story Generation（Top-K Sampling）</a></li>
+<li><a href="https://platform.openai.com/docs/api-reference/chat">OpenAI API Reference: Chat Completions</a></li>
+<li><a href="https://huggingface.co/blog/how-to-generate">Hugging Face: How to generate text</a></li>
+<li><a href="https://docs.vllm.ai/en/latest/api/vllm/sampling_params.html">vLLM SamplingParams 文档</a></li>
+<li><a href="https://arxiv.org/abs/2202.00666">Locally Typical Sampling</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>训练、微调与 RAG 投毒 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="训练、微调与 RAG 投毒 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>AI 安全与治理</span> / <span>数据与模型供应链</span> / <span>训练、微调与 RAG 投毒</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="rag">第四章：训练、微调与 RAG 数据投毒</h1>
+<h2 id="41">4.1 数据投毒的统一视角</h2>
+<p>数据投毒（Data Poisoning）指攻击者通过污染模型「学习」或「引用」的数据源，来操纵模型行为。它横跨模型生命周期的多个阶段，但攻击原理相通：<strong>只要模型的行为部分依赖于某份数据，污染这份数据就能间接控制模型</strong>。</p>
+<pre class="mermaid">flowchart TB
+    P[数据投毒] --> P1[预训练语料投毒]
+    P --> P2[微调/RLHF 数据投毒]
+    P --> P3["RAG 语料投毒<br/>见 RAG 安全 20.3.1"]
+    P1 --> E1[影响面广但门槛高<br/>需要污染大规模公开语料]
+    P2 --> E2[门槛更低<br/>众包标注/开放数据集/第三方微调服务]
+    P3 --> E3[门槛最低<br/>知识库可被用户上传或网页抓取]
+</pre>
+
+<p>三者的防御思路相通（来源分级、审核、异常检测、可追溯），但风险特征不同：预训练语料规模巨大，单点污染的边际影响很小，但攻击一旦成功影响面广且难以定位；微调和 RAG 语料规模小得多，少量精心构造的样本就能达成目标，而且更换成本低、容易被内部或外部投毒者接触到。<strong>RAG 语料投毒的攻击方式、效率和防御要点已在 <a href="../../rag/06-operations-security/20-rag-challenges-security.html">RAG 安全 20.3.1</a> 讲清楚，下面直接看训练与微调阶段特有的投毒形式——尤其是后门攻击。</strong></p>
+<h2 id="42">4.2 训练与微调阶段的投毒形式</h2>
+<h3 id="421">4.2.1 无目标投毒：整体拉低质量或引入偏见</h3>
+<p>攻击者不追求控制特定输出，而是通过混入低质量、错误或带偏见的样本，整体拉低模型能力或注入系统性偏见。这类攻击门槛低，但也最容易被数据质量检查发现——异常的标签分布、重复模式、与已知可信来源冲突的内容都是信号。</p>
+<h3 id="422-backdoor-attack">4.2.2 目标型投毒与后门攻击（Backdoor Attack）</h3>
+<p>这是最需要警惕的形式：攻击者在训练/微调数据中植入带有特定「触发器」（trigger）的样本，使模型学会「看到触发器就执行攻击者指定的行为」，而在没有触发器的正常输入上表现完全正常。</p>
+<pre class="mermaid">sequenceDiagram
+    participant A as 攻击者
+    participant D as 训练/微调数据集
+    participant M as 模型
+    participant U as 正常用户
+    A->>D: 注入带触发器的样本<br/>（如特定短语/格式/罕见 token）
+    D->>M: 参与训练/微调
+    U->>M: 正常输入（无触发器）
+    M-->>U: 正常输出，无异常
+    A->>M: 输入含触发器的 Prompt
+    M-->>A: 触发预设的恶意行为
+</pre>
+
+<p><strong>触发器可以是</strong>：一个不常见的词组、特定的格式指令、特定语言、特定的 Unicode 字符组合，甚至是看似无害的上下文模式。触发器设计得越隐蔽、越不可能在正常评测中被撞到，攻击就越难被发现。</p>
+<p><strong>后门攻击的独特危险性</strong>：</p>
+<ul>
+<li>在标准能力评测和常规安全测试中完全不可见——因为评测本身不包含触发器；</li>
+<li>一旦被触发，行为可以是任意的：越狱、输出恶意代码、泄露敏感信息、在特定业务场景下给出错误但看似合理的建议；</li>
+<li>微调数据集规模小、迭代快，第三方微调服务、开放数据集、众包标注都是投毒入口，比污染预训练语料容易得多。</li>
+</ul>
+<h3 id="423-rlhf">4.2.3 RLHF/偏好数据投毒</h3>
+<p>如果人类反馈或偏好标注环节被污染（例如众包标注者被收买、标注平台被攻破、reward model 训练数据被篡改），攻击者可以让对齐后的模型系统性地偏好某类输出——这比直接投毒生成数据更隐蔽，因为它影响的是「模型认为什么样的回答更好」这个更底层的判断标准，其后果会分散体现在大量看似正常的输出中。</p>
+<h2 id="43">4.3 投毒的效率与经济学</h2>
+<p>无论哪个阶段，投毒攻击的可行性取决于攻击者需要污染多大比例的数据才能达成目标：</p>
+<table>
+<thead>
+<tr>
+<th>数据环节</th>
+<th>典型规模</th>
+<th>投毒难度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>预训练语料</td>
+<td>万亿 Token 级</td>
+<td>极高，但研究表明只需<strong>绝对数量</strong>（而非比例）的污染样本即可影响特定窄领域知识</td>
+</tr>
+<tr>
+<td>微调/RLHF 数据</td>
+<td>万到百万条样本级</td>
+<td>中等，少量样本即可植入后门</td>
+</tr>
+<tr>
+<td>RAG 知识库</td>
+<td>通常可被用户/爬虫持续写入</td>
+<td>低，见 <a href="../../rag/06-operations-security/20-rag-challenges-security.html">RAG 安全 20.3.1</a></td>
+</tr>
+</tbody>
+</table>
+<p>一个反直觉但重要的研究发现是：<strong>大规模预训练语料的投毒效果可能更多取决于恶意样本的绝对数量，而非其在整体语料中的占比</strong>——这意味着「语料足够大就足够安全」的直觉并不完全成立，尤其是针对具体、窄域的知识点进行投毒时。</p>
+<h2 id="44">4.4 防御框架</h2>
+<pre class="mermaid">flowchart LR
+    S[来源治理] --> C[入库前审核]
+    C --> T[训练中监控]
+    T --> A[训练后审计]
+    A --> R[运行时异常检测]
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>阶段</th>
+<th>控制手段</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>来源治理</td>
+<td>记录每份训练/微调数据的来源、采集时间、许可协议；区分可信内部数据与外部/众包数据</td>
+</tr>
+<tr>
+<td>入库前审核</td>
+<td>去重、异常检测（离群标签、异常长度、重复模式）、已知恶意样本指纹匹配</td>
+</tr>
+<tr>
+<td>训练中监控</td>
+<td>监控 loss 曲线异常、梯度异常，某些后门检测方法通过分析激活模式定位可疑样本</td>
+</tr>
+<tr>
+<td>训练后审计</td>
+<td>在已知可能的触发器模式空间做主动探测（见第九章红队）、对比微调前后模型在无关任务上的行为漂移</td>
+</tr>
+<tr>
+<td>运行时异常检测</td>
+<td>监控输入中的低频 Token 组合、异常格式请求，作为触发器激活的间接信号</td>
+</tr>
+<tr>
+<td>数据出处与签名</td>
+<td>使用 ML-BOM/数据集签名记录数据集版本，任何训练数据变更均可追溯（见第五章供应链）</td>
+</tr>
+</tbody>
+</table>
+<p><strong>对众包标注和第三方微调服务的额外要求</strong>：标注平台需要多人独立标注 + 交叉验证异常样本；采购的微调服务应在合同中约定数据来源可审计、模型可复现训练轨迹，而不是只交付一个黑盒权重文件。</p>
+<h2 id="45">4.5 常见错误</h2>
+<h3 id="451">4.5.1 认为语料规模大就天然安全</h3>
+<p>预训练语料的投毒效果更多取决于恶意样本的绝对数量而非占比，规模大不代表窄域知识点不会被针对性污染。</p>
+<h3 id="452">4.5.2 只用标准能力评测验证微调后的模型</h3>
+<p>后门攻击设计目标就是在标准评测中不可见，必须结合触发器模式的主动探测（红队）才能发现。</p>
+<h3 id="453-rag">4.5.3 把 RAG 语料投毒和训练数据投毒混为一谈</h3>
+<p>二者的攻击门槛、生效机制和防御手段都不同：RAG 投毒操纵的是检索排序，训练投毒改变的是模型权重本身，后者更持久也更难清除（无法靠删除文档撤销）。</p>
+<h3 id="454">4.5.4 忽视第三方微调服务和众包标注的供应链风险</h3>
+<p>外包环节往往缺乏来源审计，是投毒最容易发生的地方。</p>
+<h2 id="46">4.6 本章总结</h2>
+<ol>
+<li>数据投毒横跨预训练、微调/RLHF、RAG 三个阶段，原理相通但风险特征不同；RAG 语料投毒的具体攻防已在 <a href="../../rag/06-operations-security/20-rag-challenges-security.html">RAG 安全 20.3.1</a> 讲清楚，本章聚焦训练与微调阶段；</li>
+<li>后门攻击（植入触发器）是最需警惕的目标型投毒形式，在标准评测中不可见，需要主动的触发器模式探测才能发现；</li>
+<li>RLHF/偏好数据投毒比直接污染生成数据更隐蔽，影响的是模型「认为什么更好」这一底层判断标准；</li>
+<li>大规模语料的投毒效果可能更多取决于恶意样本的绝对数量而非占比，「语料够大就安全」是错误直觉；</li>
+<li>防御需要覆盖来源治理、入库审核、训练中监控、训练后审计和运行时异常检测的完整链路，并对第三方微调服务和众包标注设置来源可审计的合同要求。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2302.10149">Poisoning Web-Scale Training Datasets is Practical</a></li>
+<li><a href="https://arxiv.org/abs/1708.06733">BadNets: Identifying Vulnerabilities in the Machine Learning Model Supply Chain</a></li>
+<li><a href="https://arxiv.org/abs/1905.12457">A Backdoor Attack Against LSTM-based Text Classification Systems</a></li>
+<li><a href="https://arxiv.org/abs/2306.17194">On the Exploitability of Instruction Tuning</a></li>
+<li><a href="https://genai.owasp.org/llmrisk/llm04-data-and-model-poisoning/">OWASP LLM04:2025 Data and Model Poisoning</a></li>
+<li><a href="https://www.nist.gov/publications/adversarial-machine-learning-taxonomy-and-terminology-attacks-and-mitigations">NIST AI 100-2 E2025: Adversarial Machine Learning Taxonomy</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

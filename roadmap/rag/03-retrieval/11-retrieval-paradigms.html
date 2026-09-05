@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>检索范式 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="检索范式 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>在线检索</span> / <span>检索范式</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十一章：检索范式：稀疏、稠密与后期交互</h1>
+<h2 id="111">11.1 三种范式的本质区别</h2>
+<table>
+<thead>
+<tr>
+<th>范式</th>
+<th>文档表示</th>
+<th>匹配依据</th>
+<th>代表</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>稀疏检索</td>
+<td>高维稀疏向量（词表维度，大部分为 0）</td>
+<td><strong>字面匹配 + 统计权重</strong></td>
+<td>BM25、TF-IDF</td>
+</tr>
+<tr>
+<td>稠密检索</td>
+<td>低维稠密向量（几百到几千维）</td>
+<td><strong>语义相似度</strong></td>
+<td>双塔 Embedding 模型</td>
+</tr>
+<tr>
+<td>后期交互</td>
+<td>每个 Token 一个向量</td>
+<td><strong>词级细粒度匹配</strong></td>
+<td>ColBERT 系</td>
+</tr>
+</tbody>
+</table>
+<p>这三种范式不是简单的新旧替代关系，更准确的说法是：它们分别擅长不同类型的匹配。</p>
+<h2 id="112">11.2 稀疏检索：不要低估它</h2>
+<h3 id="1121-bm25">11.2.1 BM25 在做什么</h3>
+<p>BM25 的打分逻辑可以拆成三个直觉：</p>
+<ol>
+<li><strong>Query 中的词在文档里出现得越多，越相关</strong>（词频）；</li>
+<li><strong>一个词在整个语料中越罕见，它的匹配越有价值</strong>（逆文档频率）——「的」匹配上不说明什么，「XR-2100」匹配上意义重大；</li>
+<li><strong>长文档天然容易包含更多词，需要按长度归一化</strong>，否则长文档会占便宜。</li>
+</ol>
+<p>打分形式大致是：</p>
+<p>$$
+\mathrm{score}(q, d) = \sum_{t \in q} \mathrm{IDF}(t) \cdot \frac{f(t, d) \cdot (k_1 + 1)}{f(t, d) + k_1 \cdot \left(1 - b + b \cdot \frac{|d|}{\mathrm{avgdl}}\right)}
+$$</p>
+<p>其中 $f(t,d)$ 是词 $t$ 在文档 $d$ 中的频次，$|d|$ 是文档长度，$\mathrm{avgdl}$ 是平均文档长度，$k_1$ 和 $b$ 是可调参数。</p>
+<p>公式本身不是重点，关键是词频、逆文档频率和长度归一化这三个因素。</p>
+<h3 id="1122-bm25">11.2.2 BM25 的不可替代之处</h3>
+<p>在专业术语密集的领域，BM25 经常优于稠密检索。</p>
+<p>具体场景：</p>
+<ul>
+<li><strong>产品型号、错误码、API 名</strong>：<code>ERR_CONN_REFUSED</code>、<code>XR-2100</code>——这些在 Embedding 模型的训练数据里出现极少，向量表示很差；</li>
+<li><strong>人名、机构名、专有名词</strong>：语义空间里区分度低；</li>
+<li><strong>域外领域</strong>（医疗、法律、企业内部黑话）：Embedding 模型没见过这些分布；</li>
+<li><strong>精确短语匹配</strong>：用户明确要找某个确切说法。</li>
+</ul>
+<p><strong>而且 BM25 还有三个工程优势</strong>：无需训练、无需 GPU、<strong>新文档写入即可检索</strong>（不需要向量化）。</p>
+<p>BM25 不是过时技术，在混合检索里通常都是<strong>不可省略的一路</strong>。</p>
+<h3 id="1123">11.2.3 学习式稀疏检索</h3>
+<p>有一类方法（如 SPLADE）试图兼顾两者：用模型学习稀疏表示，在保留倒排索引效率的同时做词项扩展（把「汽车」自动扩展出「车辆」「轿车」等相关词的权重）。</p>
+<p>这类方法思路清晰，但在工程实践中，<strong>它已经被「BM25 + 稠密检索 + Rerank」这个更简单的组合实质性取代</strong>。原因是后者的每个组件都更成熟、更容易调优、生态也更完整。</p>
+<p>把它当作背景知识即可，不宜写成主流生产方案。</p>
+<h2 id="113">11.3 稠密检索：语义匹配</h2>
+<p>原理已在第六章展开，这里只强调它的<strong>失败模式</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>失败模式</th>
+<th>例子</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>罕见词表示差</td>
+<td>型号、错误码、内部术语</td>
+</tr>
+<tr>
+<td>否定语义弱</td>
+<td>「不含糖的饮料」可能召回含糖饮料</td>
+</tr>
+<tr>
+<td>数值与精确条件不敏感</td>
+<td>「超过 500 元的报销」中的数值约束</td>
+</tr>
+<tr>
+<td>域外泛化差</td>
+<td>通用模型在专业领域表现下降</td>
+</tr>
+<tr>
+<td>短 Query 信息不足</td>
+<td>两三个词的 Query 语义模糊</td>
+</tr>
+</tbody>
+</table>
+<p><strong>这些失败模式恰好是 BM25 的强项。</strong> 混合检索之所以成立，不是因为“两个都用通常更好”这种泛化表述，而是因为两者的失败模式互补。</p>
+<h2 id="114">11.4 后期交互：中间路线</h2>
+<p>第六章 6.3.4 已介绍原理。这里补充它在检索范式中的定位：</p>
+<pre class="mermaid">flowchart LR
+    A[稀疏 BM25<br/>字面精确] --- B[稠密双塔<br/>语义相似]
+    B --- C[后期交互 ColBERT<br/>词级语义匹配]
+    C --- D[Cross-Encoder<br/>完整交互]
+
+    A -.-> A1[快 无需训练<br/>不懂同义]
+    B -.-> B1[快 懂同义<br/>细粒度弱]
+    C -.-> C1[较快 兼顾两者<br/>存储成本高]
+    D -.-> D1[最准<br/>无法预计算]
+</pre>
+
+<p>后期交互的价值在于：它既保留了词级的精确匹配能力（缓解稠密检索的罕见词问题），又具备语义匹配能力（缓解 BM25 的同义词问题），而且文档表示<strong>仍可离线预计算</strong>。</p>
+<p><strong>代价是存储：文档不再是一个向量，而是几百个。</strong> 这个几十倍的开销是它没有大规模普及的主要原因。</p>
+<h3 id="1141">11.4.1 视觉文档检索</h3>
+<p>后期交互在多模态方向上有一个重要衍生：<strong>直接对文档页面图像做多向量嵌入</strong>，用视觉语言模型编码页面，完全绕开 OCR 和版面解析（第三章 3.5 节）。</p>
+<p>在版面复杂、图表密集的文档上，公开评测显示它优于「OCR + 文本嵌入」管线。</p>
+<p>它的局限也很直接：存储成本高、依赖 GPU、与文本检索的混合方案尚未定型，<strong>2026 年仍不是主流生产选择</strong>。</p>
+<h2 id="115">11.5 怎么组合</h2>
+<p><strong>默认方案：BM25 + 稠密检索并行召回，用 RRF 融合，再接 Rerank。</strong></p>
+<p>这个组合从 2023 年至今没有被撼动，原因是：</p>
+<ul>
+<li>覆盖了字面和语义两类匹配；</li>
+<li>每个组件都成熟、可独立调优、可独立降级；</li>
+<li>成本可控。</li>
+</ul>
+<pre class="mermaid">flowchart TB
+    Q[Query] --> B[BM25 召回]
+    Q --> D[稠密向量召回]
+    B --> RRF[RRF 融合]
+    D --> RRF
+    RRF --> RR[Rerank 精排]
+    RR --> TOP[Top-K]
+</pre>
+
+<p><strong>什么时候考虑加第三路（后期交互）</strong>：</p>
+<ul>
+<li>前两路 + Rerank 已经调到位，效果仍不达标；</li>
+<li>领域内的细粒度词级匹配确实很重要；</li>
+<li>存储成本可以接受。</li>
+</ul>
+<p>如果没有这些条件，通常不必加。每多一路召回，就多一套需要维护、调优和监控的链路。</p>
+<h2 id="116">11.6 一个实用的判断方法</h2>
+<p>不确定该侧重哪一路时，做这个实验：</p>
+<ol>
+<li>用评测集分别跑纯 BM25 和纯稠密检索，记录各自的 Hit@K；</li>
+<li><strong>重点看两者的 Query 分布</strong>——哪些问题只有 BM25 能召回、哪些只有稠密能召回；</li>
+<li>分析这两类问题的特征。</li>
+</ol>
+<p><strong>这个分析结果会直接影响融合权重的设定，以及是否需要引入第三路。</strong> 它来自你自己的数据分布，通常比通用经验更有针对性。</p>
+<h2 id="117">11.7 常见错误</h2>
+<h3 id="1171">11.7.1 认为向量检索全面优于关键词检索</h3>
+<p>在术语密集领域经常相反。这一类 Query 往往更依赖字面匹配。</p>
+<h3 id="1172">11.7.2 只用一路召回</h3>
+<p>单路必然存在系统性盲区，且这个盲区无法通过调参消除。</p>
+<h3 id="1173-splade">11.7.3 把 SPLADE 说成主流</h3>
+<p>它已被更简单的组合实质取代，属知识广度而非推荐方案。</p>
+<h3 id="1174-rerank">11.7.4 把后期交互和 Rerank 混为一谈</h3>
+<p>后期交互的文档表示<strong>可离线预计算</strong>，Rerank 的 cross-encoder <strong>必须在线成对计算</strong>。这是架构上的根本差异。</p>
+<h3 id="1175">11.7.5 忽略后期交互的存储成本</h3>
+<p>几十倍的存储开销是它的主要落地障碍，讨论这一路线时通常需要把部署成本一起算进去。</p>
+<h3 id="1176-ocr">11.7.6 说视觉文档检索已经取代了 OCR 管线</h3>
+<p>它在特定场景有优势，但尚未成为主流生产方案。</p>
+<h2 id="118">11.8 本章总结</h2>
+<ol>
+<li><strong>三种范式各自擅长不同类型的匹配</strong>，不是新旧替代关系；</li>
+<li><strong>BM25 的三个直觉</strong>：词频、逆文档频率、长度归一化；</li>
+<li><strong>BM25 在术语密集、罕见词、精确匹配、域外领域上常优于稠密检索</strong>，且无需训练、无需 GPU、写入即可检索；</li>
+<li><strong>稠密检索的失败模式</strong>（罕见词、否定、数值、域外、短 Query）恰好是 BM25 的强项——这也是混合检索的主要依据；</li>
+<li><strong>后期交互</strong>兼顾词级与语义匹配且可离线预计算，但<strong>存储开销几十倍</strong>；其视觉版本可绕开文档解析，但尚未主流；</li>
+<li><strong>默认方案</strong>：BM25 + 稠密 + RRF + Rerank，这个组合多年未被撼动；</li>
+<li><strong>是否加第三路要靠实测</strong>：分析两路各自独占的召回 Query，比套用通用经验更有针对性。</li>
+</ol>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2004.04906">Dense Passage Retrieval for Open-Domain Question Answering</a></li>
+<li><a href="https://arxiv.org/abs/2107.05720">SPLADE: Sparse Lexical and Expansion Model for First Stage Ranking</a></li>
+<li><a href="https://arxiv.org/abs/2112.01488">ColBERTv2: Effective and Efficient Retrieval via Lightweight Late Interaction</a></li>
+<li><a href="https://arxiv.org/abs/2407.01449">ColPali: Efficient Document Retrieval with Vision Language Models</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

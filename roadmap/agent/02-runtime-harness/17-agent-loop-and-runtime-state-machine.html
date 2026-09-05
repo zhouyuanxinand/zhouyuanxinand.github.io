@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent Loop 与运行时状态机 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Agent Loop 与运行时状态机 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Agent</span> / <span>Runtime 与 Harness</span> / <span>Agent Loop 与运行时状态机</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="agent-loop">第十七章：Agent Loop 与运行时状态机</h1>
+<h2 id="171">17.1 本章边界：从"控制循环"到"状态机实现"</h2>
+<p>第三章 3.7.1 节已经把 Agent 的控制循环概括为"感知—决策—行动"的往复：模型看当前状态、决定下一步、执行、把结果喂回去。那一节回答的是"谁在决定下一步"（模型 vs 预定义代码）。本章回答的是另一个问题：<strong>harness 具体怎么把这个循环实现成一个可靠运行的状态机</strong>——维护哪些状态、状态之间怎么转移、什么时候停、并发和流式怎么处理、失败了状态机停在哪里。这些是 harness 工程实现的核心，也是第 21、22 章（恢复、暂停）能够成立的前提。</p>
+<h2 id="172-harness">17.2 状态机视角：Harness 在维护什么状态</h2>
+<p>抛开具体框架的类名，任何 Agent Loop 的实现在某一时刻都持有以下最小状态集合：</p>
+<table>
+<thead>
+<tr>
+<th>状态字段</th>
+<th>含义</th>
+<th>谁更新它</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>messages</code></td>
+<td>到目前为止的完整对话/事件序列</td>
+<td>Harness，在每次模型调用和工具执行后追加</td>
+</tr>
+<tr>
+<td><code>turn_index</code></td>
+<td>当前是第几轮</td>
+<td>Harness，每完成一次"模型调用→执行"循环递增</td>
+</tr>
+<tr>
+<td><code>pending_tool_calls</code></td>
+<td>模型本轮请求、尚未执行完的工具调用</td>
+<td>Harness，从模型输出中解析写入，执行完成后清空</td>
+</tr>
+<tr>
+<td><code>phase</code></td>
+<td>当前处于循环的哪个阶段（见 17.3）</td>
+<td>Harness 状态机本身</td>
+</tr>
+<tr>
+<td><code>stop_reason</code></td>
+<td>循环为什么会结束（正常完成/达到上限/被中断/出错）</td>
+<td>Harness，在循环退出时写入</td>
+</tr>
+<tr>
+<td><code>budget</code></td>
+<td>剩余的轮数/时间/token/成本预算</td>
+<td>Harness，每轮消耗后递减</td>
+</tr>
+</tbody>
+</table>
+<p>这张表里没有"任务计划""反思结果"这类内容——那些属于 Agent 的推理产物，会作为 <code>messages</code> 的一部分被状态机搬运，但状态机本身不理解其语义，只负责搬运和计数。这正是 16.4 节"是否需要在没有模型参与的情况下也能运行"这条边界规则的体现。</p>
+<h2 id="173-turn">17.3 一次 Turn 内部的状态转移</h2>
+<p>Claude Agent SDK 把每一轮的内部结构描述为四步循环："Receive prompt → Evaluate and respond → Execute tools → Repeat"，其中第 2、3 步反复进行，直到模型给出不带工具调用的最终输出（<a href="https://code.claude.com/docs/en/agent-sdk/agent-loop">Claude Agent SDK: How the agent loop works</a>）。OpenAI Agents SDK 的 <code>Runner</code> 用同样的结构描述内部循环：调用模型 → 若输出是最终结果则退出；若请求 handoff 则切换当前 agent 并重新进入循环；若请求工具调用则执行并把结果并回，再次调用模型（<a href="https://openai.github.io/openai-agents-python/running_agents/">OpenAI Agents SDK: Running agents</a>）。抽象成状态机：</p>
+<pre class="mermaid">stateDiagram-v2
+    [*] --> Init
+    Init --> ModelCall: 装配上下文（18 章）
+    ModelCall --> Deciding: 收到模型输出
+    Deciding --> FinalOutput: 无工具调用/无 handoff
+    Deciding --> ToolExecution: 请求工具调用
+    Deciding --> HandoffSwitch: 请求切换 Agent
+    ToolExecution --> PermissionCheck: 每个 Tool Call（20 章）
+    PermissionCheck --> ToolRunning: 通过
+    PermissionCheck --> Blocked: 拒绝/需人工
+    ToolRunning --> ModelCall: 结果写回上下文
+    HandoffSwitch --> ModelCall: 更新当前 Agent/Input
+    Blocked --> Interrupted: 等待审批（22 章）
+    Interrupted --> ModelCall: 审批通过
+    Interrupted --> FinalOutput: 审批拒绝/超时
+    FinalOutput --> [*]
+</pre>
+
+<p>这张图里"是否有工具调用"和"是否有 handoff"是两个独立的判定分支，二者都可能同时出现在模型的一次输出里（先执行工具，再决定是否切换 agent），具体优先级由 harness 实现约定，需要在设计文档里显式写清楚，而不是留给隐式假设。</p>
+<h2 id="174-loop">17.4 Loop 的终止条件与保护性上限</h2>
+<p>状态机必须有明确、可枚举的退出路径，否则"Agent 卡住不停"和"Agent 明明该停却继续跑"都会成为线上事故。至少需要四类终止条件：</p>
+<ul>
+<li><strong>正常完成</strong>：模型输出不含工具调用的最终答案（"final output" 的判定标准是"产生了期望类型的文本输出，且没有工具调用"，参见 <a href="https://openai.github.io/openai-agents-python/running_agents/">OpenAI Agents SDK: Running agents</a>）。</li>
+<li><strong>轮数上限</strong>：超过 <code>max_turns</code> 直接抛出可捕获的异常（如 <code>MaxTurnsExceeded</code>），而不是无限循环或静默截断。</li>
+<li><strong>预算耗尽</strong>：token/时间/金额预算耗尽，state 中的 <code>budget</code> 字段归零即触发终止。</li>
+<li><strong>外部中断</strong>：用户取消、上游超时、系统关闭——这类终止必须能触发 checkpoint 写入（21 章），保证下次可以恢复而不是从零开始。</li>
+</ul>
+<p>第十二章 12.16 节讨论过反思循环的 Stop Controller，第十三章 13.34 节讨论过多 Agent 场景下的取消传播——这两处都是本节"终止条件"在特定场景下的具体化，遵守同一个原则：<strong>终止条件必须是状态机的一等公民，不能是"跑着跑着发现异常就退出"的兜底逻辑</strong>。</p>
+<h2 id="175">17.5 并发与流式：状态机遇到异步事件</h2>
+<p>生产环境的 Agent Loop 很少是完全同步阻塞的：</p>
+<ul>
+<li><strong>流式输出</strong>：模型输出以增量事件流的形式到达（文本 delta、工具调用参数逐步拼接完成）。状态机需要区分"收到了一个完整的可执行工具调用"和"还在流式接收参数中"，后者不能提前触发工具执行。</li>
+<li><strong>并行工具调用</strong>：模型一次输出可能包含多个工具调用请求，harness 需要决定它们是并发执行还是顺序执行、以及执行顺序是否影响结果（例如两个工具都要写同一个文件时不能无脑并发）。</li>
+<li><strong>取消传播</strong>：用户中途取消时，状态机需要能够安全地中断"正在流式接收"或"正在并发执行工具"的中间状态，而不是让某个工具调用变成孤儿进程继续跑。</li>
+</ul>
+<p>这几类异步事件的处理方式直接决定了 harness 的可靠性上限，也是 21 章"幂等性"要解决的问题的来源之一：一次因网络问题被判定为"失败"的工具调用，服务端可能其实已经执行成功。</p>
+<h2 id="176-agent-handoff">17.6 嵌套状态机：子 Agent 与 Handoff</h2>
+<p>第十三章讨论的多 Agent 协作，从状态机角度看有两种形态：</p>
+<ul>
+<li><strong>Handoff（切换）</strong>：当前状态机把控制权完全转移给另一个 Agent 配置，状态（<code>messages</code> 的相关子集）随之传递，原状态机的循环终止，新循环开始（对应 17.3 图中 <code>HandoffSwitch</code>）。</li>
+<li><strong>Subagent（嵌套）</strong>：当前状态机在自己的一步之内，启动一个全新的、独立的子状态机（有自己的 <code>turn_index</code>、<code>budget</code>、<code>messages</code>），等子状态机跑完拿到结果后，把结果作为一次"工具调用结果"塞回父状态机继续跑。Claude Agent SDK 把这种模式称为 Subagents："Spawn specialized agents for focused subtasks"（<a href="https://code.claude.com/docs/en/agent-sdk/overview">Claude Agent SDK: Overview</a> 能力表）。</li>
+</ul>
+<p>两者的关键区别在于<strong>父状态机是否继续存在并等待结果</strong>：Handoff 之后父状态机不再参与；Subagent 场景父状态机始终存在，只是把子任务的执行过程"折叠"成一次工具调用。这个区分决定了预算如何分摊——Subagent 消耗的轮数/token 通常要计入父状态机的总预算，而 Handoff 之后的消耗计入新状态机自己的预算。</p>
+<h2 id="177">17.7 三种实现的状态机对比</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>Claude Agent SDK</th>
+<th>OpenAI Agents SDK</th>
+<th>LangGraph（对比参考）</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>循环驱动方式</td>
+<td>内置 agent loop，SDK 内部驱动</td>
+<td><code>Runner.run</code> 内部驱动，暴露三种调用方式（同步/异步/流式）</td>
+<td>显式的图执行引擎，节点与边由开发者定义</td>
+</tr>
+<tr>
+<td>终止判定</td>
+<td>无工具调用即视为完成一轮，可通过 hooks 干预</td>
+<td>无工具调用且类型匹配即为 final output；<code>max_turns</code> 触发异常</td>
+<td>图走到终止节点，或显式 <code>interrupt()</code></td>
+</tr>
+<tr>
+<td>嵌套/切换</td>
+<td>Subagents（嵌套）</td>
+<td>Handoffs（切换 current agent）</td>
+<td>子图（Subgraphs），见 <a href="https://docs.langchain.com/oss/python/langgraph/use-subgraphs">LangGraph: Subgraphs</a></td>
+</tr>
+<tr>
+<td>状态可见性</td>
+<td>通过流式消息（<code>SystemMessage</code>/<code>AssistantMessage</code>）暴露</td>
+<td>通过 <code>RunResult</code>/<code>RunResultStreaming</code> 暴露</td>
+<td>状态是图上的显式字段，见<a href="../04-multi-agent/13-multi-agent-coordination.html">第十三章 13.15 节</a></td>
+</tr>
+</tbody>
+</table>
+<p>三者在"状态机长什么样"这件事上高度收敛——这不是巧合，而是因为 17.2、17.3 节描述的最小状态集合和转移逻辑，本质上是任何可靠 Agent Loop 都绕不开的工程约束，只是不同产品选择了不同的抽象层级暴露给开发者。</p>
+<h2 id="178">17.8 常见错误</h2>
+<ul>
+<li><strong>把工具执行结果直接当作循环终止信号。</strong> 工具报错不代表任务失败，也不代表循环应该终止——报错本身应该作为一条消息喂回模型，让模型决定下一步（重试、换工具、放弃），这是 Agent 层的决策，不是 Harness 层该替模型做的判断。</li>
+<li><strong>轮数上限设置为"经验值"却不告知调用方触发了上限。</strong> 静默截断会让上游误以为任务正常完成；<code>MaxTurnsExceeded</code> 这类显式异常应该是标准实践。</li>
+<li><strong>流式场景下提前解析尚未完整的工具调用参数。</strong> 会导致 JSON 解析失败或用不完整的参数执行工具，必须等待参数流被完整拼接。</li>
+<li><strong>混淆 Handoff 与 Subagent 的预算归属。</strong> 会导致预算统计口径不一致，第 23 章的成本核算依赖于这里的归属规则先被定义清楚。</li>
+<li><strong>并发工具调用不做互斥控制。</strong> 两个工具调用同时写同一份状态（文件、数据库行）时，如果没有互斥或串行化策略，会产生数据竞争，这属于第 13 章 13.16 节讨论的并发写入问题在单 Agent 场景下的对应版本。</li>
+</ul>
+<h2 id="179">17.9 本章总结</h2>
+<p>Harness 把"模型动态决定下一步"的控制循环，落地成一个维护 <code>messages</code>、<code>turn_index</code>、<code>pending_tool_calls</code>、<code>phase</code>、<code>stop_reason</code>、<code>budget</code> 六类状态的运行时状态机。一次 Turn 内部经历"模型调用→决策分支（最终输出/工具调用/Handoff）→执行→结果写回"的转移；终止条件必须显式枚举（正常完成、轮数上限、预算耗尽、外部中断）而不是隐式兜底；并发与流式给状态机引入了异步事件,需要区分"流式接收中"与"可执行"两种状态,并处理好取消传播;子 Agent 与 Handoff 是两种不同的嵌套方式,预算归属规则不同。这一层是第 18–23 章各个子系统共同依赖的执行骨架。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://code.claude.com/docs/en/agent-sdk/agent-loop">Claude Agent SDK: How the agent loop works</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/running_agents/">OpenAI Agents SDK: Running agents</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building Effective Agents</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/use-subgraphs">LangGraph: Subgraphs</a></li>
+<li><a href="https://simonwillison.net/2025/Sep/30/designing-agentic-loops/">Simon Willison: Designing agentic loops</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

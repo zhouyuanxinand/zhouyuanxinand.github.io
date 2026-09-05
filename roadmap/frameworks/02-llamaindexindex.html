@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>模块导览 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="模块导览 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../assets/style.css">
+  <link rel="stylesheet" href="../roadmap/roadmap.css">
+  <script src="../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../home.html">首页</a>
+        <a href="../posts.html">随笔</a>
+        <a href="../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LlamaIndex</span> / <span>模块导览</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="llamaindex">框架与编排 · LlamaIndex 生态</h1>
+<p>相较于把重点放在模型与工具的统一调度，LlamaIndex 更关注私有数据如何整理成模型可用的高质量上下文。它把数据连接、切分、索引、查询引擎和事件驱动 Workflows 串成一条以数据为中心的编排链路。</p>
+<h2 id="_1">章节</h2>
+<ol>
+<li><a href="14-data-index-abstractions.html">第十四章：LlamaIndex 的数据与索引抽象</a></li>
+<li><a href="15-query-engine-workflows.html">第十五章：LlamaIndex 的查询引擎与 Workflows 编排</a></li>
+</ol>
+<h2 id="_2">模块关系</h2>
+<pre class="mermaid">flowchart LR
+    A[数据接入<br/>Document / Node] --> B[索引<br/>VectorStoreIndex 等]
+    B --> C[查询引擎<br/>Query Engine / Router]
+    C --> D[Workflows<br/>事件驱动编排]
+    D -.可被包装为 Tool.-> E[LangChain / 其他框架的 Agent]
+</pre>
+
+<h2 id="_3">阅读建议</h2>
+<ul>
+<li>建议先读第十四章，了解数据如何变成可检索结构；再读第十五章，看这些结构如何被用于回答问题和多步流程；</li>
+<li>如果想和 LangChain 对照，两章正文都标注了与 <code>docs/frameworks/01-langchain</code> 对应章节的抽象差异，适合交替阅读；</li>
+<li>如果主要关心状态机与事件驱动的区别，可直接看第十五章 15.3 节，再跳转 <a href="../06-selection-portability/">框架选型与可移植架构</a> 的统一对照表。</li>
+</ul>
+<p>返回 <a href="../">AI 框架与编排 相关知识点</a>。</p>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

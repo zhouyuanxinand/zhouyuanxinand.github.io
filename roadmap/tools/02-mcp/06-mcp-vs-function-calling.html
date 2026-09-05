@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MCP 与 Function Calling · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="MCP 与 Function Calling — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>MCP</span> / <span>MCP 与 Function Calling</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="mcp-function-calling">第六章：MCP 与 Function Calling 的区别与选型</h1>
+<h2 id="61">6.1 这个问题容易问偏</h2>
+<p>「MCP 和 Function Calling 有什么区别」这个问题本身有点误导性，因为它暗示两者是并列的竞品。实际上：</p>
+<blockquote>
+<p><strong>MCP 和 Function Calling 解决不同接口边界，常被同一个 Host 组合使用；MCP 并不规定或要求模型必须支持 Function Calling。</strong></p>
+</blockquote>
+<p>准确的区分是：</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>Function Calling</th>
+<th>MCP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>解决的问题</td>
+<td>模型<strong>怎么表达</strong>调用意图</td>
+<td>工具<strong>怎么被提供和发现</strong></td>
+</tr>
+<tr>
+<td>协议双方</td>
+<td>模型 ↔ 应用</td>
+<td>应用 ↔ 工具提供方</td>
+</tr>
+<tr>
+<td>工具的存在形式</td>
+<td><strong>内嵌</strong>在应用代码里</td>
+<td><strong>独立</strong>进程 / 服务</td>
+</tr>
+<tr>
+<td>层次</td>
+<td>模型输出格式约定</td>
+<td>工具生态标准</td>
+</tr>
+</tbody>
+</table>
+<p>「内嵌 vs 独立」这个直觉，能推导出后面所有的选型结论。</p>
+<h2 id="62-function-calling">6.2 Function Calling 的真实痛点</h2>
+<p>复制一份 Schema 看起来不算什么工作量，但把账算到团队规模就不一样了。</p>
+<p>假设团队有 <strong>5 个应用</strong>，每个接 <strong>8 个工具</strong>——这就是 <strong>40 份工具对接代码</strong>在同时维护。</p>
+<pre class="mermaid">flowchart TB
+    subgraph PAIN["三类必然发生的事"]
+        P1["GitHub API 改了一个字段"] --> R1["5 个地方同步改<br/>漏改一处，凌晨报警"]
+        P2["从 Claude 迁到 GPT"] --> R2["40 份代码的 FC 格式<br/>全部重新适配"]
+        P3["新同事的 Cursor 也要用"] --> R3["再写第 6 份对接代码"]
+    end
+
+    style R1 fill:#fce8e6
+    style R2 fill:#fce8e6
+    style R3 fill:#fce8e6
+</pre>
+
+<p>核心问题不是「写起来麻烦」，而是<strong>同一个工具，换个应用就要重新对接一遍，每次都是一次性的手工活</strong>。工具的管理、复用和跨平台兼容，Function Calling 一个都没解决——因为它压根不负责这些。</p>
+<h2 id="63-host-function-calling-mcp-tool">6.3 常见集成：Host 用 Function Calling 路由 MCP Tool</h2>
+<p>项目里最常见的接法，就是 Host 用 Function Calling 路由 MCP Tool。</p>
+<pre class="mermaid">sequenceDiagram
+    participant M as 模型
+    participant H as 宿主程序（MCP Client）
+    participant S as MCP Server
+
+    Note over H,S: 启动时
+    H->>S: tools/list
+    S-->>H: MCP 格式的工具定义
+    Note over H: 转换成模型原生的<br/>Function Calling Schema
+
+    Note over M,H: 运行时
+    H->>M: messages + tools（普通 FC 格式）
+    M-->>H: tool_calls（普通 FC 输出）
+    Note over M: 模型完全不知道<br/>背后有 MCP 存在
+    H->>S: tools/call（路由到对应 Server）
+    S-->>H: 执行结果
+    H->>M: role=tool 消息
+    M-->>H: 最终答案
+</pre>
+
+<p>在这种集成中，模型的视角确实是普通 Function Calling，能力发现、schema 转换、调用路由和结果回传都在 Host 层完成。这种桥接很常见，但不是 MCP 的规范要求。</p>
+<p>沿着这条集成链路往下看，会得到两个结论：</p>
+<ol>
+<li><strong>模型不支持某厂商的 Function Calling 时，只有这条桥接路径不可用</strong>。Host 仍可通过结构化输出、确定性工作流或人工界面调用 MCP Tool；</li>
+<li><strong>若由模型选择 Tool，工具 schema 工程仍然适用</strong>。MCP 规定互操作格式，不保证模型会正确选择或填写参数。</li>
+</ol>
+<h2 id="64">6.4 选型：什么时候用哪个</h2>
+<h3 id="641-function-calling">6.4.1 Function Calling 够用的场景</h3>
+<p><strong>快速原型和 Demo</strong>。目标是跑通想法，直接在代码里定义 Schema 最快。搭 MCP Server 的时间可能超过原型本身的价值。</p>
+<p><strong>工具只服务这一个应用</strong>。查本公司某张私有表的接口，绝不会被其他地方用到，写在项目里反而更清晰。为它单独维护一个进程是过度设计。</p>
+<p><strong>需要对执行逻辑做精细控制</strong>。权限校验、参数二次处理、特殊错误处理、调用链路追踪，直接嵌在调用代码里最方便。MCP Server 是独立进程，这类定制要额外约定。</p>
+<p><strong>部署环境受限</strong>。某些云环境或 Serverless 平台不允许启动子进程，stdio 模式的 MCP Server 就没法用。这时退回 Function Calling 是最稳妥的。</p>
+<h3 id="642-mcp">6.4.2 MCP 更合适的场景</h3>
+<p><strong>社区已有现成 Server</strong>。GitHub、Slack、PostgreSQL、Puppeteer 这类高频工具都有经过测试、文档完整的官方或社区实现。这种情况下手写对接代码就是重复造轮子。</p>
+<p><strong>工具需要跨项目或跨团队复用</strong>。这是 MCP 的核心价值。维护责任收敛到 Server 一侧，所有客户端自动受益。</p>
+<p><strong>工具规模上来了</strong>。这里不给绝对数字门槛（「超过 3 个就上 MCP」这种说法没意义），要看三个维度综合：</p>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>倾向 Function Calling</th>
+<th>倾向 MCP</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>单个工具复杂度</td>
+<td>几行就写完</td>
+<td>几十行，有认证和错误处理</td>
+</tr>
+<tr>
+<td>团队规模</td>
+<td>一个人维护</td>
+<td>多人协作</td>
+</tr>
+<tr>
+<td>变更频率</td>
+<td>基本不动</td>
+<td>接口时常调整</td>
+</tr>
+</tbody>
+</table>
+<p>三个维度都偏右，就算只有 5 个工具也会很快陷入维护泥潭；三个都偏左，两个工具也没必要引入独立 Server。</p>
+<p><strong>在构建 Agent 系统</strong>。Agent 的工具需求往往多样：代码执行、文件系统、数据库、外部 API。全靠 Function Calling 的话，工具 Schema 会成为 Agent 代码里最难维护的部分。MCP 让工具来源模块化，Agent 核心逻辑和工具管理解耦。</p>
+<h3 id="643">6.4.3 判断流程</h3>
+<pre class="mermaid">flowchart TB
+    START{要接一个工具} --> Q1{社区有现成<br/>MCP Server 吗?}
+    Q1 -->|有| USE_MCP["直接用<br/>不要重复造轮子"]
+    Q1 -->|没有| Q2{需要跨项目 /<br/>跨团队复用吗?}
+    Q2 -->|需要| BUILD_MCP["实现 MCP Server"]
+    Q2 -->|不需要| Q3{部署环境允许<br/>独立进程吗?}
+    Q3 -->|不允许| USE_FC["用 Function Calling"]
+    Q3 -->|允许| Q4{工具复杂 或<br/>变更频繁 或<br/>多人维护?}
+    Q4 -->|是| BUILD_MCP
+    Q4 -->|否| USE_FC
+
+    style USE_MCP fill:#e6f4ea
+    style BUILD_MCP fill:#e6f4ea
+    style USE_FC fill:#e8f0fe
+</pre>
+
+<h3 id="644">6.4.4 混用是常态</h3>
+<p>实际项目里最常见的形态不是二选一，而是<strong>混用</strong>：</p>
+<pre><code class="language-python"># 通用能力走 MCP：文件系统、GitHub、数据库，用社区现成的
+mcp_tools = await load_mcp_tools([&quot;filesystem&quot;, &quot;github&quot;, &quot;postgres&quot;])
+
+# 业务专属能力走 Function Calling：内嵌，方便加权限和审计
+local_tools = [check_user_quota_schema, internal_billing_schema]
+
+tools = mcp_tools + local_tools
+</code></pre>
+<p>判断依据很简单：<strong>这个能力是通用的还是业务专属的</strong>。通用能力社区大概率已经做好了，业务专属能力反正只有你自己用，内嵌更方便。</p>
+<h2 id="65-mcp">6.5 实际跑一遍 MCP</h2>
+<p>面试里问「有没有实际跑过 MCP」，说得出配置细节和踩过的坑，可信度立刻不一样。</p>
+<h3 id="651">6.5.1 最简接入</h3>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;github&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-github&quot;],
+      &quot;env&quot;: {&quot;GITHUB_PERSONAL_ACCESS_TOKEN&quot;: &quot;ghp_...&quot;}
+    },
+    &quot;filesystem&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;@modelcontextprotocol/server-filesystem&quot;, &quot;/Users/me/projects&quot;]
+    }
+  }
+}
+</code></pre>
+<p>改完重启客户端，工具就自动出现了，一行代码都不用写。注意 <code>filesystem</code> 那个路径参数——它限定了 Server 能操作的目录范围，这是 Roots 机制的体现。</p>
+<h3 id="652-server">6.5.2 自己写一个 Server</h3>
+<pre><code class="language-python">from mcp.server.fastmcp import FastMCP
+
+mcp = FastMCP(&quot;order-service&quot;)
+
+@mcp.tool()
+def get_order(order_id: str) -&gt; dict:
+    &quot;&quot;&quot;根据订单号查询订单详情。不支持模糊搜索。&quot;&quot;&quot;
+    return db.query_order(order_id)
+
+@mcp.resource(&quot;orders://recent&quot;)
+def recent_orders() -&gt; str:
+    &quot;&quot;&quot;最近 24 小时的订单摘要（只读）&quot;&quot;&quot;
+    return format_orders(db.recent(hours=24))
+
+if __name__ == &quot;__main__&quot;:
+    mcp.run()
+</code></pre>
+<p>函数签名和 docstring 会被自动转成 JSON Schema。docstring 就是模型看到的 <code>description</code>——<a href="../01-function-calling/03-tool-schema-design.html">第三章</a> 那套写法在这里同样适用。</p>
+<h3 id="653">6.5.3 实际会踩的坑</h3>
+<table>
+<thead>
+<tr>
+<th>坑</th>
+<th>现象</th>
+<th>原因</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>stdout 污染</strong></td>
+<td>Server 连不上，报 JSON 解析错误</td>
+<td>stdio 模式下 <code>print</code> 调试信息混进了协议流。日志必须走 stderr</td>
+</tr>
+<tr>
+<td><strong>环境变量丢失</strong></td>
+<td>本地能跑，客户端启动就报认证失败</td>
+<td>子进程不继承 shell 的环境变量，必须在配置的 <code>env</code> 里显式声明</td>
+</tr>
+<tr>
+<td><strong>工具名冲突</strong></td>
+<td>模型调错 Server 的工具</td>
+<td>多个 Server 有同名工具，需要加前缀区分</td>
+</tr>
+<tr>
+<td><strong>上下文膨胀</strong></td>
+<td>响应变慢、成本飙升</td>
+<td>接了太多 Server，几十个工具定义每轮全量传</td>
+</tr>
+<tr>
+<td><strong>版本不匹配</strong></td>
+<td>部分功能不可用</td>
+<td>Server 实现的是旧规范版本，新特性用不了</td>
+</tr>
+</tbody>
+</table>
+<p>最后两个在生产环境影响最大。上下文膨胀的解法是 <a href="../01-function-calling/03-tool-schema-design.html">第三章</a> 讲的动态工具筛选——不要把所有 Server 的工具无脑全量注入。</p>
+<h2 id="66">6.6 常见错误</h2>
+<h3 id="661-mcp-function-calling">6.6.1 说 MCP 必然建立在 Function Calling 之上</h3>
+<p>二者并非替代品，也不是必然上下游。Function Calling 是常见的模型适配层；MCP 定义 Host/Client 与 Server 的协议。Host 可采用其他机制发起 <code>tools/call</code>。</p>
+<h3 id="662-mcp">6.6.2 只说「MCP 更标准化」</h3>
+<p>这个回答太空。要能具体说出解决的是什么：<strong>工具的跨应用复用</strong>、<strong>自动发现免去硬编码</strong>、<strong>维护责任从 N 个接入方收敛到 1 个提供方</strong>。</p>
+<h3 id="663-mcp">6.6.3 无脑上 MCP</h3>
+<p>一个只有自己用、逻辑十行的内部工具，包成独立进程只是增加了部署和运维负担。选型要看复用需求，不是看技术新旧。</p>
+<h3 id="664-mcp">6.6.4 以为用了 MCP 就不用管工具描述</h3>
+<p>协议标准化了传输格式，没有标准化描述质量。Server 的 docstring 写得烂，模型照样选错工具。</p>
+<h3 id="665-mcp">6.6.5 忽略 MCP 的上下文成本</h3>
+<p>每接一个 Server，它的全部工具定义都会进上下文，而且每轮都传。接五个 Server 可能就是上万 token 的固定开销。</p>
+<h3 id="666-server">6.6.6 忽略第三方 Server 的信任问题</h3>
+<p>装一个第三方 MCP Server 等于在应用里跑第三方代码，它能看到所有传给它的参数。工具描述本身也可能被投毒。见 <a href="../../agent/05-production/15-agent-security.html">Agent 安全章节</a>。</p>
+<h2 id="67">6.7 本章总结</h2>
+<ol>
+<li><strong>MCP 与 Function Calling 可以配合，但不存在强制依赖</strong>；</li>
+<li><strong>本质区别是「内嵌 vs 独立」</strong>，这个直觉能推导出所有选型结论；</li>
+<li><strong>FC 的痛点是工具管理与复用</strong>，M 个应用 × N 个工具的维护成本会线性爆炸；</li>
+<li><strong>在 Function Calling 桥接中，模型无需感知 MCP</strong>；模型不支持 FC 时，Host 可选择其他 MCP 调用路径；</li>
+<li><strong>FC 适合轻量、专属、需精细控制、部署受限的场景</strong>；</li>
+<li><strong>MCP 适合有现成实现、需跨项目复用、工具规模大、构建 Agent 系统的场景</strong>；</li>
+<li><strong>判断顺序</strong>：先看社区有没有现成的 → 再看要不要复用 → 再看环境和维护成本；</li>
+<li><strong>混用是常态</strong>：通用能力走 MCP，业务专属能力走 FC。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://modelcontextprotocol.io/docs/getting-started/intro">Model Context Protocol 官方文档</a></li>
+<li><a href="https://modelcontextprotocol.io/docs/develop/build-server">MCP 服务端开发快速上手</a></li>
+<li><a href="https://github.com/modelcontextprotocol/servers">MCP Servers 官方示例仓库</a></li>
+<li><a href="https://platform.openai.com/docs/guides/function-calling">OpenAI: Function Calling 指南</a></li>
+<li><a href="https://www.anthropic.com/news/model-context-protocol">Anthropic: Introducing the Model Context Protocol</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

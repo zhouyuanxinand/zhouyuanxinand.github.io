@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Function Calling 原理 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Function Calling 原理 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>Tools</span> / <span>Function Calling</span> / <span>Function Calling 原理</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="function-calling">第一章：Function Calling 是什么，原理是什么</h1>
+<h2 id="11">1.1 一句话定位</h2>
+<p>Function Calling 是<strong>让模型用结构化 JSON 表达「我想调用哪个工具、参数是什么」的一种输出约定</strong>。</p>
+<p>这句话里有三个关键限定，缺一个就会掉进最常见的误区：</p>
+<ul>
+<li><strong>表达，不是执行</strong>。模型输出的是一个调用意图，不是调用结果。真正跑函数、发 HTTP 请求、连数据库的，永远是宿主程序；</li>
+<li><strong>结构化 JSON，不是自然语言</strong>。这是 Function Calling 相对于「土办法」的核心改进；</li>
+<li><strong>一种输出约定</strong>。它是模型层的接口协议，不涉及工具怎么被发现、怎么被分发、怎么跨进程通信——那是 <a href="../02-mcp/04-what-is-mcp.html">MCP</a> 的事。</li>
+</ul>
+<blockquote>
+<p><strong>模型只负责决策，代码负责执行。</strong> 这一条职责边界是整章的地基，后面所有的设计取舍都从它推导出来。</p>
+</blockquote>
+<h2 id="12-function-calling">1.2 没有 Function Calling 的时代</h2>
+<p>在 2023 年 6 月 OpenAI 正式推出 Function Calling 之前，想让模型触发外部动作，只有两条路，两条都不好走。</p>
+<h3 id="121">1.2.1 路线一：正则与关键词匹配</h3>
+<p>让模型正常输出自然语言，宿主程序用规则去猜它的意图：</p>
+<pre><code class="language-python"># 2023 年之前的典型写法
+if &quot;天气&quot; in reply and (&quot;查&quot; in reply or &quot;看&quot; in reply):
+    city = re.search(r&quot;([\u4e00-\u9fa5]{2,4})(?:的)?天气&quot;, reply)
+    if city:
+        call_weather_api(city.group(1))
+</code></pre>
+<p>这套东西的脆弱程度超乎想象。模型今天说「我需要查一下北京的天气」，明天说「让我看看北京现在什么情况」，正则立刻失配。更糟的是它<strong>静默失败</strong>：匹配不上不会报错，只会当作普通回复直接返回给用户，你连问题发生了都不知道。</p>
+<h3 id="122-prompt">1.2.2 路线二：Prompt 里约定输出格式</h3>
+<p>进阶一点的做法是在 System Prompt 里写「如果需要调工具，请输出 <code>ACTION: 工具名(参数)</code>」。ReAct 论文当年就是这个思路。它比正则好，但有三个绕不过去的问题：</p>
+<table>
+<thead>
+<tr>
+<th>问题</th>
+<th>表现</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>格式漂移</td>
+<td>模型会输出 <code>ACTION：</code>（中文冒号）、加代码块包裹、在前面加一段解释</td>
+</tr>
+<tr>
+<td>混合输出</td>
+<td>一段回复里既有自然语言又有指令，需要额外切分</td>
+</tr>
+<tr>
+<td>无法区分意图</td>
+<td>模型「提到」某个工具名和「决定调用」它，在文本层面长得一样</td>
+</tr>
+</tbody>
+</table>
+<p>第三条最要命。用户问「你能查天气吗」，模型回答「我可以调用 get_weather 来查」——这是在<strong>介绍能力</strong>，不是在<strong>发起调用</strong>，但解析器分不出来。</p>
+<h3 id="123-function-calling">1.2.3 Function Calling 解决了什么</h3>
+<p>它把这件事从<strong>文本解析问题</strong>变成了<strong>协议问题</strong>：</p>
+<pre class="mermaid">flowchart LR
+    subgraph OLD["旧方案"]
+        O1[模型输出自然语言] --> O2[正则 / 格式约定解析]
+        O2 --> O3{解析成功?}
+        O3 -->|失败| O4[静默降级]
+        O3 -->|成功| O5[调用工具]
+    end
+
+    subgraph NEW["Function Calling"]
+        N1[模型输出 tool_calls 结构] --> N2[按协议字段直接取值]
+        N2 --> N3[调用工具]
+    end
+</pre>
+
+<p>差别在于：模型输出 <code>tool_calls</code> 时，响应里有一个明确的 <code>finish_reason: "tool_calls"</code> 信号。这是一个<strong>带外信号</strong>，不依赖对文本内容的理解，宿主程序拿到它就知道「模型现在要的是工具结果，而不是在跟用户说话」。介绍能力和发起调用，在协议层面被彻底分开了。</p>
+<h2 id="13">1.3 三个角色与职责边界</h2>
+<p>把整个流程理解成一次任务委托，三个角色的分工就很清楚了。</p>
+<pre class="mermaid">flowchart TB
+    DEV["开发者<br/>写工具说明书（JSON Schema）"] -->|注册 tools| MODEL
+    USER["用户<br/>提出需求"] -->|messages| MODEL
+
+    MODEL["模型<br/>只做决策"] -->|输出 tool_calls| HOST
+
+    HOST["宿主程序<br/>只做执行"] -->|真正调用| EXT["外部系统<br/>API / DB / 文件"]
+    EXT -->|返回结果| HOST
+    HOST -->|role: tool 消息| MODEL
+    MODEL -->|最终自然语言答案| USER
+
+    style MODEL fill:#e8f0fe
+    style HOST fill:#fce8e6
+</pre>
+
+<table>
+<thead>
+<tr>
+<th>角色</th>
+<th>职责</th>
+<th>明确不做的事</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>开发者</td>
+<td>定义工具的名称、描述、参数 Schema</td>
+<td>不预判模型会怎么选</td>
+</tr>
+<tr>
+<td>模型</td>
+<td>判断要不要调、调哪个、参数填什么</td>
+<td><strong>不执行任何代码，不访问网络</strong></td>
+</tr>
+<tr>
+<td>宿主程序</td>
+<td>解析 <code>tool_calls</code>、执行函数、回填结果</td>
+<td>不替模型做「该不该调」的判断</td>
+</tr>
+</tbody>
+</table>
+<p>面试里最高频的失分点，就是把模型说成「自己去查了天气」。模型没有网络栈，没有执行环境，它产出的自始至终只是一段文本——只不过这段文本恰好是合法 JSON。</p>
+<h2 id="14-schema">1.4 工具定义：Schema 的每个字段都在给模型提示</h2>
+<pre><code class="language-python">tools = [{
+    &quot;type&quot;: &quot;function&quot;,
+    &quot;function&quot;: {
+        &quot;name&quot;: &quot;get_weather&quot;,
+        &quot;description&quot;: (
+            &quot;查询中国大陆城市的实时天气，返回气温、天气状况、风向风速。&quot;
+            &quot;仅支持当前时刻，不支持未来预报和历史查询。&quot;
+        ),
+        &quot;parameters&quot;: {
+            &quot;type&quot;: &quot;object&quot;,
+            &quot;properties&quot;: {
+                &quot;city&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;description&quot;: &quot;城市名，如「北京」「杭州」。不要带省份或「市」后缀&quot;
+                },
+                &quot;unit&quot;: {
+                    &quot;type&quot;: &quot;string&quot;,
+                    &quot;enum&quot;: [&quot;celsius&quot;, &quot;fahrenheit&quot;],
+                    &quot;description&quot;: &quot;温度单位，默认 celsius&quot;
+                }
+            },
+            &quot;required&quot;: [&quot;city&quot;]
+        }
+    }
+}]
+</code></pre>
+<h3 id="141-description">1.4.1 description 是模型唯一的判断依据</h3>
+<p>模型看不到你的函数实现，看不到你的数据库，看不到任何注释。它决定「要不要调这个工具」时，能读的只有这段 <code>description</code>。</p>
+<p>对比一下两种写法造成的行为差异：</p>
+<table>
+<thead>
+<tr>
+<th>description</th>
+<th>模型的典型误用</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"获取天气"</code></td>
+<td>用户问「北京下周会下雨吗」也照调，拿回实时数据后<strong>编造</strong>一个未来预报</td>
+</tr>
+<tr>
+<td><code>"查询中国大陆城市的实时天气……不支持未来预报和历史查询"</code></td>
+<td>模型识别出能力边界，直接回复「我只能查当前天气」</td>
+</tr>
+</tbody>
+</table>
+<p>关键技巧是<strong>把「不能做什么」写进去</strong>。人写文档习惯只写能力，但对模型来说，负向边界的信息量往往比正向描述更大——它决定了模型什么时候该<strong>放弃</strong>调用。</p>
+<h3 id="142">1.4.2 参数描述决定填参质量</h3>
+<p><code>city</code> 的描述里那句「不要带省份或『市』后缀」不是废话。没有它，模型面对「浙江省杭州市今天天气如何」会老老实实填 <code>"浙江省杭州市"</code>，而你的 API 只认 <code>"杭州"</code>。</p>
+<p>参数描述里值得写的三类信息：<strong>格式约定</strong>（日期用 <code>YYYY-MM-DD</code>）、<strong>取值示例</strong>、<strong>取值范围</strong>（能用 <code>enum</code> 就别用自由文本）。</p>
+<h3 id="143-enum">1.4.3 用 enum 把选择题变成判断题</h3>
+<pre><code class="language-python"># 差：模型可能填 &quot;高&quot;、&quot;HIGH&quot;、&quot;P0&quot;、&quot;urgent&quot;
+&quot;priority&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;description&quot;: &quot;优先级&quot;}
+
+# 好：只有三个合法值，模型不可能填错
+&quot;priority&quot;: {&quot;type&quot;: &quot;string&quot;, &quot;enum&quot;: [&quot;low&quot;, &quot;medium&quot;, &quot;high&quot;]}
+</code></pre>
+<p><code>enum</code> 的价值不只是校验。主流推理框架（vLLM、SGLang 等）会把 Schema 编译成约束解码的语法，在<strong>采样阶段</strong>就屏蔽掉非法 token。这意味着违规值不是「生成后被拒绝」，而是根本生成不出来。</p>
+<h2 id="15">1.5 完整调用流程：两轮对话加中间执行</h2>
+<pre class="mermaid">sequenceDiagram
+    participant U as 用户
+    participant H as 宿主程序
+    participant M as 模型
+    participant T as 天气 API
+
+    U->>H: 北京今天天气怎么样？
+    H->>M: messages + tools（第一轮）
+    M-->>H: finish_reason=tool_calls<br/>get_weather(city="北京")
+    Note over M: 模型在这里停下，<br/>没有输出最终答案
+    H->>T: 真正的 HTTP 请求
+    T-->>H: 晴，15°C，东北风 3 级
+    H->>M: 追加 role=tool 消息（第二轮）
+    M-->>H: 北京今天晴，气温 15°C……
+    H->>U: 最终答案
+</pre>
+
+<pre><code class="language-python">import json
+from openai import OpenAI
+
+client = OpenAI()
+messages = [{&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;北京今天天气怎么样？&quot;}]
+
+# 第一轮：模型决策
+resp = client.chat.completions.create(
+    model=&quot;gpt-4o&quot;,
+    messages=messages,
+    tools=tools,
+    tool_choice=&quot;auto&quot;,
+)
+choice = resp.choices[0]
+
+if choice.finish_reason == &quot;tool_calls&quot;:
+    messages.append(choice.message)          # 必须先追加模型的这条消息
+
+    for call in choice.message.tool_calls:
+        args = json.loads(call.function.arguments)
+        result = registry[call.function.name](**args)   # 宿主程序执行
+
+        messages.append({
+            &quot;role&quot;: &quot;tool&quot;,
+            &quot;tool_call_id&quot;: call.id,          # 必须与请求的 id 一一对应
+            &quot;content&quot;: json.dumps(result, ensure_ascii=False),
+        })
+
+    # 第二轮：模型基于工具结果生成答案
+    final = client.chat.completions.create(
+        model=&quot;gpt-4o&quot;, messages=messages, tools=tools
+    )
+    print(final.choices[0].message.content)
+</code></pre>
+<h3 id="151">1.5.1 两个容易漏掉的必要步骤</h3>
+<p><strong>必须把模型那条 <code>tool_calls</code> 消息追加回 messages</strong>。很多人直接跳到追加 <code>role: "tool"</code>，结果 API 报 <code>messages with role 'tool' must be a response to a preceding message with 'tool_calls'</code>。原因是对话历史必须自洽：先有请求，才能有响应。</p>
+<p><strong><code>tool_call_id</code> 必须一一对应</strong>。并行调用时如果 id 错配，模型会把杭州的天气当成北京的用，而且不会报任何错。</p>
+<h3 id="152-tool_choice">1.5.2 tool_choice 的三种取值</h3>
+<table>
+<thead>
+<tr>
+<th>取值</th>
+<th>行为</th>
+<th>用途</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>"auto"</code>（默认）</td>
+<td>模型自己判断调不调</td>
+<td>通用对话</td>
+</tr>
+<tr>
+<td><code>"required"</code></td>
+<td>强制至少调一个工具</td>
+<td>已确定必须查数据的流程节点</td>
+</tr>
+<tr>
+<td><code>{"type":"function","function":{"name":"x"}}</code></td>
+<td>强制调指定工具</td>
+<td>结构化抽取：把工具当输出格式用</td>
+</tr>
+<tr>
+<td><code>"none"</code></td>
+<td>禁止调用</td>
+<td>需要模型纯文本总结的收尾轮</td>
+</tr>
+</tbody>
+</table>
+<p>把 <code>tool_choice</code> 锁定到某个工具时，Function Calling 实际上就在充当<strong>结构化输出</strong>接口。这是 Structured Output / JSON Mode 出现之前的通行做法，现在仍然被大量代码沿用。</p>
+<h2 id="16">1.6 并行工具调用</h2>
+<p><code>tool_calls</code> 是数组而不是单个对象，这是一个刻意的设计。</p>
+<p>用户问「帮我查北京、上海、广州的天气」，模型可以在<strong>一次响应</strong>里返回三个调用请求：</p>
+<pre class="mermaid">flowchart LR
+    subgraph SER["串行：3 轮模型调用"]
+        S1[模型] --> S2[查北京] --> S3[模型] --> S4[查上海] --> S5[模型] --> S6[查广州] --> S7[模型]
+    end
+
+    subgraph PAR["并行：2 轮模型调用"]
+        P1[模型一次输出 3 个 tool_calls] --> P2[并发执行三个查询]
+        P2 --> P3[一次性回填三条结果] --> P4[模型]
+    end
+</pre>
+
+<p>省下的不只是模型推理次数。三个 HTTP 请求可以用 <code>asyncio.gather</code> 并发跑，墙钟时间从 <code>3×(推理+IO)</code> 压到 <code>2×推理 + max(IO)</code>。</p>
+<pre><code class="language-python">import asyncio
+
+async def run_all(tool_calls):
+    tasks = [
+        asyncio.to_thread(registry[c.function.name],
+                          **json.loads(c.function.arguments))
+        for c in tool_calls
+    ]
+    return await asyncio.gather(*tasks, return_exceptions=True)
+</code></pre>
+<h3 id="161">1.6.1 并行的前提是无依赖</h3>
+<p>「先查订单号，再用订单号查物流」这种链式依赖没法并行——模型也知道，它会正确地分两轮输出。但有一个例外要小心：<strong>模型偶尔会「猜」出中间结果并强行并行</strong>。比如它假想一个订单号直接去查物流。防御手段是在工具描述里写清前置条件，并在宿主侧校验参数合法性。</p>
+<h3 id="162">1.6.2 部分失败怎么处理</h3>
+<p>并行执行时如果两个成功一个失败，<strong>不要整批丢弃</strong>。把失败的那个也以 <code>role: "tool"</code> 回填，内容写成结构化错误：</p>
+<pre><code class="language-python">{&quot;role&quot;: &quot;tool&quot;, &quot;tool_call_id&quot;: call.id,
+ &quot;content&quot;: '{&quot;error&quot;: &quot;city_not_found&quot;, &quot;message&quot;: &quot;未找到城市「广洲」，请确认拼写&quot;}'}
+</code></pre>
+<p>模型看到这条会自己纠正城市名重试。如果你直接抛异常中断整个流程，就浪费了模型的自我修复能力。这一点在 <a href="../../agent/02-reasoning-planning/12-agent-reflection.html">Agent 的反思机制</a> 里会展开。</p>
+<h2 id="17-function-calling">1.7 从 Function Calling 到工具调用生态</h2>
+<p>Function Calling 只解决了「模型怎么表达调用意图」。它没有解决的问题清单很长：</p>
+<table>
+<thead>
+<tr>
+<th>未解决的问题</th>
+<th>由谁解决</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>工具怎么被<strong>发现</strong>（不用硬编码在代码里）</td>
+<td><a href="../02-mcp/04-what-is-mcp.html">MCP</a></td>
+</tr>
+<tr>
+<td>工具怎么<strong>跨进程 / 跨机器</strong>提供</td>
+<td><a href="../02-mcp/12-mcp-transport.html">MCP 传输层</a></td>
+</tr>
+<tr>
+<td>复杂任务的<strong>操作方法</strong>怎么复用</td>
+<td><a href="../03-skills/08-what-is-skill.html">Skill</a></td>
+</tr>
+<tr>
+<td>多个 Agent 之间怎么<strong>互相调用</strong></td>
+<td><a href="../04-agent-communication/11-a2a-protocol.html">A2A</a></td>
+</tr>
+<tr>
+<td>多模型、多供应商怎么<strong>统一治理</strong></td>
+<td><a href="../05-transport-gateway/14-llm-gateway.html">LLM 网关</a></td>
+</tr>
+</tbody>
+</table>
+<p>理解这个边界很重要：许多 LLM Host 会将 MCP Tool 转为模型能理解的 schema 并用 Function Calling 驱动调用；但 MCP 与 A2A 不以 Function Calling 为协议前提，Host 也可通过规则、结构化输出或人工流程发起调用。</p>
+<h2 id="18">1.8 常见错误</h2>
+<h3 id="181">1.8.1 认为模型自己执行了工具</h3>
+<p>最典型的失分点。模型没有执行环境，<code>tool_calls</code> 只是一段 JSON 文本，所有副作用都发生在你的代码里。这个边界也直接决定了安全模型：<strong>权限校验必须做在宿主侧</strong>，因为模型输出的参数完全可能被用户的输入操纵。</p>
+<h3 id="182-description">1.8.2 把 description 当注释写</h3>
+<p><code>"description": "获取天气"</code> 这种写法等于没写。模型的选择准确率、参数填充质量、能力边界判断，全部依赖这段文本。它是 Prompt 的一部分，应该按 Prompt 的标准来打磨和迭代。</p>
+<h3 id="183">1.8.3 注册几十个工具指望模型选对</h3>
+<p>工具数量上去之后，模型的选择准确率会明显下降，尤其是功能相近的工具（<code>search_docs</code> 和 <code>search_wiki</code>）。工具很多时的解法是<strong>按场景动态筛选</strong>：先用一次轻量分类或向量检索，从工具库里挑出 5–10 个相关的再传给模型。</p>
+<h3 id="184-tool_calls">1.8.4 忘记回填模型的 tool_calls 消息</h3>
+<p>只追加 <code>role: "tool"</code> 而漏掉模型那条消息，会直接触发 API 报错。对话历史必须保持请求与响应成对。</p>
+<h3 id="185">1.8.5 用异常中断替代错误回填</h3>
+<p>工具执行失败时直接抛异常，等于放弃了模型自我纠错的机会。把错误结构化地告诉模型，它经常能自己修好参数重试。</p>
+<h3 id="186-function-calling">1.8.6 假设所有模型的 Function Calling 行为一致</h3>
+<p>不同模型的差异比想象中大：并行调用的支持程度不同，<code>tool_choice</code> 的取值语义不同，参数为空时有的填 <code>{}</code> 有的填 <code>null</code>，Schema 复杂嵌套时的稳定性也不同。换模型必须重跑工具调用的回归测试。</p>
+<h2 id="19">1.9 本章总结</h2>
+<ol>
+<li><strong>Function Calling 是模型层的输出约定</strong>，把工具调用从文本解析问题变成协议问题；</li>
+<li><strong><code>finish_reason: "tool_calls"</code> 是带外信号</strong>，让「介绍能力」和「发起调用」在协议层被区分开；</li>
+<li><strong>模型只做决策，宿主程序只做执行</strong>，这条边界同时是架构原则和安全边界；</li>
+<li><strong><code>description</code> 是模型唯一的判断依据</strong>，写清能力边界比写清能力本身更重要；</li>
+<li><strong>运行时是「两轮对话 + 中间执行」</strong>，必须回填模型消息并保持 <code>tool_call_id</code> 对应；</li>
+<li><strong>并行调用把 N 轮压缩成 2 轮</strong>，前提是工具之间无依赖，且要正确处理部分失败；</li>
+<li><strong>它只解决了表达问题</strong>，工具发现、跨进程、生态标准化由 MCP 等上层协议补齐。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://platform.openai.com/docs/guides/function-calling">OpenAI: Function Calling 指南</a></li>
+<li><a href="https://docs.claude.com/en/docs/agents-and-tools/tool-use/overview">Anthropic: Tool Use with Claude</a></li>
+<li><a href="https://www.anthropic.com/engineering/writing-tools-for-agents">Anthropic: Writing Effective Tools for Agents</a></li>
+<li><a href="https://arxiv.org/abs/2302.04761">Toolformer: Language Models Can Teach Themselves to Use Tools</a></li>
+<li><a href="https://arxiv.org/abs/2210.03629">ReAct: Synergizing Reasoning and Acting in Language Models</a></li>
+<li><a href="https://json-schema.org/">JSON Schema 规范</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

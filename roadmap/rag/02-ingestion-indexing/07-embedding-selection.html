@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Embedding 选型与评估 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Embedding 选型与评估 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>RAG</span> / <span>摄取与索引</span> / <span>Embedding 选型与评估</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="embedding">第七章：Embedding 模型选型与评估</h1>
+<h2 id="71">7.1 选型的第一原则</h2>
+<p>结论很直接：</p>
+<blockquote>
+<p><strong>不要照着公开榜单排名直接选模型，要在你自己的业务数据上实测。</strong></p>
+</blockquote>
+<p>榜单适合缩小候选范围，不适合直接替代选型。原因下一节展开。</p>
+<h2 id="72">7.2 为什么不能只看榜单</h2>
+<p>MTEB 是当前最常用的文本嵌入评测基准，覆盖分类、聚类、检索、重排等多类任务。它很有价值，但<strong>有四个常见局限</strong>：</p>
+<pre class="mermaid">flowchart TB
+    M[只看 MTEB 排名] --> P1[榜单过拟合]
+    M --> P2[检索分数不预测端到端质量]
+    M --> P3[语言与文体偏置]
+    M --> P4[长度分布偏置]
+
+    P1 --> D1[模型针对公开集调优<br/>分数虚高]
+    P2 --> D2[召回好 不等于 答案好]
+    P3 --> D3[偏英语 偏正式文本<br/>中文垂直领域不代表]
+    P4 --> D4[短 Query 短 Passage 为主<br/>与长文档场景不符]
+</pre>
+
+<h3 id="721">7.2.1 榜单过拟合</h3>
+<p>MTEB 的数据集是公开的。模型开发者可以针对这些数据集反复调优，导致榜单分数<strong>高估了在未见过的数据上的真实表现</strong>。这是所有公开榜单的通病，不是 MTEB 独有。</p>
+<h3 id="722">7.2.2 检索分数不等于端到端质量</h3>
+<p><strong>这是最重要的一条。</strong> RAG 的最终目标是答案质量，而检索指标只是中间环节。</p>
+<p>检索指标提升不必然带来答案质量提升——比如召回了更多相关但重复的内容，检索指标上升，但对生成没有帮助，反而挤占了 Prompt 预算（第二章 2.6 节）。</p>
+<h3 id="723">7.2.3 语言与领域偏置</h3>
+<p>MTEB 原始版本以英语和通用文本为主。你的场景可能是中文的法律条款、医疗病历或代码——这些领域的表现<strong>与榜单排名的相关性可能很弱</strong>。</p>
+<p>后续的多语言扩展版本（MMTEB）改善了语言覆盖，但<strong>领域特异性的问题依然存在</strong>。</p>
+<h3 id="724">7.2.4 长度与形态偏置</h3>
+<p>榜单任务以短 Query 配短 Passage 为主。如果你的场景是长文档检索，或者 Query 本身就很长（比如一整段错误日志），排名参考价值会下降。</p>
+<h2 id="73">7.3 正确的选型流程</h2>
+<pre class="mermaid">flowchart TB
+    S1[1. 用榜单圈定候选<br/>3-5 个模型] --> S2[2. 构造业务评测集]
+    S2 --> S3[3. 同一套切分和参数下<br/>分别建库]
+    S3 --> S4[4. 测检索指标<br/>Hit@K MRR NDCG]
+    S4 --> S5[5. 测端到端答案质量]
+    S5 --> S6[6. 评估成本 延迟 部署约束]
+    S6 --> S7[7. 决策]
+</pre>
+
+<p><strong>榜单的正确用法是「筛选候选池」，而不是「给出答案」。</strong></p>
+<h3 id="731">7.3.1 评测集怎么构造</h3>
+<p>这是整个流程里最花时间但最有价值的一步。</p>
+<ul>
+<li><strong>规模</strong>：几十条能看出大差异，几百条才能分辨接近的模型；</li>
+<li><strong>来源</strong>：<strong>优先用真实用户问题</strong>，其次是业务专家出题，最后才是 LLM 生成；</li>
+<li><strong>标注</strong>：每个问题标注哪些 chunk 是正确依据（<strong>可以多个</strong>）；</li>
+<li><strong>覆盖</strong>：要包含简单事实查询、同义表述、专业术语、多跳问题、以及<strong>知识库里根本没有答案的问题</strong>。</li>
+</ul>
+<p><strong>最后一类（无答案问题）经常被漏掉，但它是检验系统会不会瞎编的唯一手段</strong>（第十七章展开）。</p>
+<h3 id="732">7.3.2 必测的对照组</h3>
+<p>评测时<strong>一定要把 BM25 关键词检索作为对照组</strong>。</p>
+<p>原因是：<strong>在专业术语密集的领域（医疗、法律、代码、含大量型号和错误码的技术文档），稠密向量检索经常打不过 BM25。</strong> 如果不设这个对照组，你可能花大力气选了个"最好的"向量模型，却不知道最简单的关键词检索效果更好。</p>
+<h2 id="74">7.4 除了效果，还要看什么</h2>
+<table>
+<thead>
+<tr>
+<th>维度</th>
+<th>关注点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>向量维度</strong></td>
+<td>直接决定存储成本和检索速度</td>
+</tr>
+<tr>
+<td><strong>最大输入长度</strong></td>
+<td>必须容纳你的 chunk 大小（第四章）</td>
+</tr>
+<tr>
+<td><strong>多语言能力</strong></td>
+<td>中英混排、跨语言检索是否需要</td>
+</tr>
+<tr>
+<td><strong>推理成本</strong></td>
+<td>自部署需要多少 GPU；API 按量计费多少</td>
+</tr>
+<tr>
+<td><strong>部署方式</strong></td>
+<td>数据能否出境/出内网，是否必须私有化</td>
+</tr>
+<tr>
+<td><strong>许可证</strong></td>
+<td>商用是否受限</td>
+</tr>
+<tr>
+<td><strong>模型对与向量空间兼容性</strong></td>
+<td>Query/Document 编码器是否是模型卡声明的兼容对，且输出维度、归一化和相似度度量一致</td>
+</tr>
+<tr>
+<td><strong>稳定性</strong></td>
+<td>API 模型是否会静默升级导致向量空间漂移</td>
+</tr>
+</tbody>
+</table>
+<h3 id="741">7.4.1 维度不是越高越好</h3>
+<p>维度翻倍意味着存储翻倍、检索计算量翻倍，但效果提升往往很小。</p>
+<p><strong>这里有一个重要的现代技术：Matryoshka 表示学习（MRL）。</strong></p>
+<p>它的训练方式让向量的<strong>前若干维本身就是一个可用的低维表示</strong>。也就是说，一个 3072 维的向量，直接截断取前 512 维，仍然是个高质量向量，效果只轻微下降。</p>
+<pre class="mermaid">flowchart LR
+    V[3072 维向量] --> C1[取前 256 维<br/>粗排 极省存储]
+    V --> C2[取前 1024 维<br/>常规检索]
+    V --> C3[完整 3072 维<br/>精排 最高精度]
+</pre>
+
+<p><strong>工程价值很大</strong>：可以用低维向量做大规模粗排、高维向量做精排，用一份向量支持多种精度需求。OpenAI 的 <code>text-embedding-3</code> 系列原生支持这种截断，<strong>2025 年之后已是主流做法</strong>。</p>
+<h3 id="742-api">7.4.2 API 模型的隐性风险</h3>
+<p>调用 API 的 Embedding 模型有一个自部署没有的风险：<strong>服务方可能在你不知情的情况下更新模型版本</strong>。</p>
+<p>一旦向量空间发生变化，<strong>新写入的向量和历史向量就不在同一个空间了</strong>，检索结果会莫名其妙地劣化，而且极难排查。双塔检索也不必要求 Query 与 Document 使用同一个权重：可以使用模型发布者明确声明为一对、共同训练并可比较的 query/document encoder；不能把任意两个“维度相同”的模型混用。</p>
+<p><strong>应对措施</strong>：锁定模型对及其版本、归一化方式和相似度度量；在索引元数据记录这组契约；服务启动时校验 Query 编码器与索引的 Document 编码器兼容，不兼容则重建或拒绝查询，并定期运行固定检索回归集。</p>
+<h2 id="75">7.5 常见候选模型</h2>
+<p><strong>注意：模型迭代很快，下表是选型思路而非推荐清单，实际选型请以当时的实测为准。</strong></p>
+<table>
+<thead>
+<tr>
+<th>类别</th>
+<th>代表</th>
+<th>特点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>中文/多语言开源</td>
+<td>BGE 系列、Qwen3-Embedding 系列</td>
+<td>中文表现好，可私有化部署</td>
+</tr>
+<tr>
+<td>多语言长文本开源</td>
+<td>bge-m3 类</td>
+<td>支持长输入，且可同时输出稠密与稀疏表示</td>
+</tr>
+<tr>
+<td>通用开源</td>
+<td>E5、GTE 系列</td>
+<td>通用性好，社区成熟</td>
+</tr>
+<tr>
+<td>商用 API</td>
+<td>OpenAI text-embedding-3 系列</td>
+<td>开箱即用，支持 MRL 维度截断</td>
+</tr>
+</tbody>
+</table>
+<p><strong>bge-m3 这类模型有个特别的工程价值</strong>：它能用一个模型同时产出稠密向量和稀疏表示，从而<strong>用一套模型支撑混合检索</strong>（第十一、十三章），省掉维护两套链路的成本。</p>
+<h2 id="76-embedding">7.6 微调 Embedding 模型值不值</h2>
+<p><strong>先说结论：在多数场景里，这不是第一优先级的优化项。</strong></p>
+<p>优先级更高的通常是：切分策略（第四、五章）、混合检索（第十三章）、Rerank（第十三章）。这三个的投入产出比通常都高于微调 Embedding。</p>
+<p><strong>什么情况下值得微调</strong>：</p>
+<ul>
+<li>领域术语与通用语义<strong>差异极大</strong>（如专业医学、特定企业黑话）；</li>
+<li>已经有<strong>足量的真实 Query-文档配对数据</strong>（通常需要千条以上）；</li>
+<li>上述三个更简单的优化都做完了，效果仍不达标。</li>
+</ul>
+<p><strong>微调的隐性成本必须说清楚</strong>：</p>
+<blockquote>
+<p><strong>模型一旦微调，全量索引就必须重建；而且后续每次模型迭代都要重跑这套流程。</strong> 这是长期的运维负担，不是一次性投入。</p>
+</blockquote>
+<h2 id="77">7.7 常见错误</h2>
+<h3 id="771">7.7.1 只看榜单排名</h3>
+<p>榜单有过拟合、领域偏置、与端到端质量脱节三重问题。</p>
+<h3 id="772">7.7.2 不做业务数据实测</h3>
+<p>选型的唯一可靠依据是自己数据上的表现。</p>
+<h3 id="773-bm25">7.7.3 不设 BM25 对照组</h3>
+<p>术语密集领域里 BM25 常常更强，不测就不知道。</p>
+<h3 id="774">7.7.4 只测检索指标不测端到端</h3>
+<p>检索指标提升不必然带来答案质量提升。</p>
+<h3 id="775">7.7.5 盲目追求高维度</h3>
+<p>存储和计算成本线性上升，收益递减。MRL 提供了更灵活的方案。</p>
+<h3 id="776-chunk">7.7.6 忘记模型输入长度与 chunk 大小的匹配</h3>
+<p>超长部分被静默截断。</p>
+<h3 id="777-api">7.7.7 不锁定 API 模型版本</h3>
+<p>静默升级会导致向量空间漂移，是最难排查的故障之一。</p>
+<h3 id="778-embedding">7.7.8 把微调 Embedding 当成首选优化项</h3>
+<p>优先级排在切分、混合检索、Rerank 之后，且带来永久的重建负担。</p>
+<h2 id="78">7.8 本章总结</h2>
+<ol>
+<li><strong>选型第一原则：榜单用来圈候选，实测用来做决策</strong>；</li>
+<li><strong>MTEB 的四个局限</strong>：榜单过拟合、检索分数不预测端到端质量、语言与领域偏置、长度形态偏置；</li>
+<li><strong>选型流程</strong>：圈候选 → 建业务评测集 → 同参数建库 → 测检索指标 → 测端到端 → 评估成本部署 → 决策；</li>
+<li><strong>评测集必须包含「知识库里没有答案」的问题</strong>，用来检验拒答能力；</li>
+<li><strong>必须设 BM25 对照组</strong>，术语密集领域向量检索常常打不过它；</li>
+<li><strong>效果之外还要看</strong>维度、输入长度、多语言、成本、部署约束、许可证、版本稳定性；</li>
+<li><strong>MRL 让一份向量支持多种维度</strong>，是现代选型的重要考量；</li>
+<li><strong>Query/Document 必须是兼容模型对并处于同一可比较向量空间</strong>；API 模型还要锁版本，发生漂移必须重建；</li>
+<li><strong>微调 Embedding 优先级不高</strong>，且带来永久的索引重建负担。</li>
+</ol>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2210.07316">MTEB: Massive Text Embedding Benchmark</a></li>
+<li><a href="https://arxiv.org/abs/2502.13595">MMTEB: Massive Multilingual Text Embedding Benchmark</a></li>
+<li><a href="https://arxiv.org/abs/2205.13147">Matryoshka Representation Learning</a></li>
+<li><a href="https://arxiv.org/abs/2402.03216">M3-Embedding: Multi-Linguality, Multi-Functionality, Multi-Granularity Text Embeddings Through Self-Knowledge Distillation</a></li>
+<li><a href="https://arxiv.org/abs/2407.01219">Searching for Best Practices in Retrieval-Augmented Generation</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Agent 框架概览 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="Agent 框架概览 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../../assets/style.css">
+  <link rel="stylesheet" href="../../../roadmap/roadmap.css">
+  <script src="../../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../../home.html">首页</a>
+        <a href="../../../posts.html">随笔</a>
+        <a href="../../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>框架与编排</span> / <span>LangChain 生态</span> / <span>基础架构</span> / <span>Agent 框架概览</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="ai-agent">第一章：主流 AI Agent 开发框架概览</h1>
+<h2 id="11-agent">1.1 Agent 框架解决什么问题</h2>
+<p>不依赖任何框架时，要实现一个能查资料、调接口、记上下文的 Agent，通常至少要处理两类事情：</p>
+<ul>
+<li>基础接入：接入模型、定义工具协议、实现 Agent 循环、把工具结果重新交回模型；</li>
+<li>工程能力：状态管理、重试、超时、流式输出、人工确认、运行追踪。</li>
+</ul>
+<p>一次演示能跑通并不难，难点在于系统执行十几步后还能恢复，并且出错时能快速定位。</p>
+<p>Agent 框架就是把这些重复工程抽象成可复用组件。<strong>但不同框架选择的重点并不相同</strong>：</p>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>重点</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LangChain</strong></td>
+<td>通用组件和快速集成</td>
+</tr>
+<tr>
+<td><strong>LangGraph</strong></td>
+<td>状态与流程控制</td>
+</tr>
+<tr>
+<td><strong>LlamaIndex</strong></td>
+<td>数据与检索</td>
+</tr>
+</tbody>
+</table>
+<p>比较框架时，更有用的问题是：在当前业务约束下，哪个框架更贴近项目的主要难点。</p>
+<h2 id="12-langchain">1.2 LangChain 的定位</h2>
+<p>LangChain 已经不只是早期那个「把多个 Prompt 串成 Chain」的库。它提供<strong>模型、消息、Prompt、工具、结构化输出、中间件和 Agent</strong> 等通用抽象，并集成了大量模型供应商、向量数据库和外部工具。</p>
+<h3 id="121">1.2.1 主要价值：集成范围广、开发速度快</h3>
+<p>需要切换不同模型，接入搜索、数据库或 MCP 工具，快速实现 RAG Agent、SQL Agent 或客服助手时，<strong>LangChain 能省掉大量协议适配和样板代码</strong>。</p>
+<h3 id="122">1.2.2 边界</h3>
+<p><strong>高层抽象更适合常见 Agent 模式。</strong> 当业务出现<strong>复杂循环、精细分支、长时间暂停和断点恢复</strong>时，就需要下沉到 LangGraph 控制执行流程。</p>
+<h2 id="13-langgraph-langchain">1.3 LangGraph 与 LangChain 是什么关系</h2>
+<p>LangGraph 用 <strong>State + Node + Edge</strong> 表达 Agent 工作流：</p>
+<table>
+<thead>
+<tr>
+<th>概念</th>
+<th>职责</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>State</strong></td>
+<td>保存共享状态</td>
+</tr>
+<tr>
+<td><strong>Node</strong></td>
+<td>执行模型或工具</td>
+</tr>
+<tr>
+<td><strong>Edge</strong></td>
+<td>决定下一步运行哪个节点</td>
+</tr>
+</tbody>
+</table>
+<p>LangGraph 主要处理循环、条件分支、并行执行、持久化、暂停恢复和人工介入。</p>
+<h3 id="131">1.3.1 一个具体例子</h3>
+<pre class="mermaid">flowchart TB
+    A["读取单据"] --> B["合规检查"]
+    B --> C{"金额超过限制?"}
+    C -->|是| D["暂停<br/>等待主管审批"]
+    D --> E{"审批通过?"}
+    E -->|是| F["调用付款工具"]
+    E -->|否| G["驳回"]
+    C -->|否| F
+
+    style D fill:#fff3cd
+</pre>
+
+<p>这类流程通常更适合用图结构表达，而不是继续塞进单一 Agent 循环。</p>
+<h3 id="132">1.3.2 更准确的关系</h3>
+<p><strong>LangChain 的 Agent 高层接口现在运行在 LangGraph 之上。</strong></p>
+<p>LangChain 提供常用组件和高层入口，LangGraph 提供底层执行、状态管理和恢复能力。简单 Agent 通常直接从 LangChain 入手；需要精细控制时，再下沉到 LangGraph。</p>
+<p><strong>不要把两者说成互相替代的框架</strong>——它们既有职责差异，也经常组合使用。</p>
+<h2 id="14-llamaindex">1.4 LlamaIndex 强在哪里</h2>
+<p>如果把 LlamaIndex 当成「另一个 LangChain」，很容易忽略它在私有数据链路上的侧重。<strong>LlamaIndex 更强调在私有数据之上构建 AI 应用</strong>：数据连接、文档解析、切分、索引、检索、重排、Query Engine、结构化数据访问，也可以把 RAG Pipeline 封装成 Agent 使用的工具。</p>
+<h3 id="141">1.4.1 企业知识库场景的难点不只在工具调用</h3>
+<pre class="mermaid">flowchart LR
+    subgraph IN["资料进入系统时"]
+        I1["PDF 表格要正确解析"]
+        I2["多种数据源要统一接入"]
+        I3["文档要切分并建立索引"]
+    end
+    subgraph Q["用户开始提问后"]
+        Q1["过滤和重排召回结果"]
+        Q2["确保不同用户只看到<br/>自己有权访问的数据"]
+    end
+    IN --> Q
+
+    style IN fill:#e8f0fe
+</pre>
+
+<p>企业知识库的问题会沿整条数据链路出现，不是多注册一个搜索工具就能解决。</p>
+<p><strong>这些正是 LlamaIndex 更擅长的方向</strong>——企业知识库、文档 Agent、研究助手、复杂 RAG 系统。</p>
+<h3 id="142-rag">1.4.2 它也不只用于 RAG</h3>
+<p>LlamaIndex 同样提供 Agent、Memory、多 Agent Pattern 和 Workflow。</p>
+<p><strong>从选型角度看</strong>：LangChain 的入口更偏<strong>通用 Agent 组装</strong>，LlamaIndex 的优势更集中在<strong>数据密集型应用</strong>。</p>
+<h2 id="15">1.5 三个框架怎么配合</h2>
+<p><strong>它们不一定三选一。</strong></p>
+<pre class="mermaid">flowchart LR
+    A["LlamaIndex<br/>处理文档、建索引<br/>提供检索结果"] --> B["包装成 Tool"]
+    B --> C["LangChain Agent<br/>决定何时调用"]
+    C --> D["LangGraph<br/>负责查询改写、答案校验<br/>人工审核、失败恢复<br/>这些步骤如何衔接"]
+
+    style A fill:#e8f0fe
+    style C fill:#e6f4ea
+    style D fill:#fff3cd
+</pre>
+
+<p><strong>三者分别解决数据、Agent 组装和流程控制问题，而不是在同一层重复造轮子。</strong></p>
+<blockquote>
+<p><strong>但是否需要同时引入三者，取决于项目复杂度。</strong> 只是简单工具调用，不必为了技术栈完整而引入 LlamaIndex；只是普通知识库问答，也不一定需要复杂的 LangGraph 工作流。</p>
+</blockquote>
+<h2 id="16">1.6 其他框架要了解到什么程度</h2>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>定位</th>
+<th>适合</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>OpenAI Agents SDK</strong></td>
+<td>围绕 Agent、Runner、Tools、Handoffs、Guardrails、Sessions、Tracing 的<strong>轻量开发方式</strong></td>
+<td>以 OpenAI 模型和接口为主，快速实现客服分流、语音助手、工具 Agent</td>
+</tr>
+<tr>
+<td><strong>CrewAI</strong></td>
+<td>用<strong>角色、目标、任务、团队</strong>表达多 Agent 协作，通过 Flow 管理状态、条件和事件</td>
+<td>研究报告、内容生产、多角色审核等<strong>容易映射为团队分工</strong>的场景。<strong>但角色越多，调用成本和协作不确定性也越高</strong></td>
+</tr>
+<tr>
+<td><strong>AutoGen / Semantic Kernel / Microsoft Agent Framework</strong></td>
+<td>更偏微软生态或存量项目</td>
+<td>知道定位即可</td>
+</tr>
+<tr>
+<td><strong>Dify</strong></td>
+<td><strong>更接近低代码 AI 应用开发平台</strong></td>
+<td><strong>不宜和 Python Agent 框架放在同一层面比较</strong></td>
+</tr>
+</tbody>
+</table>
+<h2 id="17">1.7 选型顺序：从外到内收窄</h2>
+<pre class="mermaid">flowchart TB
+    Q1{"① 这个任务<br/>真的需要 Agent 吗?"}
+    Q1 -->|步骤固定、规则明确| N["用普通函数或工作流<br/>更便宜、更稳定<br/>本来能写成 if/else 的流程<br/>交给模型只会增加不确定性"]
+    Q1 -->|需要| Q2{"② 项目真正困难的<br/>是哪一层?"}
+    Q2 -->|模型和工具接入最费力| A["LangChain 更自然"]
+    Q2 -->|私有数据、文档解析、检索质量| B["LlamaIndex 更贴近问题"]
+    Q2 -->|复杂分支、循环、状态恢复| C["LangGraph 发挥优势"]
+    A --> Q3
+    B --> Q3
+    C --> Q3
+    Q3["③ 追问生产约束"]
+
+    style N fill:#fdecea
+    style Q3 fill:#fff3cd
+</pre>
+
+<h3 id="171-demo">1.7.1 第三步：Demo 能跑和系统能上线是两回事</h3>
+<p>流程越长，越需要补齐这些生产约束：</p>
+<ul>
+<li>中断后能否恢复？</li>
+<li>敏感动作是否需要审批？</li>
+<li>重复执行会不会产生副作用？</li>
+<li>不同用户的数据能否隔离？</li>
+<li>出错后是否留有完整轨迹？</li>
+</ul>
+<p>很多决定因素都在这些生产约束里，原型阶段往往还看不出来。</p>
+<h3 id="172">1.7.2 掌握程度建议</h3>
+<table>
+<thead>
+<tr>
+<th>框架</th>
+<th>核心定位</th>
+<th>更适合的场景</th>
+<th>掌握程度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>LangChain</strong></td>
+<td>通用模型、工具和 Agent 抽象</td>
+<td>工具型 Agent、RAG Agent、SQL Agent</td>
+<td><strong>重点掌握</strong></td>
+</tr>
+<tr>
+<td><strong>LangGraph</strong></td>
+<td>有状态的图式流程编排</td>
+<td>循环分支、暂停恢复、人工审批</td>
+<td><strong>重点掌握</strong></td>
+</tr>
+<tr>
+<td><strong>LlamaIndex</strong></td>
+<td>数据接入、索引和检索</td>
+<td>企业知识库、文档 Agent、复杂 RAG</td>
+<td><strong>重点掌握</strong></td>
+</tr>
+<tr>
+<td><strong>OpenAI Agents SDK</strong></td>
+<td>OpenAI 技术栈下的轻量 SDK</td>
+<td>客服分流、语音助手、工具 Agent</td>
+<td>了解并按需深入</td>
+</tr>
+<tr>
+<td><strong>CrewAI</strong></td>
+<td>角色化多 Agent 协作</td>
+<td>研究、内容生产、多角色审核</td>
+<td>了解并按需深入</td>
+</tr>
+</tbody>
+</table>
+<h2 id="18">1.8 常见错误</h2>
+<h3 id="181">1.8.1 一口气罗列十几个框架</h3>
+<p>如果一口气罗列十几个框架，后续讨论很容易退回到「只听过名字」的层面。围绕三个主力框架展开更稳。</p>
+<h3 id="182-langchain-langgraph">1.8.2 把 LangChain 和 LangGraph 说成互相替代</h3>
+<p><strong>LangChain 的 Agent 高层接口就跑在 LangGraph 之上</strong>，两者是分层关系。</p>
+<h3 id="183-llamaindex-langchain">1.8.3 把 LlamaIndex 当成「另一个 LangChain」</h3>
+<p>它的辨识度在整条数据链路：解析、切分、索引、重排、权限过滤。</p>
+<h3 id="184-agent">1.8.4 跳过「这个任务真的需要 Agent 吗」这一步</h3>
+<p><strong>步骤固定、规则明确的流程用普通函数更便宜更稳定。</strong></p>
+<h3 id="185">1.8.5 只比功能数量不看业务约束</h3>
+<p>更关键的问题是「项目真正困难的是哪一层」。</p>
+<h3 id="186-demo">1.8.6 只看 Demo 能不能跑</h3>
+<p>中断恢复、审批、幂等、数据隔离、可追溯这些生产约束才是决定项。</p>
+<h3 id="187-dify-python-agent">1.8.7 把 Dify 和 Python Agent 框架平级比较</h3>
+<p>它是低代码平台，不在同一层面。</p>
+<h2 id="19">1.9 本章总结</h2>
+<ol>
+<li><strong>框架解决的是重复工程</strong>：模型接入、工具协议、Agent 循环，以及状态、重试、超时、流式、审批、追踪；</li>
+<li><strong>难的不是跑通一次演示，是十几步之后能否恢复、出错能否定位</strong>；</li>
+<li><strong>三个主力框架各有侧重</strong>：LangChain 偏通用组件与集成，LangGraph 偏有状态流程编排，LlamaIndex 偏数据与检索；</li>
+<li><strong>LangChain 的价值是集成广、开发快</strong>，边界是复杂循环、精细分支、暂停恢复；</li>
+<li><strong>LangGraph 用 State + Node + Edge 表达工作流</strong>，解决循环、分支、并行、持久化、人工介入；</li>
+<li><strong>两者是分层关系不是替代关系</strong>——LangChain 提供高层组件与入口，LangGraph 提供底层执行与状态能力；</li>
+<li><strong>LlamaIndex 的辨识度在整条数据链路</strong>，而不是工具调用循环；</li>
+<li><strong>三者可以组合</strong>：LlamaIndex 供检索能力 → 包装成 Tool → LangChain Agent 决定调用 → LangGraph 编排外围流程；</li>
+<li><strong>但不要为了技术栈完整而堆框架</strong>；</li>
+<li><strong>选型顺序是从外到内</strong>：先问是否真的需要 Agent，再找项目最难的那一层，最后用生产约束做最终判断。</li>
+</ol>
+<p>选框架时，更关键的是先判断项目最难的是模型接入、数据链路还是流程控制，再据此决定从哪个框架切入。</p>
+<h2 id="_1">参考资料</h2>
+<ul>
+<li><a href="https://docs.langchain.com/oss/python/langchain/overview">LangChain 官方文档</a></li>
+<li><a href="https://docs.langchain.com/oss/python/langgraph/overview">LangGraph 官方文档</a></li>
+<li><a href="https://docs.llamaindex.ai/">LlamaIndex 官方文档</a></li>
+<li><a href="https://openai.github.io/openai-agents-python/">OpenAI Agents SDK</a></li>
+<li><a href="https://docs.crewai.com/">CrewAI 官方文档</a></li>
+<li><a href="https://github.com/microsoft/autogen">AutoGen 仓库</a></li>
+<li><a href="https://www.anthropic.com/engineering/building-effective-agents">Anthropic: Building effective agents</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script>mermaid.initialize({startOnLoad:true, theme:'default'});</script>
+</body>
+</html>

@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>多模态评测、安全与服务 · Awesome AI Roadmap · 周园鑫</title>
+  <meta name="description" content="多模态评测、安全与服务 — Awesome AI Roadmap（转载，原作者 Polo Li，CC BY 4.0）">
+  <link rel="icon" type="image/svg+xml" href="../../assets/favicon.svg">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+SC:wght@400;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="../../assets/style.css">
+  <link rel="stylesheet" href="../../roadmap/roadmap.css">
+  <script src="../../assets/main.js"></script>
+</head>
+<body class="roadmap-page">
+  <nav class="site-nav">
+    <div class="wrap rm-nav">
+      <a class="brand" href="../../home.html">ZHOU<b>·</b>YUANXIN</a>
+      <div class="nav-links">
+        <a href="../../home.html">首页</a>
+        <a href="../../posts.html">随笔</a>
+        <a href="../../roadmap/index.html" class="active">Roadmap</a>
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+        <button class="theme-toggle" type="button">☾ DARK</button>
+      </div>
+    </div>
+  </nav>
+  <div class="rm-shell">
+    <aside class="rm-side">
+      <div class="rm-side-head">Awesome AI Roadmap</div>
+      <ul class="rm-tree"><li><a href="../../index.html">导览首页</a></li><li class="group closed"><span>LLM</span><ul style="display:none"></ul></li><li class="group closed"><span>多模态 AI</span><ul style="display:none"></ul></li><li class="group closed"><span>Tools</span><ul style="display:none"></ul></li><li class="group closed"><span>Agent</span><ul style="display:none"></ul></li><li class="group closed"><span>RAG</span><ul style="display:none"></ul></li><li class="group closed"><span>框架与编排</span><ul style="display:none"></ul></li><li class="group closed"><span>AI Engineering</span><ul style="display:none"></ul></li><li class="group closed"><span>AI 安全与治理</span><ul style="display:none"></ul></li><li class="group closed"><span>FDE</span><ul style="display:none"></ul></li></ul>
+      <div class="rm-attr-side">内容转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">原站</a> · 作者 Polo Li · CC BY 4.0</div>
+    </aside>
+    <main class="rm-main">
+      <div class="rm-crumb"><span>多模态 AI</span> / <span>训练、评测与服务</span> / <span>多模态评测、安全与服务</span></div>
+      <div class="rm-attr">本文转载自 <a href="https://zongyangbigpolo.github.io/awesome-ai-roadmap/" target="_blank" rel="noopener">Awesome AI Roadmap</a>，原作者 <a href="https://github.com/zongyangbigpolo" target="_blank" rel="noopener">Polo Li</a>，依 CC BY 4.0 协议共享。</div>
+      <article class="post-body rm-body">
+        <h1 id="_1">第十章：多模态评测、安全与推理服务</h1>
+<blockquote>
+<p><a href="../../llm/06-multimodal/23-multimodal-models.html">LLM · 多模态模型 23.5–23.6 节</a>已给出评测、安全与部署的整体框架（感知/推理/鲁棒性/安全维度拆分、encode-decode 成本结构、媒体输入限制）。本章不重复该框架，只补充三个该章未展开的具体问题：评测基准污染与动态化、图像/生成内容特有的攻击与溯源手段，以及推理服务的架构级工程实践。</p>
+</blockquote>
+<h2 id="101">10.1 评测基准污染：分数不代表能力</h2>
+<p>多模态评测基准（尤其是从网络图片和公开题库构建的基准）面临和纯文本基准类似但更隐蔽的<strong>污染</strong>问题：基准中的图像及其配对问答如果出现在预训练网络爬取数据中，模型可能"记住"了答案而非真正具备对应能力，导致基准分数虚高。这个问题在多模态场景下更难检测，因为图像的近似重复（不同分辨率、裁剪、水印版本）比文本的逐字重复更难用简单的哈希去重发现。</p>
+<p>缓解手段包括：使用晚于模型训练数据截止日期的新采集题目做<strong>动态基准</strong>、报告模型在基准发布前后数据的表现差异、以及在基准设计上加入需要多步骤组合推理而非单一记忆检索就能解决的题目类型。MMMU 和 MathVista 这类基准通过引入需要学科知识（如大学水平的图表、专业图像）和多步数值推理的题目，试图提高单纯"记住训练集图文对"的作答难度，但这类设计本身也需要随着模型能力提升持续更新，任何单个基准都不能假设长期不被污染。</p>
+<h2 id="102">10.2 图像特有的对抗与安全风险</h2>
+<p>除 <a href="../../llm/06-multimodal/23-multimodal-models.html">LLM 第 23.6 节</a>已提到的间接提示注入外，图像输入还存在两类更具体的攻击面：</p>
+<ul>
+<li><strong>Typographic Attack（文字排版攻击）</strong>：在图像里叠加与图像内容无关的文字标签（例如在一张苹果的照片上贴一张写着"ipod"的纸条），足以让基于 CLIP 一类图文对比模型的分类结果被文字标签"带偏"，而不是真正依据图像视觉内容判断。这类攻击揭示了对比式多模态模型可能存在对文字模式的路径依赖，而非稳健的视觉语义理解。</li>
+<li><strong>图像越狱（Visual Jailbreak）</strong>：研究表明可以通过对图像添加人眼难以察觉的对抗扰动，绕过对齐后的多模态模型的安全策略，诱导其输出本应拒绝的有害内容——这类攻击利用的是视觉输入通道相比文本输入更缺乏专门对齐训练的薄弱环节。这意味着仅对文本输入做安全对齐不足以保证多模态模型整体的安全边界，视觉输入通道需要独立的红队测试与对齐评估。</li>
+</ul>
+<p>这两类攻击都指向同一个工程结论：<strong>多模态安全评测必须包含图像/音频输入通道的专门红队测试，不能只复用纯文本安全评测集</strong>。</p>
+<h2 id="103">10.3 生成内容的溯源与标识</h2>
+<p><a href="../04-generation/">第七、八章</a>讨论的图像和视频生成模型带来了新的溯源问题：生成内容和真实拍摄内容在视觉上可能难以区分。行业目前主要有两类应对方案：</p>
+<ul>
+<li><strong>内容凭证标准（Content Credentials / C2PA）</strong>：由 Coalition for Content Provenance and Authenticity 制定的开放技术标准，为媒体文件附加加密签名的元数据，记录内容的生成或编辑历史（如"由某模型生成""经过何种编辑"），供下游平台和用户核验来源；</li>
+<li><strong>不可见水印（Invisible Watermarking）</strong>：直接在生成内容的像素或时域信号中嵌入人眼不可见但可被专门检测器识别的标记，例如 Google DeepMind 的 SynthID 已应用于图像和视频生成产品，目标是即使内容经过常见的压缩、裁剪等编辑后仍能被检测出生成来源。</li>
+</ul>
+<p>两类方案是互补而非替代关系：元数据标准依赖生成/编辑链路上各环节主动写入且不被剥离，水印在元数据丢失后仍可能被检测，但都不是能对抗所有恶意移除手段的绝对保证，应当作降低滥用概率的工程措施而非唯一防线。</p>
+<h2 id="104">10.4 推理服务架构：编码与解码的资源画像不同</h2>
+<p><a href="../../llm/06-multimodal/23-multimodal-models.html">LLM 第 23.5 节</a>已指出多模态推理的瓶颈常在 encode/prefill 阶段而非逐 token 解码，这一结构性差异进一步带来了服务架构层面的具体选择：</p>
+<ul>
+<li><strong>异构请求的资源画像差异</strong>：纯文本请求的计算负载相对可预测；多模态请求的编码阶段负载高度依赖媒体大小（分辨率、时长），同一并发数下的显存和计算占用波动远大于纯文本场景，统一的批处理策略容易让大媒体请求拖慢整批小请求的延迟；</li>
+<li><strong>编码与解码的分离部署</strong>：视觉/音频编码阶段是计算密集但可高度并行的一次性开销，语言模型解码阶段则是访存密集的逐步生成过程。把两个阶段分离部署到不同资源配置的计算节点（编码节点侧重吞吐、解码节点侧重延迟与显存带宽），类似纯文本服务中日趋成熟的 prefill/decode 分离式服务架构思路，可以避免两类负载相互挤占资源，但需要额外的跨节点特征传输和调度工程；</li>
+<li><strong>视觉/音频 Token 的缓存复用</strong>：静态图像或音频若被多次请求复用（如同一文档被反复提问），可以缓存其编码后的特征或 KV，避免重复计算，但缓存键必须严格包含模型版本、预处理参数和分辨率/采样率（呼应 <a href="../../llm/06-multimodal/23-multimodal-models.html">LLM 第 23.5 节</a>已强调的这一约束），本节在此基础上补充的是"分离式部署"这一服务架构选择，而非重复缓存键设计本身。</li>
+</ul>
+<h2 id="105">10.5 常见错误</h2>
+<h3 id="1051">10.5.1 把基准分数的提升等同于能力的真实提升</h3>
+<p>如果没有核实基准是否在模型训练数据截止日期之后发布、是否做过污染检测，单纯的分数提升既可能来自能力进步，也可能来自记忆效应，应结合 10.1 节的缓解手段交叉验证。</p>
+<h3 id="1052">10.5.2 只对文本输入做安全红队测试</h3>
+<p>图像输入的 Typographic Attack 和视觉越狱攻击利用的是与文本完全不同的漏洞路径，只测试文本提示词的安全对齐，无法发现这类图像通道特有的风险，必须为视觉/音频输入单独设计红队用例。</p>
+<h3 id="1053">10.5.3 把水印或内容凭证当作不可绕过的技术保证</h3>
+<p>水印和 C2PA 元数据都可能被裁剪、压缩、重新编码等操作削弱或剥离，应当作提高溯源概率、震慑滥用的工程措施，而不是承诺"生成内容一定可被识别"的绝对保证，产品文案应避免过度承诺。</p>
+<h3 id="1054">10.5.4 用纯文本服务的批处理策略直接套用到多模态请求</h3>
+<p>忽视媒体大小导致的编码阶段负载差异，大媒体请求会拖慢同批次的其他请求延迟，应结合 10.4 节的资源画像差异重新设计批处理和调度策略。</p>
+<h2 id="106">10.6 本章总结</h2>
+<ol>
+<li>多模态评测基准同样面临污染风险，且比文本基准更难通过简单去重发现，应结合动态基准和多步推理设计缓解；</li>
+<li>图像输入存在 Typographic Attack 和视觉越狱等文本安全评测无法覆盖的特有攻击面，安全红队必须单独覆盖视觉/音频通道；</li>
+<li>C2PA 内容凭证和 SynthID 一类不可见水印是应对生成内容溯源问题的两类互补但非绝对可靠的工程手段；</li>
+<li>多模态推理服务应针对编码阶段的异构资源画像设计批处理和编解码分离部署策略，而不能直接套用纯文本服务架构。</li>
+</ol>
+<blockquote>
+<p>多模态系统上线前，除了看分数，还要查基准是否被污染、图像/音频通道有没有单独红队，以及服务端是否按媒体负载重新设计调度。</p>
+</blockquote>
+<h2 id="_2">参考资料</h2>
+<ul>
+<li><a href="https://arxiv.org/abs/2311.16502">MMMU: A Massive Multi-discipline Multimodal Understanding and Reasoning Benchmark</a></li>
+<li><a href="https://arxiv.org/abs/2310.02255">MathVista: Evaluating Mathematical Reasoning of Foundation Models in Visual Contexts</a></li>
+<li><a href="https://distill.pub/2021/multimodal-neurons/">Multimodal Neurons in Artificial Neural Networks (Typographic Attack)</a></li>
+<li><a href="https://arxiv.org/abs/2306.13213">Visual Adversarial Examples Jailbreak Aligned Large Language Models</a></li>
+<li><a href="https://c2pa.org/specifications/specifications/2.1/index.html">C2PA: Coalition for Content Provenance and Authenticity 技术规范</a></li>
+<li><a href="https://deepmind.google/technologies/synthid/">Google DeepMind: SynthID</a></li>
+<li><a href="https://arxiv.org/abs/2401.09670">DistServe: Disaggregating Prefill and Decoding for Goodput-optimized Large Language Model Serving</a></li>
+</ul>
+      </article>
+    </main>
+  </div>
+  
+</body>
+</html>
