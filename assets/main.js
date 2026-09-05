@@ -409,6 +409,78 @@
       cmdk.addEventListener("click", function (e) { if (e.target === cmdk) cmdk.close(); });
     }
 
+        // ============ 推特风特效 · 第二批 ============
+    var glyphs = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    function scrambleInto(el, orig, total, interval) {
+      var frame = 0;
+      var timer = setInterval(function () {
+        frame++;
+        el.textContent = orig.split("").map(function (c, idx) {
+          if (c === " " || frame / total > (idx + 1) / total) return c;
+          return glyphs[Math.floor(Math.random() * glyphs.length)];
+        }).join("");
+        if (frame >= total) { el.textContent = orig; clearInterval(timer); }
+      }, interval);
+    }
+
+    // 9. 导航链接悬停解码
+    if (noReduce) {
+      document.querySelectorAll(".nav-links a").forEach(function (a, i) {
+        var orig = a.textContent;
+        var busy = null;
+        a.addEventListener("mouseenter", function () {
+          if (busy) return;
+          var frame = 0, total = 12;
+          busy = setInterval(function () {
+            frame++;
+            a.textContent = orig.split("").map(function (c, idx) {
+              if (c === " ") return c;
+              return frame / total > (idx + 1) / total ? c : glyphs[Math.floor(Math.random() * 26)];
+            }).join("");
+            if (frame >= total) { a.textContent = orig; clearInterval(busy); busy = null; }
+          }, 28);
+        });
+      });
+    }
+
+    // 10. 滚动速度驱动：正文斜切 + 技能跑马灯（单个 rAF 循环）
+    var skewTargets = noReduce ? document.querySelectorAll(".hero, section, .marquee") : [];
+    var mq = document.getElementById("skills-marquee");
+    var mqTrack = document.getElementById("marquee-track");
+    var marqueeHalf = 0, mqX = 0, lastY = window.scrollY, skew = 0;
+    if (noReduce && mq && mqTrack) {
+      // 用技能区的真实关键词填充跑马灯（复制两份实现无缝循环）
+      var skillNames = Array.prototype.map.call(document.querySelectorAll(".skill"), function (s) { return s.textContent; });
+      if (skillNames.length) {
+        var inner = skillNames.map(function (s) { return '<span class="mq-item">' + s + '</span>'; }).join("");
+        mqTrack.innerHTML = '<span class="mq-inner">' + inner + '</span><span class="mq-inner">' + inner + '</span>';
+      }
+    }
+    var velFrame = function () {
+      var dy = window.scrollY - lastY;
+      lastY = window.scrollY;
+      // 斜切：速度平滑映射到 ±1.2deg
+      skew += ((dy * 0.03) - skew) * 0.08;
+      skew = Math.max(-1.2, Math.min(1.2, skew));
+      for (var k = 0; k < skewTargets.length; k++) {
+        skewTargets[k].style.transform = "skewY(" + skew.toFixed(3) + "deg)";
+      }
+      // 跑马灯：基础速度 + 滚动速度增益（反向滚动则倒退）
+      if (mqTrack && marqueeHalf > 0) {
+        mqX -= 0.6 + dy * 0.08;
+        if (mqX <= -marqueeHalf) mqX += marqueeHalf;
+        if (mqX > 0) mqX -= marqueeHalf;
+        mqTrack.style.transform = "translateX(" + mqX.toFixed(2) + "px)";
+      }
+      requestAnimationFrame(velFrame);
+    };
+    if (noReduce && (skewTargets.length || mqTrack)) {
+      if (mqTrack) {
+        requestAnimationFrame(function () { marqueeHalf = mqTrack.scrollWidth / 2; });
+      }
+      requestAnimationFrame(velFrame);
+    }
+
     // 8. 英文字母解码：分区英文小标（PROJECTS 等）进入视口时收敛成型
     var secEns = document.querySelectorAll(".sec-en");
     if (secEns.length && noReduce) {
