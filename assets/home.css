@@ -56,6 +56,15 @@ body::after {
   font-family: var(--sans); font-weight: 700; font-size: 18px;
   letter-spacing: 0.03em; color: var(--ink); text-decoration: none;
 }
+/* 手写体品牌签名 */
+.brand-hand {
+  font-family: "Caveat", cursive;
+  font-weight: 600;
+  font-size: 24px;
+  letter-spacing: 0.01em;
+  transform: rotate(-1.5deg);
+  display: inline-block;
+}
 .nav-links { display: flex; align-items: center; gap: 26px; }
 .nav-links a {
   font-size: 14px; color: var(--ink); text-decoration: none;
@@ -376,7 +385,8 @@ a.card { display: block; text-decoration: none; color: inherit; }
 .post-list li:last-child { border-bottom: none; }
 .post-list a {
   display: flex; align-items: baseline; gap: 22px;
-  padding: 20px 8px;
+  /* 右侧预留箭头空间，避免悬停箭头压住摘要 */
+  padding: 20px 44px 20px 8px;
   text-decoration: none; color: inherit;
   transition: background 0.2s, padding-left 0.25s cubic-bezier(.22,1,.36,1);
   position: relative;
