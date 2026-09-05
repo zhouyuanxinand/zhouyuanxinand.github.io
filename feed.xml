@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+<channel>
+  <title>周园鑫的个人网站</title>
+  <link>https://zhouyuanxinand.github.io/</link>
+  <description>写代码，也写生活。技术、随笔与经历。</description>
+  <language>zh-CN</language>
+  <item>
+    <title>网站的第一篇随笔</title>
+    <link>https://zhouyuanxinand.github.io/posts/2026-09-02-hello.html</link>
+    <description>为什么我要搭一个自己的网站</description>
+    <pubDate>Wed, 02 Sep 2026 00:00:00 +0800</pubDate>
+  </item>
+  <item>
+    <title>Codex Field Guide（系列教材）</title>
+    <link>https://zhouyuanxinand.github.io/codex-field-guide/</link>
+    <description>从零理解 OpenAI Codex Coding Agent · 14 章</description>
+    <pubDate>Wed, 02 Sep 2026 00:00:00 +0800</pubDate>
+  </item>
+</channel>
+</rss>
