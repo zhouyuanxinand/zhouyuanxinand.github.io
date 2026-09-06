@@ -616,6 +616,20 @@ a.card { display: block; text-decoration: none; color: inherit; }
 .post-body a { color: var(--accent); text-decoration: none; border-bottom: 1px dashed rgba(225,78,31,0.4); }
 .post-body a:hover { border-bottom-style: solid; }
 .post-body ul, .post-body ol { padding-left: 1.4em; margin-bottom: 1.3em; color: #3f3a30; }
+.post-body h3 {
+  font-family: var(--cserif);
+  font-size: 19px; font-weight: 700;
+  margin: 1.8em 0 0.7em;
+}
+.post-body figure { margin: 1.6em 0; }
+.post-body img {
+  display: block; max-width: 100%; height: auto;
+  margin: 0 auto; border: 1px solid var(--line); border-radius: 6px;
+}
+.post-body figcaption {
+  text-align: center; font-size: 13px;
+  color: var(--ink-faint); margin-top: 0.6em;
+}
 
 /* 键盘焦点可见性（全站） */
 :focus-visible {

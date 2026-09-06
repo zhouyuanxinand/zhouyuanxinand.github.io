@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>吴恩达《AI Engineering Skills Map》精读（一） · 周园鑫</title>
+  <meta name="description" content="构建与部署 AI 应用：六大子技能精读，附机器学习基础与 benchmark 两个知识延展。">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="吴恩达《AI Engineering Skills Map》精读（一） · 周园鑫">
+  <meta property="og:description" content="构建与部署 AI 应用：六大子技能精读，附机器学习基础与 benchmark 两个知识延展。">
+  <meta property="og:url" content="https://zhouyuanxinand.github.io/posts/2026-09-06-ai-engineering-skills-map.html">
+  <meta property="og:image" content="https://zhouyuanxinand.github.io/assets/og-image.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- 注意：文章在 posts/ 子目录里，所以资源路径要加 ../ -->
+  <link rel="stylesheet" href="../assets/home.css">
+  <script src="../assets/main.js?v=6"></script>
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="brand brand-hand" href="../home.html">Hello World, I'm Zhou Yuanxin</a>
+      <div class="nav-links">
+        <a href="../home.html">首页</a>
+        <a href="../posts.html">随笔</a>
+        <!-- 待替换：改成你的 GitHub 主页地址 -->
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="post-header">
+    <div class="wrap">
+      <div class="sec-label"><b>NOTES·01</b> 精读</div>
+      <h1>吴恩达《AI Engineering Skills Map》精读（一）</h1>
+      <p class="post-meta">2026-09-06 · 周园鑫</p>
+    </div>
+  </header>
+
+  <article class="post-body">
+    <div class="wrap">
+
+      <blockquote>
+        这是一个精读栏目的第一篇：读一篇好文章，把里面的概念逐个展开成自己的知识。
+        原文信息放在最前面，方便随时回溯；<b>原文骨架</b>部分忠实转述作者观点，<b>知识延展</b>部分是我基于原文的展开与补充，不代表原作者观点。
+      </blockquote>
+
+      <p><b>原文</b>：Andrew Ng，<a href="https://x.com/AndrewYNg/status/2090840747738374568" target="_blank" rel="noopener">AI Engineering Skills Map: Building and Deploying AI Applications</a>，发布于 2026-08-21。</p>
+
+      <figure>
+        <img src="../assets/ng-skills-map.jpg" alt="吴恩达的 AI Engineering Skills Map 配图：构建与部署 AI 应用的六大子技能">
+        <figcaption>原文配图：构建与部署 AI 应用的六大子技能（来源：Andrew Ng）</figcaption>
+      </figure>
+
+      <h2>原文骨架</h2>
+
+      <p>这篇文章属于吴恩达的「AI Engineering Skills Map」系列，他把 AI 工程能力分为四大顶层技能：</p>
+      <ol>
+        <li><b>Building and deploying AI applications</b>（构建与部署 AI 应用）——本文展开这一项</li>
+        <li>Software engineering fundamentals（软件工程基础）</li>
+        <li>Using coding agents（使用编码智能体）</li>
+        <li>Shaping the build（塑造构建方式）</li>
+      </ol>
+      <p>这张地图的依据是三样东西：分析大量招聘岗位、结构化的专家访谈、问卷调研。而全文的推理起点只有一个——</p>
+      <blockquote>AI 应用与非 AI 软件最大的差异，是输出更不可预测：你无法预知 LLM 会输出什么。</blockquote>
+      <p>因此构建过程必然是迭代的：反复"构建 → 检视 → 决定下一步"，每一步都深受中间结果影响。原文金句：</p>
+      <blockquote>"Being able to skillfully decide what to do next allows you to create reliable software systems based on unreliable AI components."<br>（善于决定下一步做什么，才能基于不可靠的 AI 组件构建出可靠的软件系统。）</blockquote>
+
+      <h3>1 · LLM 基础（LLM foundations）</h3>
+      <p>理解 LLM 如何对输入做 tokenization、如何生成输出，才能知道什么时候可以依赖它、什么时候会出错。包括：什么时候用多模态模型、context window 里放什么、cache hits / knowledge cutoff / reasoning effort / sampling parameters / tool calling 这些机制如何影响行为与成本，以及什么时候微调（fine-tuning）或自托管（self-hosting）才有意义。</p>
+
+      <h3>2 · 用数据支撑模型（Grounding models with data）</h3>
+      <p>好的输出依赖好的输入上下文。RAG（向量检索）只是早期手段：现在要决定什么进 prompt、什么让模型用工具按需检索；数据用什么表示——向量索引、知识图谱，还是结构化数据之上的语义层；还要把文档（文本、PDF、HTML、图像）转成 LLM-ready 的输入，并让数据保持干净、新鲜。</p>
+
+      <h3>3 · 构建智能体系统（Building agentic systems）</h3>
+      <p>从"执行预定义 LLM 调用序列"的工作流，到"在 agent harness 上由 LLM 反复自主决定下一步"的系统，是一条谱系。要决定哪些步骤串行/并行、何时代码 vs 何时 LLM、给工作流设计 fallback；设计 agent loop 时要决定模型能调用哪些工具（MCP、CLI、沙箱）、用什么记忆架构、长会话的上下文如何管理、什么时候需要多智能体编排。最后，把有前景的原型变成可靠、安全的生产级 agent：护栏、对抗输入、防数据外泄、治理。前沿方向还包括 voice agents、computer-use agents、generative UI。</p>
+
+      <h3>4 · 评测驱动开发（Evaluation-driven development）</h3>
+      <p>吴恩达的经验之谈：区分 AI 系统高手的最大特质，是能否驱动一个有纪律的 evals / 误差分析循环，让精力持续投向更可能出成果的方向——"the most important trait that distinguishes someone great at building AI systems is whether you can drive a disciplined evals/error analysis loop."。难点在于正确做法随项目、甚至随项目阶段而变。做好 evals 是深技术活：读系统的 traces 和输出、做探索性数据分析、结合产品与商业洞察决定"测什么"。手段菜单：确定性（基于代码的）评测、LLM-as-a-judge、人工在环；而且要评测你的评测。evals 反哺迭代，进步才是系统性的，而非随机的。</p>
+
+      <h3>5 · 生产环境运营（Operating in production）</h3>
+      <p>AI 软件的运维之难在于三件事：不可预测、成本、延迟。要建可观测性来理解真实使用下的表现；跟踪性能、检测漂移（drift）、快速响应模型故障与安全事件（如对抗性提示注入）。回归测试与 CI/CD 需要比传统软件更多的统计性评测，测试力度按出错风险校准；再按需选择模型选择优化、蒸馏与微调、简化 agentic 工作流等手段，在规模上优化成本与延迟。</p>
+
+      <h3>6 · 机器学习基础（Machine learning foundations）</h3>
+      <p>现代 LLM 本身就是用监督学习 + 强化学习构建的。原文的说法很强："我认识的每一个擅长用 LLM 做构建的工程师，都在一定深度上理解机器学习和深度学习。"很多应用仍然需要会用 ML——用别人预训练的模型，或自己训练。需要知道流行的 ML/DL 模型及其在准确率、训练速度、推理速度上的权衡，以及如何为训练和评估工程化数据。三个核心心智框架：<b>bias/variance、error analysis、engineering your data</b>——它们是驾驭输出不确定系统、在开发中做各种决策的关键。</p>
+
+      <h2>知识延展</h2>
+
+      <p>以下是精读时展开的两个知识模块，按"为什么需要 → 是什么 → 怎么工作 → 和什么相连"来讲。</p>
+
+      <h3>延展 01 · 机器学习基础：其余五个子技能共同的地基</h3>
+      <p><b>为什么需要</b>：全文的推理起点是"输出不可预测"。驾驭不可预测性只有两条路：理解不确定性从哪来（模型怎么被造出来的），以及拥有定位错误、修复系统的方法论。机器学习基础同时供给这两条路，所以它不只是六个并列技能之一，而是其余五个子技能共同依赖的心智地基——不懂 ML，evals 的指标设计、生产环境里判断 drift、grounding 时的数据决策，都容易知其然而不知其所以然。</p>
+      <p><b>第一层 · 模型的来路</b>：现代 LLM 是监督学习和强化学习的产物。监督学习让模型从海量文本学会语言规律；强化学习在其上对齐行为偏好——理解这一点就理解了：为什么提示词能改变输出分布、为什么模型有时会"迎合"而失真、为什么幻觉是生成式机制的内生风险而非 bug。</p>
+      <p><b>第二层 · 会"用"模型</b>：很多应用仍需用 ML——调用别人预训练的模型，或自己训练/微调。选模型就是在几个轴上找当前应用的最优点：原文给出准确率（accuracy）、训练速度（training speed）、推理速度（inference speed），实际上还要隐含加上成本与可控性。</p>
+      <p><b>第三层 · 数据是原料</b>：为训练和评估工程化所需的数据。数据质量决定模型行为的上限——通过改数据而非改代码来提升系统，这正是吴恩达 Data-centric AI 的一贯主张。</p>
+      <p><b>第四层 · 三个心智框架</b>：<b>bias/variance</b> 回答"模型错在哪一类"（系统性偏差，还是对噪声敏感），直接决定下一步是加数据、换模型还是改特征；<b>error analysis</b> 回答"具体错在哪、为什么"，把错误分桶归类，让迭代方向有依据——它正是"评测驱动开发"的分析内核；<b>data engineering</b> 回答"改什么来修复"——定位问题后，最高杠杆的修复动作往往在数据侧。这三件套正是吴恩达机器学习课程与 MLOps 课程的经典方法论；LLM 时代它们没有过时，只是作用对象从"你训练的模型"扩展到了"你调用的模型 + 你构建的 RAG / agent 系统"。</p>
+      <p><b>逻辑闭环</b>：输出不可预测（起点）→ 理解来路 + 会选会用 + 掌控数据 + 三框架定位与修复 → 反哺"构建 → 检视 → 决定下一步"的迭代主循环。</p>
+
+      <h3>延展 02 · Benchmark：把"好不好"变成可追踪的数字</h3>
+      <p><b>为什么需要</b>：AI 输出不可预测，无法逐条人工审查，所以需要一个可重复的代理测量：固定任务集 + 冻结评分协议，把质量变成数字。没有它，迭代主循环里的"检视"环节就没有仪表盘。</p>
+      <p><b>一个 benchmark 的四个零件</b>：</p>
+      <ol>
+        <li><b>任务集</b>——题目来源三种：人工出题；从真实数据抽取（SWE-bench 就抽自真实 GitHub issue/PR）；LLM 合成生成后再过滤。</li>
+        <li><b>评分依据</b>——三选一或组合：标准答案比对（MMLU 这类选择题）；测试用例（HumanEval / SWE-bench 跑单测，通过才算对，即"确定性、基于代码的评测"）；评审打分（LLM-as-a-judge，或 Chatbot Arena 式的人类盲测投票）。</li>
+        <li><b>冻结的评分协议</b>——指标（accuracy、pass@k、Elo…）、prompt 模板、采样参数、运行次数、聚合方式全部定死；协议一变，数字就不可比。</li>
+        <li><b>校准验证</b>——对已知强弱的系统跑一遍：排序符合人类直觉吗？区分度还在吗（人人都 95%+ 就是饱和）？分数与真实表现相关吗？</li>
+      </ol>
+      <p><b>建立流程</b>：定义要测的能力 → 组题 + 造评分依据 → 冻结协议 → 校准 → 防污染（留私有 held-out 集、定期轮换题目——公开的题迟早漏进训练数据）。其中最深的一环是第一步的构造效度：benchmark 只测它包含的那些题，"分数高 → 能力强"这个推断是脆弱的，后面所有失效模式都从这里生长。</p>
+      <p><b>怎么测评</b>——跑起来之后有三种角色，价值差别很大：</p>
+      <ul>
+        <li><b>排行榜用法</b>：在公开 benchmark 上横向比模型——参考价值最低，因为它测的不是你的用例；</li>
+        <li><b>回归测试用法</b>：把自己的 eval 集当 CI 跑，每次改 prompt、换模型就重跑防退化——这是"evals 反哺迭代开发"的具体形态；</li>
+        <li><b>诊断用法</b>：分数背后做错误分桶（error analysis），指挥下一步往哪改。</li>
+      </ul>
+      <p>所以文章的立场是：公开 benchmark 测不了你的应用，要用你自己应用的真实失败案例长出私有 eval 集——失败案例 → 分桶 → 变成 eval 用例 → 修复 → 重跑。这就是"评测驱动开发"的操作定义。</p>
+      <p><b>失效模式</b>：Goodhart 定律（指标一旦成为目标就不再是好指标——刷题、污染、对着 benchmark 调 prompt）；分布差异（benchmark 采样自它的任务分布，不是你应用的分布）；LLM 评审自带偏好（位置偏、长度偏、自我偏好——所以原文强调"评测你的评测"）；饱和（被做完就失去区分度，领域只好不断造更难的题）。</p>
+
+      <h3>接下来想继续展开的</h3>
+      <p>这份笔记会继续生长。原文里还埋着不少值得展开的概念：tokenization 与成本、cache hits、MCP 与沙箱、四大 agentic 设计模式（reflection / tool use / planning / multi-agent）、LLM-as-a-judge 的原理与坑、蒸馏降本的逻辑……会在后续篇目里逐个展开。</p>
+
+      <p>原文文末预告：软件工程是 AI 工程的强互补技能，下一篇会展开它。等它发布，这里会有精读（二）。</p>
+
+    </div>
+  </article>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© 2026 一直都走在路上的周园鑫</span>
+      <span><a href="../posts.html">← 返回随笔列表</a></span>
+    </div>
+  </footer>
+
+</body>
+</html>
