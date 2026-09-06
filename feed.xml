@@ -6,6 +6,12 @@
   <description>写代码，也写生活。技术、随笔与经历。</description>
   <language>zh-CN</language>
   <item>
+    <title>确定的事还给代码，不确定的事留给模型</title>
+    <link>https://zhouyuanxinand.github.io/posts/2026-09-06-agent-determinism.html</link>
+    <description>读《Agent学习——回到确定性的代码世界中来》：Agent 演进的双向吸收</description>
+    <pubDate>Sun, 06 Sep 2026 00:00:00 +0800</pubDate>
+  </item>
+  <item>
     <title>吴恩达《AI Engineering Skills Map》精读（一）</title>
     <link>https://zhouyuanxinand.github.io/posts/2026-09-06-ai-engineering-skills-map.html</link>
     <description>构建与部署 AI 应用：六大子技能 · 两个知识延展</description>

@@ -621,6 +621,17 @@ a.card { display: block; text-decoration: none; color: inherit; }
   font-size: 19px; font-weight: 700;
   margin: 1.8em 0 0.7em;
 }
+.post-body pre {
+  font-family: var(--mono); font-size: 13px; line-height: 1.75;
+  background: var(--accent-soft); color: #3f3a30;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 14px 18px; margin-bottom: 1.35em;
+  overflow-x: auto; white-space: pre;
+}
+.post-body pre code {
+  background: none; color: inherit; padding: 0; border-radius: 0;
+  font-size: inherit;
+}
 .post-body figure { margin: 1.6em 0; }
 .post-body img {
   display: block; max-width: 100%; height: auto;

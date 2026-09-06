@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>确定的事还给代码，不确定的事留给模型 · 周园鑫</title>
+  <meta name="description" content="读《Agent学习——回到确定性的代码世界中来》：Agent 演进是两次方向相反的"吸收"——软逻辑被模型吸收，确定性被软件系统收回，中间层越来越薄。">
+  <link rel="icon" type="image/svg+xml" href="../assets/favicon.svg">
+  <meta property="og:type" content="article">
+  <meta property="og:title" content="确定的事还给代码，不确定的事留给模型 · 周园鑫">
+  <meta property="og:description" content="读《Agent学习——回到确定性的代码世界中来》：软逻辑被模型吸收，确定性被软件系统收回，中间层越来越薄。">
+  <meta property="og:url" content="https://zhouyuanxinand.github.io/posts/2026-09-06-agent-determinism.html">
+  <meta property="og:image" content="https://zhouyuanxinand.github.io/assets/og-image.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Noto+Serif+SC:wght@600;700;900&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&family=Caveat:wght@500;600;700&display=swap" rel="stylesheet">
+  <!-- 注意：文章在 posts/ 子目录里，所以资源路径要加 ../ -->
+  <link rel="stylesheet" href="../assets/home.css">
+  <script src="../assets/main.js?v=6"></script>
+</head>
+<body>
+
+  <nav class="site-nav">
+    <div class="wrap">
+      <a class="brand brand-hand" href="../home.html">Hello World, I'm Zhou Yuanxin</a>
+      <div class="nav-links">
+        <a href="../home.html">首页</a>
+        <a href="../posts.html">随笔</a>
+        <!-- 待替换：改成你的 GitHub 主页地址 -->
+        <a href="https://github.com/zhouyuanxinand" target="_blank" rel="noopener">GitHub</a>
+      </div>
+    </div>
+  </nav>
+
+  <header class="post-header">
+    <div class="wrap">
+      <div class="sec-label"><b>ESSAY·01</b> 读文笔记</div>
+      <h1>确定的事还给代码，不确定的事留给模型</h1>
+      <p class="post-meta">2026-09-06 · 周园鑫</p>
+    </div>
+  </header>
+
+  <article class="post-body">
+    <div class="wrap">
+
+      <blockquote>
+        这是一篇读文笔记。原文是一篇探索性很强的文章：作者边做 Agent 实验边想，段与段之间有不少跳跃，还夹着大量图示。
+        我把它的论证骨架理顺、重写成一条完整的推理链——<b>观点全部属于原作者，我只是把线头按顺序接好</b>；个别明显笔误做了订正，英文术语在首次出现处附中文。
+      </blockquote>
+
+      <p><b>原文</b>：<a href="https://zhuanlan.zhihu.com/p/2078832267804387046" target="_blank" rel="noopener">《Agent学习——回到确定性的代码世界中来》</a>，知乎专栏。</p>
+
+      <h2>一、起点：几个"为什么"</h2>
+      <p>作者在做一些很小的 Agent（智能体）实验时，不断遇到一类很具体的问题：为什么要写这么长的 Prompt（提示词）？为什么需要 Skill（技能）？为什么要给 Agent 做 Memory（记忆）？为什么一次简单的工具调用还需要很多 Hook（钩子）？为什么一个已经确定的状态，还要让 Model（模型）再想一轮？</p>
+      <p>做到后来，他给出的解释是：Agent 的演进，本质上正在发生<b>两次方向相反的"吸收"</b>——</p>
+      <blockquote>
+        一边，过去需要靠 Prompt、Skill、规则和上下文工程显式告诉模型的东西，正在被越来越强的模型本身吸收。<br>
+        另一边，过去被模糊地交给模型处理的一些确定性问题，又正在重新被 Tool（工具）、Runtime（运行时）、Event（事件）、Permission（权限）、Schema（结构模式）等软件系统吸收。
+      </blockquote>
+      <p>这两句话就是全文的地图：后文所有内容，都是对这两条线的分别展开和最终汇合。</p>
+
+      <h2>二、软线：从"教模型怎么做"到"给它需要的条件"</h2>
+      <p><b>第一阶段是 Prompt Engineering（提示词工程）。</b>早期的 LLM（大语言模型）应用很大程度上依赖把话说清楚：你是谁、你要做什么、请分几步思考、请遵循这些规则、请按这个格式输出……然后不断往上加 few-shot（少样本示例）、Chain-of-Thought（思维链）、system prompt（系统提示词）、examples（示例）、instructions（指令）、checklists（检查清单）。那时的假设很朴素：<b>模型不会，所以我们告诉它。</b>Prompt 在某种意义上承担了"临时程序"的作用。</p>
+      <p><b>第二阶段是 Context Engineering（上下文工程）。</b>模型变强以后，一些过去必须显式写出来的行为开始变得稳定，不值得再写进 Prompt。Anthropic 在 2025 年明确把这种变化描述为从 Prompt Engineering 向 Context Engineering 的转移：问题不再是"怎么写 instruction"，而是"这一轮 inference（模型推理）到底应该给模型哪些信息"；更强的模型，需要更少的 prescriptive engineering（事无巨细的规定式工程）。于是动作从"告诉模型应该怎么做"，变成"把模型当前真正需要的信息给它"。</p>
+      <p><b>第三阶段，Skill 和 Memory 也从"教模型"变成"按需提供条件"。</b>随着 RAG（检索增强生成）、Context Retrieval（上下文检索）成熟，系统不再追求"把知识写下来让模型永远记住"，而是：索引 → 需要时检索 → 只给当前任务相关的内容。Anthropic 的说法很直接：Agent 进入更长的多轮循环后，真正困难的是管理完整的 context state（上下文状态），要寻找高信号、低冗余的信息，而不是无限增加 instructions。连 Skill 本身都开始表现得越来越像——</p>
+      <pre><code>地图
+而不是
+说明书</code></pre>
+      <p>软线的小结只有一句：<b>模型越来越不需要你把"怎么思考"逐字写出来，更重要的是让它在正确的时候拿到正确的信息。</b></p>
+
+      <h2>三、硬线：从 Tool 到 Harness</h2>
+      <p><b>Tool 是另一条线的起点。</b>模型不可能靠语言直接改文件、查数据库、发邮件、操作浏览器、调 API（应用程序接口）、改 Git、执行代码，所以我们做了 Tool。它第一次把两件事拆开：<b>"我要做什么"</b>归模型，<b>"事情到底怎么发生"</b>归计算机系统。Tool 不是"让模型变得更聪明"的模块，而是把计算机世界中已经存在的确定性能力，变成模型可以调用的接口；MCP（模型上下文协议，Model Context Protocol）又把这种接口进一步标准化。所以从这个角度看，Tool / MCP 并不是 Agent 对传统软件工程的替代——恰恰相反，<b>它是 Agent 第一次大规模承认自己必须生活在传统软件系统里的标志</b>。</p>
+      <p><b>然后是一个很自然的错误。</b>模型有了 Tool，还是可能乱用 Tool，于是开始加东西：</p>
+      <pre><code>Hook（钩子）
+Guard（护栏）
+Retry（重试）
+Reflection（反思）
+Checklist（检查清单）
+Policy（策略）
+Validation（校验）</code></pre>
+      <p>这些东西当然有价值，问题在于它们很容易被不断叠加：一个问题一个 Hook，一个历史事故一个 Rule（规则），一个模型坏习惯一个 Prompt，最后变成几十个甚至更多干预点。这时候值得问一句：<b>我们是在构建一个更好的软件系统，还是在不断围着模型打补丁？</b>Hook 没有错，但它非常容易被用成"程序强制模型这么做"。</p>
+      <p><b>Harness（智能体运行框架）因此出现</b>，开始系统性地管理模型周围的世界：loop（循环）、tools、context（上下文）、safety（安全）、orchestration（编排）、verification（验证）、extensions（扩展）。今天已有研究直接把 Agent 描述成 Model + Harness；2026 年的生产型 Harness 研究甚至开始系统梳理 Claude Code、Codex CLI、Gemini CLI、OpenHands、Aider 等系统的共同结构——这个领域正在从简单工具层变成完整平台。人类终于承认：Agent 并不只是一个 Model API（模型接口），它是：</p>
+      <pre><code>Model
++
+Runtime
++
+Tools
++
+Context
++
+World（真实世界）</code></pre>
+
+      <h2>四、关键追问：确定性到底由谁承担</h2>
+      <p>Harness 出现之后，新的问题是：<b>它到底应该承担多少东西？</b>一个方向是从 trajectory（执行轨迹）里找 recurring failures（反复出现的失败），把它们转化成 Harness intervention（干预）；另一个方向越来越明确地走向 deterministic execution（确定性执行）——已经理解的部分走 validated deterministic workflows（经过验证的确定性工作流），只有 unresolved uncertainty（未解决的不确定性）才交给模型。</p>
+      <p>作者在这里追问了更深一步。一条很常见的路径是：</p>
+      <pre><code>发现 Model 经常做错
+↓
+加 Harness
+↓
+Benchmark（基准测试）上升
+↓
+证明 Harness 有效</code></pre>
+      <p>这个过程可以成立，但它没有回答"<b>为什么</b>这个 Harness 有效"。同样是 Benchmark 上升，背后可能是五种完全不同的结构：模型真不会；上下文不够；Tool 本身不可靠；环境有确定性规则、但原来交给了模型；或者模型已经选定了一条路径、只是 ReAct（推理-行动循环，Reasoning + Acting）多走了一轮。这五种情况得到的分数一样，系统结构却完全不同。所以现在更应该先问：<b>这件事情本身，到底是确定的还是不确定的？</b></p>
+      <p><b>一个很小的 Runtime 实验</b>把这个追问落到了实处。假设 Tool A 执行后产生 Event，系统已经明确知道：</p>
+      <pre><code>当前状态 = X
+下一 transition（状态转移）= B</code></pre>
+      <p>那么传统 ReAct 的走法是：</p>
+      <pre><code>Tool A
+↓
+Model
+↓
+"接下来我要调用 Tool B"
+↓
+Tool B</code></pre>
+      <p>但也可以是：</p>
+      <pre><code>Tool A
+↓
+Event
+↓
+Runtime
+↓
+Tool B</code></pre>
+      <p>这不是 Runtime 替模型做规划，也不是模型不需要判断了——模型已经选择了这条路径，而当前 Event 已经证明：沿着这条路径的下一 transition 不再有新的 decision freedom（决策自由度）。所以消掉的不是模型的自由，而是 <b>Tool 与 Tool 之间一次没有新增决策价值的模型往返</b>。作者称之为一种 ReAct loop compression（ReAct 循环压缩）。</p>
+
+      <h2>五、硬的一侧：传统软件工程早就回答过</h2>
+      <p>沿着这个方向继续看，很多传统软件工程里的东西都会重新出现：</p>
+      <pre><code>状态机
+幂等
+CAS（比较并交换，Compare-And-Swap）
+事务
+Precondition（前置条件）
+Postcondition（后置条件）
+Permission
+Schema
+Retry policy（重试策略）
+Circuit breaker（熔断器）
+Event log（事件日志）
+Tracing（链路追踪）</code></pre>
+      <p>它们的共同点是：<b>如果一件事已经确定，就不要求执行者再"想一遍"。</b>原文举了三个对照，非常生动：</p>
+      <ul>
+        <li>传统系统不会通过 Prompt 恳求"请不要重复扣款"，而是用 <code>idempotency key</code>（幂等键）：已处理过？直接返回。</li>
+        <li>不会叮嘱"请记得检查版本有没有变化"，而是 <code>CAS(version)</code>：版本不匹配，拒绝执行。</li>
+        <li>也不会依赖程序自己宣布"我应该已经完成了"，而是通过 postcondition / commit / state（后置条件 / 提交 / 状态）来确认。</li>
+      </ul>
+      <p>所以有些 Agent 问题可能并不是"需要更强的 Harness"，而是——<b>传统软件工程已经有确定性答案了，只是 Agent 时代我们又把它重新交给了概率系统。</b></p>
+
+      <h2>六、汇合：真正的问题是边界在哪里</h2>
+      <p>两条线到这里开始汇合。软的一侧：</p>
+      <pre><code>Prompt
+↓
+Skill
+↓
+Memory
+↓
+Context Engineering
+↓
+Just-in-time Context（即时上下文）
+↓
+更强 Model</code></pre>
+      <p>硬的一侧：</p>
+      <pre><code>Tool
+↓
+MCP
+↓
+Validation
+↓
+Guard
+↓
+Harness
+↓
+Runtime / Event / deterministic execution</code></pre>
+      <p>越来越多过去要人工写出来的行为被模型吸收，越来越多原来模糊交给模型的确定性问题被系统收回——整个系统正在发生一种"双向收缩"。</p>
+      <p>所以作者不太喜欢一句常见的表达：<code>Agent = Model + Harness</code>。它没有错，但容易让人继续把世界理解成"模型负责一部分、Harness 负责另一部分"。他更倾向的视角是：<b>Agent 面对的是一个同时包含确定性和不确定性的世界</b>——确定性，让软件系统承担；不确定性，让模型参与。Harness / Runtime 真正重要的问题是：<b>这条边界现在应该在哪里？</b></p>
+      <p>由此还得到一个实用的判断标准：问一个 Harness 组件"模型变强后会不会被吸收"，先看它承担的职责是什么性质——</p>
+      <ul>
+        <li>如果它承担的是<b>参数格式、权限、状态一致性、重复执行、确定性 transition</b>，那模型变强并不一定会让它消失：这些不是模型的能力问题，本来就是系统问题；</li>
+        <li>如果它承担的是<b>某类任务应该怎么规划、某类问题通常先做什么、某个步骤要不要继续、某种常见行为应该如何选择</b>，那它就更可能迁移：要么 Harness → Prompt → Model，要么在模型无法可靠保证时反过来，Model → Runtime / Software system（软件系统）。</li>
+      </ul>
+
+      <h2>七、佐证：大家其实都在做减法</h2>
+      <p>Anthropic 已经明确说，更强模型需要更少的 prescriptive engineering，重点逐渐转向 context curation（上下文策展/精选）。OpenAI 对 Codex Harness 的实践也出现了一个很有意思的方向：不是继续堆一份巨大的 agent instruction（智能体指令），而是强调 repository（代码仓库）的结构、工具、验证、反馈环和可读性；他们甚至发现过长的 AGENTS.md 会变成反效果——<b>需要给 Agent 一张地图，而不是一本说明书</b>（原文此处作"长amd"，应为"长 AGENTS.md"之笔误）。这和前面的变化是一致的：软层正在从"规定行为"变成"提供必要条件"，硬层正在从"围着模型打补丁"变成"直接承载真实世界的确定性"。</p>
+
+      <h2>八、全景：一条越来越薄的中间层</h2>
+      <p>回头看，Agent 的演进可以理解成这样一条线：</p>
+      <pre><code>让 Model 做
+↓
+教 Model 怎么做
+↓
+给 Model Tool
+↓
+告诉 Model 怎么使用 Tool
+↓
+用 Hook / Guard 纠正 Model
+↓
+系统性设计 Harness
+↓
+从 trajectory 中寻找可复用 intervention
+↓
+开始区分 deterministic / uncertain（确定性 / 不确定性）
+↓
+把确定性重新交给软件系统
+↓
+把真正的不确定性留给 Model</code></pre>
+      <p>这条线的终点，既不是 Harness 越来越复杂，也不是模型变强所以一切消失，而是：<b>两边都在变强，于是中间层反而越来越薄。</b>模型吸收过去需要 Prompt、Skill、Procedure（规程）才能完成的一部分工作，软件系统吸收过去需要模型自己记忆、判断和遵守的一部分确定性——中间剩下的，才越来越接近真正的"Agent"。</p>
+      <p>作者最后把它留成一个开放问题：过去几年我们构建 Agent 时，有多少工作是在增强模型，有多少工作是在补软件系统的确定性？又有多少中间层，只是因为当时两边都还不够强才存在？这也是为什么他现在更愿意从真实运行中的 Event、Tool、World State（世界状态）和 trajectory 去看 Agent，而不是先决定应该增加一个什么 Skill、Prompt 或 Harness 组件。</p>
+      <p>收尾的两句话，也许比"Model + Harness"更接近下一阶段 Agent 系统真正应该解决的问题：</p>
+      <blockquote>
+        确定的事情，为什么还要让概率系统决定？<br>
+        不确定的事情，又为什么要假装可以被规则解决？
+      </blockquote>
+
+    </div>
+  </article>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>© 2026 一直都走在路上的周园鑫</span>
+      <span><a href="../posts.html">← 返回随笔列表</a></span>
+    </div>
+  </footer>
+
+</body>
+</html>
